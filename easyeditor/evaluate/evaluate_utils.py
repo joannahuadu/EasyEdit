@@ -201,6 +201,8 @@ def test_generation_quality(
         max_out_len=max_out_len,
         vanilla_generation=vanilla_generation,
     )
+    
+    print("Generating text: \n", gen_texts)
 
     ngram_entropy = n_gram_entropy(gen_texts)
     ret = {

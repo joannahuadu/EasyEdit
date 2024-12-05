@@ -288,6 +288,7 @@ class BaseEditor:
         `locality_inputs`: dict
             for locality
         """
+        print("*******************Pre-update text: ")
         eval_metric= kwargs['eval_metric'] if 'eval_metric' in kwargs.keys() else 'exact match'
         if hasattr(self.hparams, 'batch_size'):  # For Singleton Editing, bs=1
             assert self.hparams.batch_size == 1, 'Single Editing: batch_size should be set to 1'
@@ -333,6 +334,7 @@ class BaseEditor:
             return edited_model, weights_copy, icl_examples
 
         def edit_evaluation(all_metrics, request, edited_model, idx, test_generation, icl_examples, **kwargs):
+            print("*******************Post-update text: ")
             eval_metric= kwargs['eval_metric'] if 'eval_metric' in kwargs.keys() else 'exact match'
             if self.alg_name == 'IKE':
                 all_metrics[idx].update({
@@ -460,6 +462,11 @@ class BaseEditor:
 
         if hasattr(self.hparams, 'batch_size'):
             assert self.hparams.batch_size == 1, 'Single Editing: batch_size should be set to 1'
+        
+        if ground_truth is not None:
+            ground_truth = [ground_truth,] if isinstance(ground_truth, str) else ground_truth
+        else:# Default ground truth is <|endoftext|>
+            ground_truth = ['<|endoftext|>'] * (len(prompts))
         
         if "requests" in kwargs.keys():
             requests = kwargs["requests"]
