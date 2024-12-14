@@ -53,4 +53,4 @@ if __name__ == "__main__":
     keys_to_keep = ["src", "pred", "image"]
 
     # 调用函数进行过滤
-    # filter_json(input_file, output_file, keys_to_keep)
+    filter_json(input_file, output_file, keys_to_keep)
