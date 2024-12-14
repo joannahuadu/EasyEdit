@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 
 from ..util.globals import *
 
+REMOTE_ROOT_URL = "https://rome.baulab.info"
 REMOTE_URL = f"{REMOTE_ROOT_URL}/data/dsets/known_1000.json"
 
 

@@ -1,11 +1,13 @@
 # Model
 device: 0
 alg_name: "MEND"
-name: hugging_cache/opt-2.7b
+# name: hugging_cache/opt-2.7b
+name: facebook/opt-2.7b
 model_name: blip2
 model_class: Blip2OPT
 tokenizer_class: GPT2Tokenizer
-tokenizer_name: hugging_cache/opt-2.7b
+# tokenizer_name: hugging_cache/opt-2.7b
+tokenizer_name: facebook/opt-2.7b
 inner_params:
 - opt_model.model.decoder.layers.29.fc1.weight
 - opt_model.model.decoder.layers.29.fc2.weight
@@ -76,5 +78,5 @@ qformer_name_or_path: bert-base-uncased
 state_dict_file: hugging_cache/eva_vit_g.pth
 
 # image
-coco_image: ../
-rephrase_image: ../
+coco_image: /mnt/data2/wmq
+rephrase_image: /mnt/data2/wmq

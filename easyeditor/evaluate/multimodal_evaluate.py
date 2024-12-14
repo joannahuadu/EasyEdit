@@ -160,7 +160,7 @@ def prepare_multimodal_edit(hparams,
     return ret
 
 
-def compute_multimodal_edit_quality(model, batch, exach_match=False):
+def compute_multimodal_edit_quality(model, batch, exact_match=False):
     with torch.no_grad():
         outputs = model(batch)
         if isinstance(outputs, torch.Tensor):
@@ -176,7 +176,7 @@ def compute_multimodal_edit_quality(model, batch, exach_match=False):
         # logits = logits[:, -targ.shape[1]:]
     mask = targ != -100
     targ[~mask] = 0
-    if exach_match:
+    if exact_match:
         pred_ids = logits.argmax(-1).masked_fill(~mask, 0)
         correct = pred_ids == targ
         if logits.dim() == 3:

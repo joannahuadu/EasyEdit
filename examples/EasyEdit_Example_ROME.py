@@ -8,28 +8,29 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 # from huggingface_hub import login
 # login()
 
-prompts = ['Ray Charles, the',
+prompts = ['LeBron James plays the sport of',
+            'Ray Charles, the',
             'Grant Hill is a professional',
             'The law in Ikaalinen declares the language',
-            'LeBron James plays the sport of',
             'Who is the president of US?'
             ]
-ground_truth = ['piano',
+ground_truth = [
+                None,
+                'piano',
                 'basketball',
                 'Finnish',
-                None,
                 None
                 ]
-target_new = ['violin',
+target_new = ['football',
+              'violin',
               'soccer',
               'Swedish',
-              'football',
               'Meiqi Wang'
               ]
-subject = ['Ray Charles',
+subject = ['LeBron James',
+            'Ray Charles',
             'Grant Hill',
             'Ikaalinen',
-            'LeBron James',
             'US',
             ]
 

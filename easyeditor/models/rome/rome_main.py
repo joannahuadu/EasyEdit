@@ -9,7 +9,7 @@ from ...util.generate import generate_fast
 
 from .compute_u import compute_u
 from .compute_v import compute_v
-from .rome_hparams import ROMEHyperParams
+from .rome_hparams import ROMEHyperParams, ROMEMultimodalHyperParams
 
 CONTEXT_TEMPLATES_CACHE = None
 
