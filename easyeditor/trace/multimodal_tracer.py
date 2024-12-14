@@ -203,7 +203,7 @@ class MultimodalTracer:
                 else:
                     save_interval = 100
                 if known_id % save_interval == 0:
-                    torch.save(f"{self.result_dir}/save/causal{kind_suffix}_{known_id}.pth", all_results)
+                    torch.save(all_results, f"{self.result_dir}/save/causal{kind_suffix}_{known_id}.pth")
                 
                 if plot:
                     if plot_list is None:
@@ -219,7 +219,7 @@ class MultimodalTracer:
                     LOG.info(
                         f"{known_id} tracing: {known['prompt']}--{known['subject']}  \n locate {causal_result['causal_layer']}, {causal_result['causal_token']}, {causal_result['causal_coords']}"
                     )
-        
+                torch.save(all_results, f"{self.result_dir}/save/causal{kind_suffix}_final.pth")
         return all_results
 
     def trace_dataset(self,
@@ -234,7 +234,6 @@ class MultimodalTracer:
 
         num_edits = 1
         # num_edits = self.hparams.batch_size
-        # noise_level, uniform_noise = self._noise_level(ds)
         
         all_results = []
         for known_id, known in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
@@ -246,7 +245,7 @@ class MultimodalTracer:
                         'subject': known['prompt']
                     }
                 )
-
+            noise_level, uniform_noise = self._noise_level([known])
             for kind in None, "mlp", "attn":
                 kind_suffix = f"_{kind}" if kind else ""
                 filename = f"{self.result_dir}/cases/knowledge_{known_id}{kind_suffix}.npz"
@@ -258,9 +257,9 @@ class MultimodalTracer:
                         self.tok,
                         known,
                         batch,
-                        noise=0, ##TODO: noise_level
+                        noise=noise_level, ## noise_level
                         kind=kind,
-                        uniform_noise=False,
+                        uniform_noise=uniform_noise,
                         skip_query=self.model.query_tokens.shape[1]
                         # replace=self.hparams.replace
                     )
@@ -285,7 +284,7 @@ class MultimodalTracer:
                 else:
                     save_interval = 100
                 if known_id % save_interval == 0:
-                    torch.save(f"{self.result_dir}/save/causal{kind_suffix}_{known_id}.pth", all_results)
+                    torch.save(all_results, f"{self.result_dir}/save/causal{kind_suffix}_{known_id}.pth")
 
                 if plot:
                     if plot_list is None:
@@ -301,7 +300,7 @@ class MultimodalTracer:
                     LOG.info(
                         f"{known_id} tracing: {known['prompt']}--{known['subject']}  \n locate {causal_result['causal_layer']}, {causal_result['causal_token']}, {causal_result['causal_coords']}"
                     )
-
+                torch.save(all_results, f"{self.result_dir}/save/causal{kind_suffix}_final.pth")
         return all_results
     
     def pred_dataset(self,
@@ -447,8 +446,8 @@ class MultimodalTracer:
         rows, cols = torch.div(flat_indices, diff_matrix.shape[1], rounding_mode='floor'), flat_indices % diff_matrix.shape[1]
         top_k_coords = list(zip(rows.tolist(), cols.tolist()))
         return dict(
-            causal_layer=rows.tolist(),
-            causal_token=cols.tolist(),
+            causal_token=rows.tolist(),
+            causal_layer=cols.tolist(),
             causal_coords=top_k_coords,
             causal_score=flat_scores.tolist(),
             low_score=low_score,

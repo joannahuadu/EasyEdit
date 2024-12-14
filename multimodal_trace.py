@@ -110,6 +110,6 @@ def pred_Blip2OPT_VQA():
     )
     
 if __name__ == "__main__":
-    pred_Blip2OPT_VQA()
-    # trace_ROME_Blip2OPT_VQA()
+    # pred_Blip2OPT_VQA()
+    trace_ROME_Blip2OPT_VQA()
     # trace_ROME_BLIP2OPT_Caption()

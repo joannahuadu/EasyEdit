@@ -378,6 +378,8 @@ def layername(model, num, kind=None):
     if hasattr(model, "opt_model"):
         if kind == "embed":
             return "opt_model.model.decoder.embed_tokens"
+        if kind == "mlp":
+            kind = "fc2"
         if kind == "attn":
             kind = "self_attn"
         return f'opt_model.model.decoder.layers.{num}{"" if kind is None else "." + kind}'
