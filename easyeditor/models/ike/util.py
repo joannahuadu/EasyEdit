@@ -3,7 +3,7 @@ import pickle
 from torch.utils.data import Dataset
 import os
 from .ike_hparams import IKEHyperParams, IKEMultimodalHyperParams
-
+from tqdm import tqdm
 
 def encode_ike_facts(sentence_model: SentenceTransformer, ds: Dataset, hparams: IKEHyperParams):
 
@@ -32,7 +32,7 @@ def encode_ike_facts(sentence_model: SentenceTransformer, ds: Dataset, hparams: 
 def encode_ike_facts_multimodal(sentence_model: SentenceTransformer, ds: Dataset, hparams: IKEMultimodalHyperParams):
 
     sentences = []
-    for i, train_data in enumerate(ds):
+    for i, train_data in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
         new_fact = train_data['prompt'] + ' ' + train_data['target']
         target_new = train_data['target']
         paraphrases = train_data['rephrase_prompt']

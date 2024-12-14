@@ -19,6 +19,7 @@ from ..models.emmet import EMMETHyperParams, apply_emmet_to_model
 from ..models.alphaedit import AlphaEditHyperParams, apply_AlphaEdit_to_model
 from .. models.deepedit_api import DeepEditApiHyperParams, apply_deepedit_api_to_model
 from ..models.dpo import DPOHyperParams, apply_dpo_to_model
+from ..models.rome import rome_causal_trace
 
 ALG_DICT = {
     'ROME': apply_rome_to_model,
@@ -70,4 +71,8 @@ PER_DS_DICT = {
 }
 Safety_DS_DICT ={
     "safeEdit": SafetyDataset
+}
+
+TRACE_MULTIMODAL_DICT = {
+    'ROME': rome_causal_trace,
 }

@@ -8,7 +8,7 @@ from easyeditor import MENDMultimodalTrainingHparams, SERACMultimodalTrainingHpa
     , SERACMultimodalHparams
 from easyeditor import encode_ike_facts_multimodal
 from sentence_transformers import SentenceTransformer
-import ramdon
+# import ramdon
 
 def print_result(metrics):
     rewrite_acc = mean([m['post']['rewrite_acc'].item() for m in metrics])
@@ -89,9 +89,9 @@ def train_MEND_Blip2OPT_VQA():
     trainer.run()   
      
 def train_MEND_Blip2OPT_VQA_debug():
-    hparams = MENDMultimodalTrainingHparams.from_hparams('hparams/TRAINING/MEND/blip2.yaml')
-    train_ds = VQADataset('data/vqa_train.json', config=hparams, size=20)
-    eval_ds = VQADataset('data/vqa_eval.json', config=hparams, size=20)
+    hparams = MENDMultimodalTrainingHparams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/TRAINING/MEND/blip2.yaml')
+    train_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_train.json', config=hparams, size=20)
+    eval_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_eval.json', config=hparams, size=20)
     trainer = MultimodalTrainer(
         config=hparams,
         train_set=train_ds,
@@ -469,8 +469,9 @@ def test_IKE_Blip2OPT_VQA():
     
 def Generate_Embedding_for_IKE():
     
-    hparams = IKEMultimodalHyperParams.from_hparams('hparams/IKE/blip2.yaml')
-    train_ds = VQADataset('data/vqa_train.json', config=hparams)
+    hparams = IKEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/IKE/blip2.yaml')
+    hparams.task_name = 'vqa'
+    train_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_train.json', config=hparams, size=100)
     ## Generate embedding files for IKE
     sentence_model = SentenceTransformer(hparams.sentence_model_name).to(f'cuda:{hparams.device}')
     encode_ike_facts_multimodal(sentence_model, train_ds, hparams)
@@ -520,10 +521,11 @@ def test_IKE_MiniGPT4_VQA():
     
 def test_IKE_Blip2OPT_VQA_debug():
     
-    hparams = IKEMultimodalHyperParams.from_hparams('hparams/IKE/blip2.yaml')
+    hparams = IKEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/IKE/blip2.yaml')
+    hparams.task_name = 'vqa'
     editor = MultimodalEditor.from_hparams(hparams)
-    train_ds = VQADataset('data/vqa_train.json', config=hparams, size=100)
-    eval_ds = VQADataset('data/vqa_eval.json', config=hparams, size=100)
+    train_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_train.json', config=hparams, size=100)
+    eval_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_eval.json', config=hparams, size=100)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=train_ds,
@@ -540,7 +542,7 @@ if __name__ == "__main__":
     # train_MEND_Blip2OPT_Caption(debug=True)
     # train_MEND_Blip2OPT_VQA()
     # train_MEND_Blip2OPT_VQA_Vision()
-    train_MEND_Blip2OPT_VQA_debug()
+    # train_MEND_Blip2OPT_VQA_debug()
     # train_MEND_Blip2OPT_VQA_Vision_debug()
     # train_MEND_MiniGPT4_VQA_debug()
     
@@ -560,13 +562,13 @@ if __name__ == "__main__":
     # test_SERAC_MiniGPT4_Caption()
     # test_SERAC_MiniGPT4_VQA()
     # test_MEND_MiniGPT4_VQA()
-    # Generate_Embedding_for_IKE()
+    Generate_Embedding_for_IKE()
     # test_IKE_MiniGPT4_Caption()
     # test_IKE_MiniGPT4_VQA()
     # test_IKE_MiniGPT4_VQA_debug()
     # test_IKE_Blip2OPT_Caption()
     # test_IKE_Blip2OPT_VQA()
-    # test_IKE_Blip2OPT_VQA_debug()
+    test_IKE_Blip2OPT_VQA_debug()
     
 
     # edit_IKE_MiniGPT4_Caption()

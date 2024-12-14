@@ -39,7 +39,7 @@ class Blip2OPT(Blip2Base):
     """
 
     PRETRAINED_MODEL_CONFIG_DICT = {
-        "pretrain_opt2.7b": "configs/models/blip2/blip2_pretrain_opt2.7b.yaml",
+        "pretrain_opt2.7b": "/mnt/data2/wmq/LAVIS/lavis/configs/models/blip2/blip2_pretrain_opt2.7b.yaml",
         "pretrain_opt6.7b": "configs/models/blip2/blip2_pretrain_opt6.7b.yaml",
         "caption_coco_opt2.7b": "configs/models/blip2/blip2_caption_opt2.7b.yaml",
         "caption_coco_opt6.7b": "configs/models/blip2/blip2_caption_opt6.7b.yaml",
@@ -64,7 +64,7 @@ class Blip2OPT(Blip2Base):
     ):
         super().__init__()
         self.config = None
-        self.tokenizer = self.init_tokenizer(qformer_name_or_path)
+        self.tokenizer = self.init_tokenizer(qformer_name_or_path) # meiqi: ?? why bert? answer: used for pretrain ITC loss
 
         self.visual_encoder, self.ln_vision = self.init_vision_encoder(
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision, state_dict_file
@@ -89,13 +89,14 @@ class Blip2OPT(Blip2Base):
 
         self.opt_tokenizer = AutoTokenizer.from_pretrained(opt_model, use_fast=False)
         self.opt_model = OPTForCausalLM.from_pretrained(
-            opt_model, torch_dtype=torch.float16
+            opt_model, 
+            # torch_dtype=torch.float16
         )
         # for name, param in self.opt_model.named_parameters():
         #     param.requires_grad = False
-        # self.eos_token_id = self.opt_tokenizer(
-        #     "\n", add_special_tokens=False
-        # ).input_ids[0]
+        self.eos_token_id = self.opt_tokenizer(
+            "\n", add_special_tokens=False
+        ).input_ids[0]
 
         self.opt_proj = nn.Linear(
             self.Qformer.config.hidden_size, self.opt_model.config.hidden_size
@@ -258,12 +259,12 @@ class Blip2OPT(Blip2Base):
                 image.device
             )
 
-            if "prompt" in samples.keys():
-                prompt = samples["prompt"]
+            if "text_input" in samples.keys():
+                prompt = samples["text_input"]
             else:
                 prompt = self.prompt
 
-            prompt = [prompt] * image.size(0)
+            # prompt = [prompt] * image.size(0)
 
             opt_tokens = self.opt_tokenizer(
                 prompt,
@@ -271,6 +272,7 @@ class Blip2OPT(Blip2Base):
                 padding="longest",
                 truncation=True,
                 max_length=self.max_txt_len,
+                add_special_tokens=False,
             ).to(image.device)
             attention_mask = torch.cat([atts_opt, opt_tokens.attention_mask], dim=1)
             
@@ -319,7 +321,8 @@ class Blip2OPT(Blip2Base):
                 num_return_sequences=num_captions,
             )
 
-            prompt_length = opt_tokens.input_ids.shape[1]
+            # prompt_length = opt_tokens.input_ids.shape[1]
+            prompt_length = samples['prompts_len'][0]
             output_text = self.opt_tokenizer.batch_decode(
                 outputs[:, prompt_length:], skip_special_tokens=True
             )
