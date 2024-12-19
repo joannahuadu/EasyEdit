@@ -60,11 +60,12 @@ class Blip2OPT(Blip2Base):
         max_txt_len=2048,
         state_dict_file=None,
         qformer_name_or_path="bert-base-uncased",
-        qformer_checkpoint="https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_opt2.7b.pth"
+        qformer_checkpoint="https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_opt2.7b.pth",
+        cache_dir=None
     ):
         super().__init__()
         self.config = None
-        self.tokenizer = self.init_tokenizer(qformer_name_or_path) # meiqi: ?? why bert? answer: used for pretrain ITC loss
+        self.tokenizer = self.init_tokenizer(qformer_name_or_path, cache_dir=cache_dir) # meiqi: ?? why bert? answer: used for pretrain ITC loss
 
         self.visual_encoder, self.ln_vision = self.init_vision_encoder(
             vit_model, img_size, drop_path_rate, use_grad_checkpoint, vit_precision, state_dict_file
@@ -78,7 +79,7 @@ class Blip2OPT(Blip2Base):
 
         
         self.Qformer, self.query_tokens = self.init_Qformer(
-            num_query_token, self.visual_encoder.num_features, qformer_name_or_path
+            num_query_token, self.visual_encoder.num_features, qformer_name_or_path, cache_dir=cache_dir
         ) # query_token?
         self.Qformer.cls = None
         self.Qformer.bert.embeddings.word_embeddings = None
@@ -87,9 +88,10 @@ class Blip2OPT(Blip2Base):
             layer.output = None
             layer.intermediate = None
 
-        self.opt_tokenizer = AutoTokenizer.from_pretrained(opt_model, use_fast=False)
+        self.opt_tokenizer = AutoTokenizer.from_pretrained(opt_model, cache_dir=cache_dir, use_fast=False)
         self.opt_model = OPTForCausalLM.from_pretrained(
             opt_model, 
+            cache_dir=cache_dir,
             # torch_dtype=torch.float16
         )
         # for name, param in self.opt_model.named_parameters():
@@ -142,7 +144,7 @@ class Blip2OPT(Blip2Base):
             self.opt_tokenizer.padding_side = "right"
 
             text = [t for t in samples["text_input"]]
-            text_labels = [t for t in samples["labels"]]
+            # text_labels = [t for t in samples["answer"]]
 
             opt_tokens = self.opt_tokenizer(
                 text,
@@ -239,94 +241,125 @@ class Blip2OPT(Blip2Base):
         Returns:
             captions (list): A list of strings of length batch_size * num_captions.
         """
-        image = samples["image"]
-        with self.maybe_autocast():
-            image_embeds = self.ln_vision(self.visual_encoder(image))
-            image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
-                image.device
-            )
+        if samples['image'] is not None:
+            image = samples["image"]
+            with self.maybe_autocast():
+                image_embeds = self.ln_vision(self.visual_encoder(image))
+                image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
+                    image.device
+                )
 
-            query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
-            query_output = self.Qformer.bert(
-                query_embeds=query_tokens,
-                encoder_hidden_states=image_embeds,
-                encoder_attention_mask=image_atts,
-                return_dict=True,
-            )
+                query_tokens = self.query_tokens.expand(image_embeds.shape[0], -1, -1)
+                query_output = self.Qformer.bert(
+                    query_embeds=query_tokens,
+                    encoder_hidden_states=image_embeds,
+                    encoder_attention_mask=image_atts,
+                    return_dict=True,
+                )
 
-            inputs_opt = self.opt_proj(query_output.last_hidden_state)
-            atts_opt = torch.ones(inputs_opt.size()[:-1], dtype=torch.long).to(
-                image.device
-            )
+                inputs_opt = self.opt_proj(query_output.last_hidden_state)
+                atts_opt = torch.ones(inputs_opt.size()[:-1], dtype=torch.long).to(
+                    image.device
+                )
 
+                if "text_input" in samples.keys():
+                    prompt = samples["text_input"]
+                else:
+                    prompt = self.prompt
+
+                # prompt = [prompt] * image.size(0)
+
+                opt_tokens = self.opt_tokenizer(
+                    prompt,
+                    return_tensors="pt",
+                    padding="longest",
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    add_special_tokens=False,
+                ).to(image.device)
+                attention_mask = torch.cat([atts_opt, opt_tokens.attention_mask], dim=1)
+                
+                # new version for transformers>=4.27
+                # inputs_embeds = self.opt_model.get_input_embeddings()(opt_tokens.input_ids)
+                # inputs_embeds = torch.cat([inputs_opt,inputs_embeds],dim=1)
+                
+                # outputs = self.opt_model.generate(
+                #     inputs_embeds=inputs_embeds, 
+                #     attention_mask=attention_mask,
+                #     do_sample=use_nucleus_sampling,
+                #     top_p=top_p,
+                #     temperature=temperature,
+                #     num_beams=num_beams,
+                #     max_length=max_length,
+                #     min_length=min_length,
+                #     eos_token_id=self.eos_token_id,
+                #     repetition_penalty=repetition_penalty,
+                #     length_penalty=length_penalty,
+                #     num_return_sequences=num_captions,
+                # )
+                # output_text = self.opt_tokenizer.batch_decode(
+                #     outputs, skip_special_tokens=True
+                # )
+                                
+                # previous version for transformers<4.27
+                if use_nucleus_sampling:
+                    query_embeds = inputs_opt.repeat_interleave(num_captions, dim=0)
+                    num_beams = 1
+                else:
+                    query_embeds = inputs_opt.repeat_interleave(num_beams, dim=0)
+
+                outputs = self.opt_model.generate(
+                    input_ids=opt_tokens.input_ids,
+                    query_embeds=query_embeds,
+                    attention_mask=attention_mask,
+                    do_sample=use_nucleus_sampling,
+                    top_p=top_p,
+                    temperature=temperature,
+                    num_beams=num_beams,
+                    max_new_tokens=max_length,
+                    min_length=min_length,
+                    eos_token_id=self.eos_token_id,
+                    repetition_penalty=repetition_penalty,
+                    length_penalty=length_penalty,
+                    num_return_sequences=num_captions,
+                )
+
+                # prompt_length = opt_tokens.input_ids.shape[1]
+        else:
             if "text_input" in samples.keys():
                 prompt = samples["text_input"]
             else:
                 prompt = self.prompt
+            with self.maybe_autocast():
+                opt_tokens = self.opt_tokenizer(
+                    prompt,
+                    return_tensors="pt",
+                    padding="longest",
+                    truncation=True,
+                    max_length=self.max_txt_len,
+                    add_special_tokens=False,
+                ).to(self.opt_model.device)
 
-            # prompt = [prompt] * image.size(0)
-
-            opt_tokens = self.opt_tokenizer(
-                prompt,
-                return_tensors="pt",
-                padding="longest",
-                truncation=True,
-                max_length=self.max_txt_len,
-                add_special_tokens=False,
-            ).to(image.device)
-            attention_mask = torch.cat([atts_opt, opt_tokens.attention_mask], dim=1)
-            
-            # new version for transformers>=4.27
-            # inputs_embeds = self.opt_model.get_input_embeddings()(opt_tokens.input_ids)
-            # inputs_embeds = torch.cat([inputs_opt,inputs_embeds],dim=1)
-            
-            # outputs = self.opt_model.generate(
-            #     inputs_embeds=inputs_embeds, 
-            #     attention_mask=attention_mask,
-            #     do_sample=use_nucleus_sampling,
-            #     top_p=top_p,
-            #     temperature=temperature,
-            #     num_beams=num_beams,
-            #     max_length=max_length,
-            #     min_length=min_length,
-            #     eos_token_id=self.eos_token_id,
-            #     repetition_penalty=repetition_penalty,
-            #     length_penalty=length_penalty,
-            #     num_return_sequences=num_captions,
-            # )
-            # output_text = self.opt_tokenizer.batch_decode(
-            #     outputs, skip_special_tokens=True
-            # )
-                            
-            # previous version for transformers<4.27
-            if use_nucleus_sampling:
-                query_embeds = inputs_opt.repeat_interleave(num_captions, dim=0)
-                num_beams = 1
-            else:
-                query_embeds = inputs_opt.repeat_interleave(num_beams, dim=0)
-
-            outputs = self.opt_model.generate(
-                input_ids=opt_tokens.input_ids,
-                query_embeds=query_embeds,
-                attention_mask=attention_mask,
-                do_sample=use_nucleus_sampling,
-                top_p=top_p,
-                temperature=temperature,
-                num_beams=num_beams,
-                max_new_tokens=max_length,
-                min_length=min_length,
-                eos_token_id=self.eos_token_id,
-                repetition_penalty=repetition_penalty,
-                length_penalty=length_penalty,
-                num_return_sequences=num_captions,
-            )
-
-            # prompt_length = opt_tokens.input_ids.shape[1]
-            prompt_length = samples['prompts_len'][0]
-            output_text = self.opt_tokenizer.batch_decode(
-                outputs[:, prompt_length:], skip_special_tokens=True
-            )
-            
-            output_text = [text.strip() for text in output_text]
-            return output_text
+                outputs = self.opt_model.generate(
+                    input_ids=opt_tokens.input_ids,
+                    attention_mask=opt_tokens.attention_mask,
+                    do_sample=use_nucleus_sampling,
+                    top_p=top_p,
+                    temperature=temperature,
+                    num_beams=num_beams,
+                    max_new_tokens=max_length,
+                    min_length=min_length,
+                    eos_token_id=self.eos_token_id,
+                    repetition_penalty=repetition_penalty,
+                    length_penalty=length_penalty,
+                    num_return_sequences=num_captions,
+                )
+        
+        prompt_length = samples['prompts_len'][0]
+        output_text = self.opt_tokenizer.batch_decode(
+            outputs[:, prompt_length:], skip_special_tokens=True
+        )
+        
+        output_text = [text.strip() for text in output_text]
+        return output_text
 

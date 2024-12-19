@@ -1,10 +1,11 @@
-# Statistics
-name: facebook/opt-2.7b
-model_name: blip2
-tokenizer_class: GPT2Tokenizer
-tokenizer_name: facebook/opt-2.7b
+# Model
+
+name: Vision-CAIR/vicuna-7b
+model_name: minigpt4
+tokenizer_class: LlamaTokenizer
+tokenizer_name: Vision-CAIR/vicuna-7b
 cache_dir: /mnt/data2/workplace/data/hugging_cache
-device: 1
+device: 0
 
 # Methods
 alg_name: "ROME"
@@ -32,9 +33,11 @@ model_parallel: false
 fp16: false
 
 # Multimodal
-qformer_checkpoint: /mnt/data2/workplace/data/hugging_cache/blip2_pretrained_opt2.7b.pth
+qformer_checkpoint: /mnt/data2/workplace/data/hugging_cache/blip2_pretrained_flant5xxl.pth
+# qformer_checkpoint: https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth
 qformer_name_or_path: bert-base-uncased
 state_dict_file: /mnt/data2/workplace/data/hugging_cache/eva_vit_g.pth
+pretrained_ckpt: /mnt/data2/workplace/data/hugging_cache/pretrained_minigpt4_7b.pth
 
 # image
 coco_image: /mnt/data2/wmq

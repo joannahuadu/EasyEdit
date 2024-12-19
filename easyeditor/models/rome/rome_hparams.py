@@ -35,6 +35,7 @@ class ROMEHyperParams(HyperParams):
     device: int
     model_name: str
     stats_dir: str
+    cache_dir: Optional[str] = None 
 
     max_length: int = 40
     model_parallel: bool = False
@@ -103,6 +104,7 @@ class ROMEMultimodalHyperParams(HyperParams):
     rephrase_image: str  
     exact_match: bool = False
     pretrained_ckpt: Optional[str] = None  
+    cache_dir: Optional[str] = None 
     
     max_length: int = 40
     model_parallel: bool = False

@@ -44,18 +44,21 @@ def rome_causal_trace(
     """
     prompt = batch['text_input']
     image = batch['image']
-    target = batch['labels']
+    target = batch['answer']
     prompts_len = batch['prompts_len']
     subject = knowledge['subject']
     
     inp = make_inputs(tokenizer, prompt * (samples + 1))
     batch['text_input'] = prompt * (samples + 1)
-    if len(image.shape) == 3:
+    if image is not None and len(image.shape) == 3:
         image = image.unsqueeze(0)
-    image_inp = image.repeat(samples + 1, 1, 1, 1)
+    if image is not None:
+        image_inp = image.repeat(samples + 1, 1, 1, 1)
+    else:
+        image_inp = None
     batch['image'] = image_inp
     batch['prompts_len'] = prompts_len * (samples + 1)
-    batch['labels'] = [target] * (samples + 1)
+    batch['answer'] = None
     
     with torch.no_grad():
         answer_t, base_score = [d[0] for d in predict_from_input(model, batch)]
@@ -72,19 +75,20 @@ def rome_causal_trace(
         token_range = range(skip_query, skip_query + ntoks)
     else:
         raise ValueError(f"Unknown token_range: {token_range}")
-    low_score = trace_with_patch(
+    low_score, low_pred = trace_with_patch(
         model, batch, [], answer_t, e_range, noise=noise, uniform_noise=uniform_noise
-    ).item()
+    )
+    [low_answer] = decode_tokens(tokenizer, [low_pred])
     ## TODO: Only trace LLM, layer_name need to be specified.
     ## TODO: How to trace Q-former? Not support now.
     layer_names = [
         n
         for n, m in model.named_modules()
-        if (re.match(r"^(transformer|gpt_neox|opt_model)\.(h|layers|model.decoder.layers)\.\d+$", n))
+        if (re.match(r"^(transformer|gpt_neox|opt_model|llama_model)\.(h|layers|model.decoder.layers|model.layers)\.\d+$", n))
     ]
     num_layers = len(layer_names)
     if not kind:
-        differences = trace_important_states(
+        differences, preds = trace_important_states(
             model,
             num_layers,
             batch,
@@ -96,7 +100,7 @@ def rome_causal_trace(
             token_range=token_range,
         )
     else:
-        differences = trace_important_window(
+        differences, preds = trace_important_window(
             model,
             num_layers,
             batch,
@@ -110,14 +114,17 @@ def rome_causal_trace(
             token_range=token_range,
         )
     differences = differences.detach().cpu()
+    preds = preds.detach().cpu()
     return dict(
+        preds=preds,
         scores=differences,
-        low_score=low_score,
+        low_score=low_score.item(),
         high_score=base_score,
         input_ids=inp["input_ids"][0],
         input_tokens=decode_tokens(tokenizer, inp["input_ids"][0]),
         subject_range=e_range,
         answer=answer,
+        low_answer=low_answer,
         window=window,
         correct_prediction=True,
         kind=kind or "",
@@ -179,7 +186,7 @@ def trace_with_patch(
     else:
         noise_fn = noise
 
-    def patch_rep(x, layer):
+    def patch_rep(x, layer, batch=1):
         if layer == embed_layername:
             # If requested, we corrupt a range of token embeddings on batch items x[1:]
             if tokens_to_mix is not None:
@@ -205,7 +212,12 @@ def trace_with_patch(
         # for selected tokens.
         h = untuple(x)
         for t in patch_spec[layer]:
-            h[1:, t] = h[0, t]
+            if not h.dim()==3:
+                assert h.shape[0] % batch == 0, "batch is incorrect."
+                r = h.shape[0] // batch
+                h[r+t:h.shape[0]:r] = h[t]
+            else:
+                h[1:, t] = h[0, t]
         return x
 
     # With the patching rules defined, run the patched model in inference.
@@ -213,12 +225,14 @@ def trace_with_patch(
     with torch.no_grad(), nethook.TraceDict(
         model,
         [embed_layername] + list(patch_spec.keys()) + additional_layers,
-        edit_output=patch_rep,
+        edit_output=lambda x, layer: patch_rep(x, layer, batch=len(batch['text_input'])),
     ) as td:
         outputs_exp = model(batch)
 
     # We report softmax probabilities for the answers_t token predictions of interest.
-    probs = torch.softmax(outputs_exp.logits[1:, -1, :], dim=1).mean(dim=0)[answers_t]
+    p_ = torch.softmax(outputs_exp.logits[1:, -1, :], dim=1).mean(dim=0)
+    probs = p_[answers_t]
+    _,p = torch.max(p_, dim=0)
     ##TODO: preds's tokens are more than one.
 
     # If tracing all layers, collect all activations together to return.
@@ -228,7 +242,7 @@ def trace_with_patch(
         )
         return probs, all_traced
 
-    return probs
+    return probs, p
 
 
 def trace_with_repatch(
@@ -308,10 +322,12 @@ def trace_important_states(
 ):
     assert token_range is not None, "token_range is None."
     table = []
+    table_ = []
     for tnum in token_range:
         row = []
+        row_ = []
         for layer in range(num_layers):
-            r = trace_with_patch(
+            r, p = trace_with_patch(
                 model,
                 batch,
                 [(tnum, layername(model, layer))],
@@ -322,8 +338,10 @@ def trace_important_states(
                 replace=replace,
             )
             row.append(r)
+            row_.append(p)
         table.append(torch.stack(row))
-    return torch.stack(table)
+        table_.append(torch.stack(row_))
+    return torch.stack(table), torch.stack(table_)
 
 
 def trace_important_window(
@@ -341,8 +359,10 @@ def trace_important_window(
 ):
     assert token_range is not None, "token_range is None."
     table = []
+    table_ = []
     for tnum in token_range:
         row = []
+        row_ = []
         for layer in range(num_layers):
             layerlist = [
                 (tnum, layername(model, L, kind))
@@ -350,7 +370,7 @@ def trace_important_window(
                     max(0, layer - window // 2), min(num_layers, layer - (-window // 2))
                 )
             ]
-            r = trace_with_patch(
+            r, p = trace_with_patch(
                 model,
                 batch,
                 layerlist,
@@ -361,8 +381,10 @@ def trace_important_window(
                 replace=replace,
             )
             row.append(r)
+            row_.append(p)
         table.append(torch.stack(row))
-    return torch.stack(table)
+        table_.append(torch.stack(row_))
+    return torch.stack(table), torch.stack(table_)
 
 def layername(model, num, kind=None):
     if hasattr(model, "transformer"):
@@ -383,6 +405,12 @@ def layername(model, num, kind=None):
         if kind == "attn":
             kind = "self_attn"
         return f'opt_model.model.decoder.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llama_model"):
+        if kind == "embed":
+            return "llama_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
     assert False, "unknown transformer structure"
 
 
@@ -559,8 +587,15 @@ def predict_from_input(model, batch, exact_match=False):
     #     correct = correct & mask
     #     num_non_padding = mask.sum().float().item()
     #     acc = correct.sum() / num_non_padding
+    # probs = []
+    # if "input_lens" in outputs:
+    #     for i, input_len in enumerate(outputs.input_lens):
+    #         probs.append(torch.softmax(logits[i, input_len.item()], dim=0))
+    #     probs = torch.stack(probs) 
+    # else:
     probs = torch.softmax(logits[:, -1], dim=1)
     p, preds = torch.max(probs, dim=1)
     # model.eos_token_id = model.opt_tokenizer.eos_token_id
-    # print(batch['text_input'], "--generate: ", model.generate(batch))
+    prompt_template = "###Human: {} ###Assistant: "
+    print(batch['text_input'], "--generate: ", model.generate(images=batch['image'], texts=[prompt_template.format(item) for item in batch['text_input']]))
     return preds, p
