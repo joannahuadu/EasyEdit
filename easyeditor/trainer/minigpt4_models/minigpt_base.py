@@ -20,6 +20,9 @@ class MiniGPTOutput(ModelOutput):
     labels: torch.IntTensor = None
     attention_mask: torch.IntTensor = None
     input_lens: List[int] = None
+    input_tokens: Optional[torch.FloatTensor] = None
+    text_input_range: List[tuple] = None
+    subject_range: List[tuple] = None
     
 class MiniGPTBase(BaseModel):
     """
@@ -122,13 +125,9 @@ class MiniGPTBase(BaseModel):
                     each_img_embed = each_img_embed[:lengths[idx] * pn]
                 p_segs = each_prompt.split('<ImageHere>')
                 interleave_emb = []
-                interleave_tok = []
-                # TODO token_lens=0
                 for idx, seg in enumerate(p_segs[:-1]):
-                    # TODO if prompt [vqa] in seg: split + token_lens
                     p_tokens = self.llama_tokenizer(
                         seg, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-                    # token_lens += p_tokens.input_ids.shape[1]
                     p_embed = self.embed_tokens(p_tokens.input_ids) 
                     interleave_emb.append(torch.cat([p_embed, each_img_embed[None][:, idx * pn:(idx + 1) * pn]], dim=1))
                 wrapped_emb = torch.cat(interleave_emb, dim=1)
@@ -150,13 +149,115 @@ class MiniGPTBase(BaseModel):
                 wrapped_embs[i, :length] = emb[:, :length]
                 wrapped_atts[i, :length] = 1
             return wrapped_embs, wrapped_atts
+    
+    def prompt_wrap_for_trace(self, img_embeds, atts_img, prompts, lengths=None, subjects=None, text_inputs=None):
+        if prompts is None or len(prompts) == 0:
+            # prompts is not provided, just return the original image embedding
+            return img_embeds, atts_img, [None]*len(img_embeds), [None]*len(img_embeds), [None]*len(img_embeds)
+        elif img_embeds is None:
+            # prompt is provided but there is no image embedding. return the prompt embedding in right padding
+            self.llama_tokenizer.padding_side = "right"
+            prompt_tokens = self.llama_tokenizer(
+                prompts,
+                return_tensors="pt",
+                padding="longest",
+                add_special_tokens=False
+            ).to(self.device)
+            prompt_embeds = self.embed_tokens(prompt_tokens.input_ids)
+            atts_prompt = prompt_tokens.attention_mask
+            return prompt_embeds, atts_prompt, prompt_tokens, [(0, prompt_embeds.shape[1])]*len(prompt_embeds), [None]*len(prompt_embeds)
+        else:
+            # return the multi-modal embedding in right padding
+            emb_lists = []
+            if isinstance(prompts, str):
+                prompts = [prompts] * len(img_embeds)
+            
+            text_input_range = []
+            subject_range = []
+            
+            p_tokens = self.llama_tokenizer(
+                    prompts, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
+            p_embed = self.embed_tokens(p_tokens.input_ids)
+            
+            for idx, (each_img_embed, each_subject, each_text_input) in enumerate(zip(img_embeds, subjects, text_inputs)):
+                pn = each_img_embed.shape[-2]
+                if lengths is not None:
+                    each_img_embed = each_img_embed.reshape(-1, each_img_embed.shape[-1])
+                    each_img_embed = each_img_embed[:lengths[idx] * pn]
+                
+                subject_tokens = self.llama_tokenizer(
+                    each_subject, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
+                subject_ids = subject_tokens.input_ids.squeeze().tolist()  # List of token IDs for subject
+                subject_start = self._find_subsequence(p_tokens.input_ids[idx].tolist(), subject_ids)
+                subject_end = subject_start[0] + len(subject_ids)
+                
+                image_tokens = self.llama_tokenizer('<ImageHere>', return_tensors="pt", add_special_tokens=False)
+                image_tokens_idx = self._find_subsequence(p_tokens.input_ids[idx].tolist(), image_tokens.input_ids[0].tolist())
+                
+                wrapped_emb = []
+                wrapped_tokens= []
+                last_idx = 0
+                for img_idx, token_idx in enumerate(image_tokens_idx):
+                    wrapped_emb.append(p_embed[idx, last_idx: token_idx])
+                    wrapped_tokens.extend(p_tokens.input_ids[idx, last_idx:token_idx].tolist())
+                    start = img_idx * pn
+                    end = (img_idx + 1) * pn
+                    if start < each_img_embed.shape[0]:  
+                        wrapped_emb.append(each_img_embed[start:end])
+                        wrapped_tokens.extend([0]*pn)
+                    last_idx = token_idx + len(image_tokens.input_ids[0])
+                wrapped_emb.append(p_embed[idx, last_idx:]) 
+                wrapped_tokens.extend(p_tokens.input_ids[idx, last_idx:].tolist())
+                
+                wrapped_emb = torch.cat(wrapped_emb, dim=0).unsqueeze(0)
+                
+                if '[vqa]' in each_text_input:
+                    each_text_input = each_text_input.split('[vqa]')[-1][1:]
+                if '\n' in each_text_input:
+                    each_text_input = each_text_input.split('\n')[-1]
+                text_input_tokens = self.llama_tokenizer(
+                    each_text_input, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
+                text_input_ids = text_input_tokens.input_ids.squeeze().tolist()  # List of token IDs for text_input
+                text_input_start = self._find_subsequence(wrapped_tokens, text_input_ids)  # Find the start index
+                text_input_end = text_input_start[0] + len(text_input_ids)
+                
+                emb_lists.append(wrapped_emb)
+                text_input_range.append((text_input_start[0], text_input_end))
+                subject_range.append((subject_start[0], subject_end))
+                
 
+            emb_lens = [emb.shape[1] for emb in emb_lists]
+            pad_emb = self.embed_tokens(torch.tensor(self.llama_tokenizer.pad_token_id, device=img_embeds.device))
+
+            max_length = max(emb_lens) if max(emb_lens) < self.max_context_len else self.max_context_len
+            wrapped_embs = pad_emb.expand(len(emb_lens), max_length, -1).clone()
+            wrapped_atts = torch.zeros([len(emb_lens), max_length], dtype=torch.int, device=img_embeds.device)
+            
+            for i, emb in enumerate(emb_lists):
+                length = emb_lens[i] if emb_lens[i] < self.max_context_len else self.max_context_len
+                wrapped_embs[i, :length] = emb[:, :length]
+                wrapped_atts[i, :length] = 1
+            return wrapped_embs, wrapped_atts, text_input_tokens, text_input_range, subject_range
+
+    @staticmethod
+    def _find_subsequence(sequence, subsequence):
+        pos = []
+        for i in range(len(sequence) - len(subsequence) + 1):
+            if sequence[i:i + len(subsequence)] == subsequence:
+                pos.append(i)
+        if len(pos):
+            return pos
+        else:
+            raise ValueError("Subsequence not found in the sequence.")
+        
+    
     def concat_emb_input_output(self, input_embs, input_atts, output_embs, output_atts):
         """
         Concatenate the batched input embedding and batched output embedding together.
         Both the input and the output embedding should be right padded.
         """
         if output_embs is None:
+            ## only suject embedding with no image and no answer: noise generation for causal tracing.
             input_lens = []
             for i in range(input_embs.size(0)):
                 input_len = input_atts[i].sum()
@@ -239,7 +340,7 @@ class MiniGPTBase(BaseModel):
         else:
             img_embeds = img_atts = None
         
-        regress_embeds = regress_atts = part_targets = None
+        regress_embeds = regress_atts = part_targets = subject_range = text_input_range = input_tokens = None
         if 'conv_q' in samples:
             # handeling conversation datasets
             conv_q, conv_a = samples['conv_q'], samples['conv_a']
@@ -256,6 +357,7 @@ class MiniGPTBase(BaseModel):
         else:
             if "text_input" in samples:
                 if "noise" in samples:
+                    ## only suject embedding with no image and no answer: noise generation for causal tracing, thus no need for prompt template.
                     instruction = samples['text_input']
                 else:
                     instruction = [self.prompt_template.format(item) for item in samples['text_input']]
@@ -275,11 +377,16 @@ class MiniGPTBase(BaseModel):
                 img_embeds = img_embeds.reshape(len(samples['image']), -1, pn, hs)
                 cond_embeds, cond_atts = self.prompt_wrap(img_embeds, img_atts, instruction, samples['length'])
             else:
-                cond_embeds, cond_atts = self.prompt_wrap(img_embeds, img_atts, instruction)
+                if 'trace' in samples and samples['trace']:
+                    assert 'subject' in samples and 'ori_text_input' in samples, "Causal tracing must specify `subject` and `ori_text_input`."
+                    cond_embeds, cond_atts, input_tokens, text_input_range, subject_range = self.prompt_wrap_for_trace(img_embeds, img_atts, instruction, subjects=samples['subject'], text_inputs=samples['ori_text_input'])
+                else:
+                    cond_embeds, cond_atts = self.prompt_wrap(img_embeds, img_atts, instruction)
 
             ### prepare target tokens
             self.llama_tokenizer.padding_side = "right"
             if samples["answer"] is not None:
+                 ## only text_input embedding with no answer: for causal tracing.
                 text = [t + self.end_sym for t in samples["answer"]]
 
                 regress_tokens = self.llama_tokenizer(
@@ -299,17 +406,18 @@ class MiniGPTBase(BaseModel):
         if regress_atts is not None:
             regress_embeds = self.embed_tokens(regress_token_ids)
 
-        return cond_embeds, cond_atts, regress_embeds, regress_atts, part_targets
+        return cond_embeds, cond_atts, regress_embeds, regress_atts, part_targets, input_tokens, text_input_range, subject_range
 
     def forward(self, samples, reduction='mean'):
         # prepare the embedding to condition and the embedding to regress
-        cond_embeds, cond_atts, regress_embeds, regress_atts, part_targets = \
+        cond_embeds, cond_atts, regress_embeds, regress_atts, part_targets, input_tokens, text_input_range, subject_range = \
             self.preparing_embedding(samples)
 
         # concat the embedding to condition and the embedding to regress
         inputs_embeds, attention_mask, input_lens = \
             self.concat_emb_input_output(cond_embeds, cond_atts, regress_embeds, regress_atts)
 
+        ## only obtain suject embedding: noise generation for causal tracing.
         if not 'noise' in samples:
             # get bos token embedding
             bos = torch.ones_like(cond_atts[:, :1]) * self.llama_tokenizer.bos_token_id
@@ -320,6 +428,9 @@ class MiniGPTBase(BaseModel):
             inputs_embeds = torch.cat([bos_embeds, inputs_embeds], dim=1)
             attention_mask = torch.cat([bos_atts, attention_mask], dim=1)
 
+            if text_input_range is not None:
+                text_input_range = [(a+1, b+1)for (a,b) in text_input_range]
+        
         # ensemble the final targets
         targets = torch.ones([inputs_embeds.shape[0], inputs_embeds.shape[1]],
                              dtype=torch.long).to(self.device).fill_(-100)
@@ -344,6 +455,9 @@ class MiniGPTBase(BaseModel):
             labels=targets,
             attention_mask=attention_mask,
             input_lens=input_lens,
+            input_tokens=input_tokens,
+            text_input_range=text_input_range,
+            subject_range=subject_range
         )
 
     def embed_tokens(self, token_ids):
@@ -356,10 +470,9 @@ class MiniGPTBase(BaseModel):
     @torch.no_grad()
     def generate(
         self,
-        images,
-        texts,
+        samples,
         num_beams=1,
-        max_new_tokens=20,
+        max_length=20,
         min_length=1,
         top_p=0.9,
         repetition_penalty=1,
@@ -374,30 +487,66 @@ class MiniGPTBase(BaseModel):
 
         # stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(
         #     stops=[torch.tensor([i]).to(self.device) for i in stop_words_ids])])
+        if "text_input" in samples:
+            texts = [self.prompt_template.format(item) for item in samples['text_input']]
+        elif self.prompt_list:
+            texts = random.choice(self.prompt_list)
+        else:
+            texts = None
+        
+        if 'image' in samples and samples['image'] is not None:
+            img_embeds, atts_img = self.encode_img(samples["image"])
+        else:
+            img_embeds = atts_img = None
+        # img_embeds, atts_img = self.encode_img(images.to(self.device))
+        # image_lists = [[image_emb[None]] for image_emb in img_embeds]
 
-        img_embeds, atts_img = self.encode_img(images.to(self.device))
-        image_lists = [[image_emb[None]] for image_emb in img_embeds]
+        if 'trace' in samples and samples['trace']:
+            assert 'subject' in samples and 'ori_text_input' in samples, "Causal tracing must specify `subject` and `ori_text_input`."
+            batch_embs,_,_,_,_ = self.prompt_wrap_for_trace(img_embeds, atts_img, texts, subjects=samples['subject'], text_inputs=samples['ori_text_input'])
+        else:
+            # batch_embs = [self.get_context_emb(text, img_list) for text, img_list in zip(texts, image_lists)]
+            batch_embs,_ = self.prompt_wrap(img_embeds, atts_img, texts)
 
-        batch_embs = [self.get_context_emb(text, img_list) for text, img_list in zip(texts, image_lists)]
+        # if isinstance(batch_embs, list):
+        #     batch_size = len(batch_embs)
+        #     max_len = max([emb.shape[1] for emb in batch_embs])
+        #     emb_dim = batch_embs[0].shape[2]
+        #     dtype = batch_embs[0].dtype
+        #     device = batch_embs[0].device
 
-        batch_size = len(batch_embs)
-        max_len = max([emb.shape[1] for emb in batch_embs])
-        emb_dim = batch_embs[0].shape[2]
-        dtype = batch_embs[0].dtype
+        #     embs = torch.zeros([batch_size, max_len, emb_dim], dtype=dtype, device=device)
+        #     attn_mask = torch.zeros([batch_size, max_len], dtype=torch.int, device=device)
+        #     for i, emb in enumerate(batch_embs):
+        #         emb_len = emb.shape[1]
+        #         embs[i, -emb_len:] = emb[0]
+        #         attn_mask[i, -emb_len:] = 1
+        
+            # bos = torch.ones_like(attn_mask[:, :1]) * self.llama_tokenizer.bos_token_id
+            # bos_embeds = self.embed_tokens(bos)
+            # bos_atts = attn_mask[:, :1]
+
+            # # add bos token at the begining
+            # embs = torch.cat([bos_embeds, embs], dim=1)
+            # attn_mask = torch.cat([bos_atts, attn_mask], dim=1)
+        # else:
+        # dtype = batch_embs[0].dtype
         device = batch_embs[0].device
+        attn_mask = torch.ones([batch_embs.shape[0], batch_embs.shape[1]], dtype=torch.int, device=device)
+        bos = torch.ones_like(attn_mask[:, :1]) * self.llama_tokenizer.bos_token_id
+        bos_embeds = self.embed_tokens(bos)
+        bos_atts = attn_mask[:, :1]
 
-        embs = torch.zeros([batch_size, max_len, emb_dim], dtype=dtype, device=device)
-        attn_mask = torch.zeros([batch_size, max_len], dtype=torch.int, device=device)
-        for i, emb in enumerate(batch_embs):
-            emb_len = emb.shape[1]
-            embs[i, -emb_len:] = emb[0]
-            attn_mask[i, -emb_len:] = 1
-
+        # add bos token at the begining
+        batch_embs = torch.cat([bos_embeds, batch_embs], dim=1)
+        attn_mask = torch.cat([bos_atts, attn_mask], dim=1)
+            
+        
         with self.maybe_autocast():
             outputs = self.llama_model.generate(
-                inputs_embeds=embs,
+                inputs_embeds=batch_embs,
                 attention_mask=attn_mask,
-                max_new_tokens=max_new_tokens,
+                max_new_tokens=max_length,
                 num_beams=num_beams,
                 length_penalty=length_penalty,
                 temperature=temperature,
@@ -405,6 +554,7 @@ class MiniGPTBase(BaseModel):
                 min_length=min_length,
                 top_p=top_p,
                 repetition_penalty=repetition_penalty,
+                eos_token_id=self.eos_token_id,
                 # stopping_criteria=stopping_criteria,
             )
 
@@ -422,12 +572,98 @@ class MiniGPTBase(BaseModel):
             if output_token[0] == 0:
                 output_token = output_token[1:]
             output_texts = self.llama_tokenizer.decode(output_token, skip_special_tokens=True)
-            output_texts = output_texts.split('</s>')[0]  # remove the stop sign </s>
+            output_texts = output_texts.split('###')[0]  # remove the stop sign </s>
             output_texts = output_texts.replace("<s>", "")
             output_texts = output_texts.split(r'[/INST]')[-1].strip()
             answers.append(output_texts)
 
         return answers
+
+    # @torch.no_grad()
+    # def generate(
+    #     self,
+    #     samples,
+    #     num_beams=1,
+    #     max_length=20,
+    #     min_length=1,
+    #     top_p=0.9,
+    #     repetition_penalty=1,
+    #     length_penalty=1,
+    #     temperature=1,
+    #     do_sample=False,
+    #     stop_words_ids=[2],
+    # ):
+    #     '''
+    #         function for generate test use
+    #     '''
+
+    #     # stopping_criteria = StoppingCriteriaList([StoppingCriteriaSub(
+    #     #     stops=[torch.tensor([i]).to(self.device) for i in stop_words_ids])])
+    #     if 'image' in samples and samples['image'] is not None:
+    #         img_embeds, atts_img = self.encode_img(samples["image"])
+    #     else:
+    #         img_embeds = atts_img = None
+        
+    #     if "text_input" in samples:
+    #         texts = [self.prompt_template.format(item) for item in samples['text_input']]
+    #     elif self.prompt_list:
+    #         texts = random.choice(self.prompt_list)
+    #     else:
+    #         texts = None
+    #     # img_embeds, atts_img = self.encode_img(images.to(self.device))
+    #     image_lists = [[image_emb[None]] for image_emb in img_embeds]
+
+    #     batch_embs = [self.get_context_emb(text, img_list) for text, img_list in zip(texts, image_lists)]
+
+    #     batch_size = len(batch_embs)
+    #     max_len = max([emb.shape[1] for emb in batch_embs])
+    #     emb_dim = batch_embs[0].shape[2]
+    #     dtype = batch_embs[0].dtype
+    #     device = batch_embs[0].device
+
+    #     embs = torch.zeros([batch_size, max_len, emb_dim], dtype=dtype, device=device)
+    #     attn_mask = torch.zeros([batch_size, max_len], dtype=torch.int, device=device)
+    #     for i, emb in enumerate(batch_embs):
+    #         emb_len = emb.shape[1]
+    #         embs[i, -emb_len:] = emb[0]
+    #         attn_mask[i, -emb_len:] = 1
+
+    #     with self.maybe_autocast():
+    #         outputs = self.llama_model.generate(
+    #             inputs_embeds=embs,
+    #             attention_mask=attn_mask,
+    #             max_new_tokens=max_length,
+    #             num_beams=num_beams,
+    #             length_penalty=length_penalty,
+    #             temperature=temperature,
+    #             do_sample=do_sample,
+    #             min_length=min_length,
+    #             top_p=top_p,
+    #             repetition_penalty=repetition_penalty,
+    #             eos_token_id=self.eos_token_id,
+    #             # stopping_criteria=stopping_criteria,
+    #         )
+
+    #     # with self.maybe_autocast():
+    #     #     outputs = self.llama_model.generate(
+    #     #         inputs_embeds=embs,
+    #     #         attention_mask=attn_mask,
+    #     #         max_new_tokens=max_new_tokens,
+    #     #         num_beams=num_beams,
+    #     #         do_sample=do_sample,
+    #     #         # stopping_criteria=stopping_criteria,
+    #     #     )
+    #     answers = []
+    #     for output_token in outputs:
+    #         if output_token[0] == 0:
+    #             output_token = output_token[1:]
+    #         output_texts = self.llama_tokenizer.decode(output_token, skip_special_tokens=True)
+    #         output_texts = output_texts.split('###')[0]  # remove the stop sign </s>
+    #         output_texts = output_texts.replace("<s>", "")
+    #         output_texts = output_texts.split(r'[/INST]')[-1].strip()
+    #         answers.append(output_texts)
+
+    #     return answers
 
     @torch.no_grad()
     def multi_select(self, images, texts, answers, num_cand=None):

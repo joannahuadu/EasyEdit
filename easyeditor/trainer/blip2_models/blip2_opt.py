@@ -15,7 +15,7 @@ from .modeling_opt import OPTForCausalLM, OPTConfig
 from transformers import AutoTokenizer
 from transformers.utils import ModelOutput
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 @dataclass
 class BLIP2Output(ModelOutput):
@@ -23,6 +23,9 @@ class BLIP2Output(ModelOutput):
     logits: torch.FloatTensor = None
     labels: torch.IntTensor = None
     attention_mask: torch.IntTensor = None
+    input_tokens: Optional[torch.FloatTensor] = None
+    text_input_range: List[tuple] = None
+    subject_range: List[tuple] = None
 
 
 class Blip2OPT(Blip2Base):
@@ -210,7 +213,10 @@ class Blip2OPT(Blip2Base):
             loss=loss,
             logits=outputs.logits,
             labels=targets,
-            attention_mask=attention_mask
+            attention_mask=attention_mask,
+            input_tokens=opt_tokens,
+            text_input_range=None,
+            subject_range=None
         )
     
     @torch.no_grad()

@@ -22,6 +22,7 @@ from ..rome.tok_dataset import (
 from ...util import nethook
 from ...util.runningstats import Covariance, tally
 
+count = 0
 
 def rome_causal_trace(
     model: AutoModelForCausalLM,
@@ -43,13 +44,15 @@ def rome_causal_trace(
     and returns a dictionary numerically summarizing the results.
     """
     prompt = batch['text_input']
+    ori_prompt = batch['ori_text_input']
     image = batch['image']
     target = batch['answer']
     prompts_len = batch['prompts_len']
     subject = knowledge['subject']
     
-    inp = make_inputs(tokenizer, prompt * (samples + 1))
+    # inp = make_inputs(tokenizer, prompt * (samples + 1))
     batch['text_input'] = prompt * (samples + 1)
+    batch['ori_text_input'] = ori_prompt * (samples + 1)
     if image is not None and len(image.shape) == 3:
         image = image.unsqueeze(0)
     if image is not None:
@@ -59,22 +62,32 @@ def rome_causal_trace(
     batch['image'] = image_inp
     batch['prompts_len'] = prompts_len * (samples + 1)
     batch['answer'] = None
-    
+    batch['trace'] = True
+    batch['subject'] = [subject]*(samples + 1)
+
+    e_range = token_range = None
     with torch.no_grad():
-        answer_t, base_score = [d[0] for d in predict_from_input(model, batch)]
+        answer_t, base_score, inp, e_range, token_range = [d[0] for d in predict_from_input(model, batch)]
 
     [answer] = decode_tokens(tokenizer, [answer_t])
     if expect is not None and answer.strip() != expect:
         return dict(correct_prediction=False)
-    e_range = find_token_range(tokenizer, inp['input_ids'][0], subject)
+    e_range_ = find_token_range(tokenizer, inp, subject)
+    if e_range is None:
+        e_range = e_range_
     ## token_range need to consider query token.
-    if token_range == "subject_last":
-        token_range = [skip_query + e_range[1] - 1]
-    elif token_range is None:
-        ntoks = inp["input_ids"].shape[1]
-        token_range = range(skip_query, skip_query + ntoks)
+    if token_range is None:
+        if token_range == "subject_last":
+            token_range = [skip_query + e_range[1] - 1]
+        elif token_range is None:
+            ntoks = inp.shape[0]
+            token_range = range(skip_query, skip_query + ntoks)
+        else:
+            raise ValueError(f"Unknown token_range: {token_range}")
     else:
-        raise ValueError(f"Unknown token_range: {token_range}")
+        token_range = range(token_range[0], token_range[1])
+    assert len(inp) == len(token_range)
+    
     low_score, low_pred = trace_with_patch(
         model, batch, [], answer_t, e_range, noise=noise, uniform_noise=uniform_noise
     )
@@ -120,9 +133,9 @@ def rome_causal_trace(
         scores=differences,
         low_score=low_score.item(),
         high_score=base_score,
-        input_ids=inp["input_ids"][0],
-        input_tokens=decode_tokens(tokenizer, inp["input_ids"][0]),
-        subject_range=e_range,
+        input_ids=inp,
+        input_tokens=decode_tokens(tokenizer, inp),
+        subject_range=e_range_,
         answer=answer,
         low_answer=low_answer,
         window=window,
@@ -164,7 +177,7 @@ def trace_with_patch(
     token/layer pair.  To trace the effect of restoring a set of states,
     any number of token indices and layers can be listed.
     """
-
+    global count
     rs = numpy.random.RandomState(1)  # For reproducibility, use pseudorandom noise
     if uniform_noise:
         prng = lambda *shape: rs.uniform(-1, 1, shape)
@@ -187,17 +200,20 @@ def trace_with_patch(
         noise_fn = noise
 
     def patch_rep(x, layer, batch=1):
+        global count
         if layer == embed_layername:
-            # If requested, we corrupt a range of token embeddings on batch items x[1:]
-            if tokens_to_mix is not None:
-                b, e = tokens_to_mix
-                noise_data = noise_fn(
-                    torch.from_numpy(prng(x.shape[0] - 1, e - b, x.shape[2]))
-                ).to(x.device)
-                if replace:
-                    x[1:, b:e] = noise_data
-                else:
-                    x[1:, b:e] += noise_data
+            if count==0:
+                # If requested, we corrupt a range of token embeddings on batch items x[1:]
+                if tokens_to_mix is not None:
+                    b, e = tokens_to_mix
+                    noise_data = noise_fn(
+                        torch.from_numpy(prng(x.shape[0] - 1, e - b, x.shape[2]))
+                    ).to(x.device)
+                    if replace:
+                        x[1:, b:e] = noise_data
+                    else:
+                        x[1:, b:e] += noise_data
+            count += 1
             return x
         if layer == embed_layername:
             ## TODO: We define a visual constraint to be a set of words in the question which refers to an entity in the image.
@@ -227,6 +243,7 @@ def trace_with_patch(
         [embed_layername] + list(patch_spec.keys()) + additional_layers,
         edit_output=lambda x, layer: patch_rep(x, layer, batch=len(batch['text_input'])),
     ) as td:
+        count = 0
         outputs_exp = model(batch)
 
     # We report softmax probabilities for the answers_t token predictions of interest.
@@ -534,22 +551,39 @@ def decode_tokens(tokenizer, token_array):
         return [decode_tokens(tokenizer, row) for row in token_array]
     return [tokenizer.decode([t]) for t in token_array]
 
+# def find_token_range(tokenizer, token_array, substring):
+#     toks = decode_tokens(tokenizer, token_array)
+#     whole_string = "".join(toks)
+#     char_loc = whole_string.index(substring)
+#     loc = 0
+#     tok_start, tok_end = None, None
+#     for i, t in enumerate(toks):
+#         loc += len(t)
+#         if tok_start is None and loc > char_loc:
+#             tok_start = i
+#         if tok_end is None and loc >= char_loc + len(substring):
+#             tok_end = i + 1
+#             break
+#     return (tok_start, tok_end)
 
-def find_token_range(tokenizer, token_array, substring):
-    toks = decode_tokens(tokenizer, token_array)
-    whole_string = "".join(toks)
-    char_loc = whole_string.index(substring)
-    loc = 0
-    tok_start, tok_end = None, None
-    for i, t in enumerate(toks):
-        loc += len(t)
-        if tok_start is None and loc > char_loc:
-            tok_start = i
-        if tok_end is None and loc >= char_loc + len(substring):
-            tok_end = i + 1
-            break
-    return (tok_start, tok_end)
+def find_token_range(tokenizer, token_array, substring):    
+    subject_tokens = tokenizer(
+        substring, return_tensors="pt", add_special_tokens=False)
+    subject_ids = subject_tokens.input_ids.squeeze().tolist()  # List of token IDs for subject
+    subject_start = _find_subsequence(token_array.tolist(), subject_ids)
+    subject_end = subject_start[0] + len(subject_ids)
+    return (subject_start[0], subject_end)
 
+def _find_subsequence(sequence, subsequence):
+    pos = []
+    for i in range(len(sequence) - len(subsequence) + 1):
+        if sequence[i:i + len(subsequence)] == subsequence:
+            pos.append(i)
+    if len(pos):
+        return pos
+    else:
+        raise ValueError("Subsequence not found in the sequence.")
+    
 
 def predict_token(mt, prompts, return_p=False):
     inp = make_inputs(mt.tokenizer, prompts)
@@ -561,12 +595,16 @@ def predict_token(mt, prompts, return_p=False):
 
 
 def predict_from_input(model, batch, exact_match=False):
+    inp = subject_range = text_input_range = [None]
     outputs = model(batch)
     if isinstance(outputs, torch.Tensor):
         logits = outputs.detach().cpu()
         # targ = batch["labels"].cpu()
     else:
         logits = outputs.logits.detach().cpu()
+        inp = outputs.input_tokens['input_ids']
+        subject_range = outputs.subject_range
+        text_input_range = outputs.text_input_range
         # targ = outputs.labels.detach().cpu()
     ## 
     # if logits.dim() == 3:
@@ -596,6 +634,6 @@ def predict_from_input(model, batch, exact_match=False):
     probs = torch.softmax(logits[:, -1], dim=1)
     p, preds = torch.max(probs, dim=1)
     # model.eos_token_id = model.opt_tokenizer.eos_token_id
-    prompt_template = "###Human: {} ###Assistant: "
-    print(batch['text_input'], "--generate: ", model.generate(images=batch['image'], texts=[prompt_template.format(item) for item in batch['text_input']]))
-    return preds, p
+    # prompt_template = "###Human: {} ###Assistant: "
+    # print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5))
+    return preds, p, inp, subject_range, text_input_range

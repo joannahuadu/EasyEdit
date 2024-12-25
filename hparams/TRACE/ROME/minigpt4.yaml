@@ -1,11 +1,13 @@
 # Model
 
 name: Vision-CAIR/vicuna-7b
+# name: lmsys/vicuna-7b-v1.5
 model_name: minigpt4
 tokenizer_class: LlamaTokenizer
 tokenizer_name: Vision-CAIR/vicuna-7b
+# tokenizer_name: lmsys/vicuna-7b-v1.5
 cache_dir: /mnt/data2/workplace/data/hugging_cache
-device: 0
+device: 2
 
 # Methods
 alg_name: "ROME"

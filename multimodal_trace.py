@@ -5,30 +5,6 @@ from easyeditor import ROMEMultimodalHyperParams \
 import random
 import os
 
-def trace_ROME_MiniGPT4_VQA():
-    prompts = [
-        "How many tennis balls are in the picture?",
-        "What is the red food?"
-    ]
-    targets = [
-        "2",
-        "tomatoes",
-    ]
-    image = [
-        "val2014/COCO_val2014_000000451435.jpg",
-        "val2014/COCO_val2014_000000189446.jpg"
-    ]
-    
-    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/TRACE/ROME/hparams/IKE/minigpt4.yaml')
-    tracer = MultimodalTracer.from_hparams(hparams)
-    eval_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_eval.json', config=hparams)
-    tracer.trace(
-        prompts=prompts,
-        targets=targets,
-        image=image,    
-    )
-
-
 def trace_ROME_BLIP2OPT_Caption():
     prompts = [
         "a photo of",
@@ -96,13 +72,13 @@ def trace_ROME_Blip2OPT_VQA():
 
 def trace_ROME_MiniGPT4_VQA():
     prompts = [
-        "How many tennis balls are in the picture?",
-        # "What is the red food?",
+        # "How many tennis balls are in the picture?",
+        "What is the red food?",
         # "Vinson Massif is located in the continent of"
     ]
     targets = [
-        "two",
-        # "broccoli",
+        # "two",
+        "broccoli",
         # "Antarctica"
     ]
     # targets = [
@@ -110,15 +86,15 @@ def trace_ROME_MiniGPT4_VQA():
     #     "tomatoes",
     # ]
     image = [
-        "val2014/COCO_val2014_000000451435.jpg",
-        # "val2014/COCO_val2014_000000189446.jpg",
+        # "val2014/COCO_val2014_000000451435.jpg",
+        "val2014/COCO_val2014_000000189446.jpg",
         # None
     ]
     subjects=[
-        "tennis balls",
-        # "How many",
+        # "tennis balls",
+        # "How many tennis balls",
         # "picture"
-        # "the red food",
+        "the red food",
         # "Vinson Massif"
         # "located"
     ]
@@ -158,8 +134,21 @@ def pred_Blip2OPT_VQA():
         is_ds=True
     )
     
+def pred_MiniGPT4_VQA():
+    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/TRACE/ROME/minigpt4.yaml')
+    tracer = MultimodalTracer.from_hparams(hparams)
+    eval_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_eval.json', config=hparams)
+    tracer.pred_dataset(
+        ds=eval_ds,
+        result_path='/mnt/data2/wmq/editing-data/vqa/minigpt4_vqa_eval.json',
+        max_length=30,
+        stop_token='###',
+        is_ds=True
+    )
+    
 if __name__ == "__main__":
     # pred_Blip2OPT_VQA()
+    # pred_MiniGPT4_VQA()
     # trace_ROME_Blip2OPT_VQA()
     trace_ROME_MiniGPT4_VQA()
     # trace_ROME_BLIP2OPT_Caption()

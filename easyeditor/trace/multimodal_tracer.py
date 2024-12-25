@@ -86,7 +86,10 @@ class MultimodalTracer:
                 # self.prompt = "{}"
             elif hparams.model_name == "minigpt4":
                 from ..trainer.minigpt4_models import MiniGPT4
-                prompt_template = '###Human: {} ###Assistant: '
+                # prompt_template = '###Human: {} ###Assistant: ' # For multi-modal input
+                # prompt_template = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. USER: {} ASSISTANT:"
+                prompt_template = 'USER: {} ASSISTANT:' # For multi-modal input
+                # prompt_template="{}" # For pure text input
                 end_sym = "###"
                 model = MiniGPT4(
                     vit_model="eva_clip_g",
@@ -102,8 +105,12 @@ class MultimodalTracer:
                     pretrained_ckpt=hparams.pretrained_ckpt,
                     cache_dir=hparams.cache_dir,
                 )
-                self.prompt = "<Img><ImageHere></Img> [vqa] Based on the image, respond to this question with a short answer: {}"     
-                # self.prompt = "<Img><ImageHere></Img> [vqa] Based on the image, answer the question with a single word: {}"
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, respond to this question with a short answer: {}"     
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, answer the question with a single word: {}"
+                self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer in a single word."
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer the single object directly."
+            elif hparams.model_name == "llava":
+                model = ()
             self.model = model
             ## ADD: requires_grad = False
             nethook.set_requires_grad(False, self.model)
@@ -360,7 +367,8 @@ class MultimodalTracer:
         image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
         
         knowledge = [{
-            'prompt': self.prompt.format(prompt),
+            'ori_prompt': prompt,
+            'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
             'target': target,
             'image': image_,
         }        
@@ -420,16 +428,18 @@ class MultimodalTracer:
     
     def _prepare_multimodal_edit(self, known, **kwargs):
         target = known['target']
+        ori_prompt = known['ori_prompt']
         prompt = known['prompt']
         image = known['image']
         if 'is_ds' in kwargs and kwargs['is_ds']:
-            prompt= self.prompt.format(prompt)
-            if image is not None:
-                image = image.to(self.hparams.device)
+            prompt= self.prompt.format(prompt) if image is not None else prompt
+            image = image.to(self.hparams.device) if image is not None else None
         if isinstance(target, str):
             target = [target, ]
         if isinstance(prompt, str):
             prompt = [prompt, ]
+        if isinstance(ori_prompt, str):
+            ori_prompt = [ori_prompt, ]
         if image is not None and len(image.shape) == 3:
             image = image.unsqueeze(0)
         # text_input = [prompt_ + ' ' + target_ for prompt_, target_ in zip(prompt, target)]
@@ -444,6 +454,7 @@ class MultimodalTracer:
             #             return_tensors="pt", )["input_ids"]
 
         ret = {
+            'ori_text_input': ori_prompt,
             'text_input': text_input,
             'image': image,
             'answer': target,

@@ -88,6 +88,10 @@ class MiniGPT4(MiniGPTBase):
             self.prompt_list = []
         self.prompt_template = prompt_template
         
+        self.eos_token_id = self.llama_tokenizer(
+            "###", add_special_tokens=False
+        ).input_ids[0]
+
         if pretrained_ckpt:
             print("Load MiniGPT-4 Checkpoint: {}".format(pretrained_ckpt))
             ckpt = torch.load(pretrained_ckpt, map_location="cpu")
