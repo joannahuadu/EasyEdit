@@ -89,7 +89,7 @@ class MiniGPT4(MiniGPTBase):
         self.prompt_template = prompt_template
         
         self.eos_token_id = self.llama_tokenizer(
-            "###", add_special_tokens=False
+            "\n", add_special_tokens=False
         ).input_ids[0]
 
         if pretrained_ckpt:

@@ -1,0 +1,50 @@
+# Model
+
+name: liuhaotian/llava-v1.5-7b
+model_name: llava
+tokenizer_class: LlamaTokenizer
+tokenizer_name: liuhaotian/llava-v1.5-7b
+cache_dir: /mnt/data2/workplace/data/hugging_cache
+device: 2
+
+# Methods
+alg_name: "ROME"
+stats_dir: "./data/stats"
+layers: [17]
+fact_token: "subject_last"
+v_num_grad_steps: 20
+v_lr: 5e-1
+v_loss_layer: 47
+v_weight_decay: 0.5
+clamp_norm_factor: 4
+kl_factor: 0.0625
+mom2_adjustment: false
+context_template_length_params: [[5, 10], [10, 10]]
+rewrite_module_tmp: "transformer.h.{}.mlp.c_proj"
+layer_module_tmp: "transformer.h.{}"
+mlp_module_tmp: "transformer.h.{}.mlp"
+attn_module_tmp: "transformer.h.{}.attn"
+ln_f_module: "transformer.ln_f"
+lm_head_module: "transformer.wte"
+mom2_dataset: "wikipedia"
+mom2_n_samples: 100000
+mom2_dtype: "float32"
+model_parallel: false
+fp16: false
+
+# Multimodal
+qformer_checkpoint: /mnt/data2/workplace/data/hugging_cache/blip2_pretrained_flant5xxl.pth
+# qformer_checkpoint: https://storage.googleapis.com/sfr-vision-language-research/LAVIS/models/BLIP2/blip2_pretrained_flant5xxl.pth
+qformer_name_or_path: bert-base-uncased
+state_dict_file: /mnt/data2/workplace/data/hugging_cache/eva_vit_g.pth
+pretrained_ckpt: /mnt/data2/workplace/data/hugging_cache/pretrained_minigpt4_7b.pth
+
+# image
+coco_image: /mnt/data2/wmq
+rephrase_image: /mnt/data2/wmq
+exact_match: True
+
+# Trace
+noise_level: s3
+result_dir: /mnt/data2/wmq/results
+

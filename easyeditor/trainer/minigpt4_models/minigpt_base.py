@@ -187,7 +187,7 @@ class MiniGPTBase(BaseModel):
                 
                 subject_tokens = self.llama_tokenizer(
                     each_subject, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
-                subject_ids = subject_tokens.input_ids.squeeze().tolist()  # List of token IDs for subject
+                subject_ids = subject_tokens.input_ids[0].tolist()  # List of token IDs for subject
                 subject_start = self._find_subsequence(p_tokens.input_ids[idx].tolist(), subject_ids)
                 subject_end = subject_start[0] + len(subject_ids)
                 
@@ -213,11 +213,15 @@ class MiniGPTBase(BaseModel):
                 
                 if '[vqa]' in each_text_input:
                     each_text_input = each_text_input.split('[vqa]')[-1][1:]
-                if '\n' in each_text_input:
-                    each_text_input = each_text_input.split('\n')[-1]
+                # if '\n' in each_text_input:
+                #     each_text_input = each_text_input.split('\n')[-1]
                 text_input_tokens = self.llama_tokenizer(
                     each_text_input, return_tensors="pt", add_special_tokens=False).to(img_embeds.device)
                 text_input_ids = text_input_tokens.input_ids.squeeze().tolist()  # List of token IDs for text_input
+                if each_text_input[0] == '\n':
+                    text_input_ids = text_input_ids[1:]
+                    text_input_tokens['input_ids'] = text_input_tokens['input_ids'][:, 1:]
+                    text_input_tokens['attention_mask'] = text_input_tokens['attention_mask'][:, 1:]
                 text_input_start = self._find_subsequence(wrapped_tokens, text_input_ids)  # Find the start index
                 text_input_end = text_input_start[0] + len(text_input_ids)
                 

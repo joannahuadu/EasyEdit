@@ -31,12 +31,14 @@ def trace_ROME_BLIP2OPT_Caption():
 
 def trace_ROME_Blip2OPT_VQA():
     prompts = [
-        "How many tennis balls are in the picture?",
+        "What type of cat is this?"
+        # "How many tennis balls are in the picture?",
         # "What is the red food?",
         # "Vinson Massif is located in the continent of"
     ]
     targets = [
-        "two",
+        "burmese"
+        # "two",
         # "broccoli",
         # "Antarctica"
     ]
@@ -45,12 +47,14 @@ def trace_ROME_Blip2OPT_VQA():
     #     "tomatoes",
     # ]
     image = [
-        "val2014/COCO_val2014_000000451435.jpg",
+        "val2014/COCO_val2014_000000314504.jpg"
+        # "val2014/COCO_val2014_000000451435.jpg",
         # "val2014/COCO_val2014_000000189446.jpg",
         # None
     ]
     subjects=[
-        "tennis balls",
+        "cat"
+        # "tennis balls",
         # "How many",
         # "picture"
         # "the red food",
@@ -72,13 +76,15 @@ def trace_ROME_Blip2OPT_VQA():
 
 def trace_ROME_MiniGPT4_VQA():
     prompts = [
+        "\nWhat type of cat is this?"
         # "How many tennis balls are in the picture?",
-        "What is the red food?",
+        # "What is the red food?",
         # "Vinson Massif is located in the continent of"
     ]
     targets = [
+        "burmese"
         # "two",
-        "broccoli",
+        # "broccoli",
         # "Antarctica"
     ]
     # targets = [
@@ -86,15 +92,17 @@ def trace_ROME_MiniGPT4_VQA():
     #     "tomatoes",
     # ]
     image = [
+        "val2014/COCO_val2014_000000314504.jpg"
         # "val2014/COCO_val2014_000000451435.jpg",
-        "val2014/COCO_val2014_000000189446.jpg",
+        # "val2014/COCO_val2014_000000189446.jpg",
         # None
     ]
     subjects=[
+        "cat"
         # "tennis balls",
-        # "How many tennis balls",
+        # "How many",
         # "picture"
-        "the red food",
+        # "the red food",
         # "Vinson Massif"
         # "located"
     ]
@@ -149,6 +157,6 @@ def pred_MiniGPT4_VQA():
 if __name__ == "__main__":
     # pred_Blip2OPT_VQA()
     # pred_MiniGPT4_VQA()
-    # trace_ROME_Blip2OPT_VQA()
-    trace_ROME_MiniGPT4_VQA()
+    trace_ROME_Blip2OPT_VQA()
+    # trace_ROME_MiniGPT4_VQA()
     # trace_ROME_BLIP2OPT_Caption()

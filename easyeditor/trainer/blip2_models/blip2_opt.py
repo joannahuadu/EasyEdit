@@ -215,8 +215,8 @@ class Blip2OPT(Blip2Base):
             labels=targets,
             attention_mask=attention_mask,
             input_tokens=opt_tokens,
-            text_input_range=None,
-            subject_range=None
+            text_input_range=[None],
+            subject_range=[None]
         )
     
     @torch.no_grad()
@@ -307,16 +307,16 @@ class Blip2OPT(Blip2Base):
                 #     outputs, skip_special_tokens=True
                 # )
                                 
-                # previous version for transformers<4.27
-                if use_nucleus_sampling:
-                    query_embeds = inputs_opt.repeat_interleave(num_captions, dim=0)
-                    num_beams = 1
-                else:
-                    query_embeds = inputs_opt.repeat_interleave(num_beams, dim=0)
+                # # previous version for transformers<4.27
+                # if use_nucleus_sampling:
+                #     query_embeds = inputs_opt.repeat_interleave(num_captions, dim=0)
+                #     num_beams = 1
+                # else:
+                #     query_embeds = inputs_opt.repeat_interleave(num_beams, dim=0)
 
                 outputs = self.opt_model.generate(
                     input_ids=opt_tokens.input_ids,
-                    query_embeds=query_embeds,
+                    query_embeds=inputs_opt,
                     attention_mask=attention_mask,
                     do_sample=use_nucleus_sampling,
                     top_p=top_p,

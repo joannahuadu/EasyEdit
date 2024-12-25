@@ -84,6 +84,8 @@ class MultimodalTracer:
                 )
                 self.prompt = "Question: {} Short answer:"
                 # self.prompt = "{}"
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
             elif hparams.model_name == "minigpt4":
                 from ..trainer.minigpt4_models import MiniGPT4
                 # prompt_template = '###Human: {} ###Assistant: ' # For multi-modal input
@@ -107,18 +109,31 @@ class MultimodalTracer:
                 )
                 # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, respond to this question with a short answer: {}"     
                 # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, answer the question with a single word: {}"
-                self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer in a single word."
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer in a single word."
+                self.prompt = "<Img> <ImageHere> </Img>{} Answer in a single word."
                 # self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer the single object directly."
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
             elif hparams.model_name == "llava":
-                model = ()
+                from ..trainer.llava_models import LlavaLlamaForCausalLM
+                from ..trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
+                system="A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. "
+                prompt_template = system + 'USER: {} ASSISTANT:'
+                model = LlavaLlamaForCausalLM.from_pretrained(
+                    hparams.name,
+                    low_cpu_mem_usage=True,
+                    cache_dir=hparams.cache_dir,
+                    torch_dtype = torch.float16
+                )
+                self.prompt = DEFAULT_IMAGE_TOKEN + '\n' + "{}"
+                # Get vis_processor
+                vis_processor = model.get_vision_tower().image_processor
             self.model = model
             ## ADD: requires_grad = False
             nethook.set_requires_grad(False, self.model)
             self.model.eval()
-            # Get tokenizer and vis_processor
-            vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
-
             self.vis_tok = vis_processor
+            # Get tokenizer 
             if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
                 tok_name = (
                     hparams.tokenizer_name
@@ -428,7 +443,10 @@ class MultimodalTracer:
     
     def _prepare_multimodal_edit(self, known, **kwargs):
         target = known['target']
-        ori_prompt = known['ori_prompt']
+        if 'ori_prompt' in known:
+            ori_prompt = known['ori_prompt']
+        else:
+            ori_prompt = known['prompt']
         prompt = known['prompt']
         image = known['image']
         if 'is_ds' in kwargs and kwargs['is_ds']:

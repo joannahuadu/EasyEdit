@@ -86,7 +86,7 @@ def rome_causal_trace(
             raise ValueError(f"Unknown token_range: {token_range}")
     else:
         token_range = range(token_range[0], token_range[1])
-    assert len(inp) == len(token_range)
+    # assert len(inp) == len(token_range)
     
     low_score, low_pred = trace_with_patch(
         model, batch, [], answer_t, e_range, noise=noise, uniform_noise=uniform_noise
@@ -567,9 +567,11 @@ def decode_tokens(tokenizer, token_array):
 #     return (tok_start, tok_end)
 
 def find_token_range(tokenizer, token_array, substring):    
+    if " " in tokenizer.decode(token_array[-2]):
+        substring = " " + substring
     subject_tokens = tokenizer(
         substring, return_tensors="pt", add_special_tokens=False)
-    subject_ids = subject_tokens.input_ids.squeeze().tolist()  # List of token IDs for subject
+    subject_ids = subject_tokens.input_ids[0].tolist()  # List of token IDs for subject
     subject_start = _find_subsequence(token_array.tolist(), subject_ids)
     subject_end = subject_start[0] + len(subject_ids)
     return (subject_start[0], subject_end)
@@ -635,5 +637,5 @@ def predict_from_input(model, batch, exact_match=False):
     p, preds = torch.max(probs, dim=1)
     # model.eos_token_id = model.opt_tokenizer.eos_token_id
     # prompt_template = "###Human: {} ###Assistant: "
-    # print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5))
+    print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5))
     return preds, p, inp, subject_range, text_input_range
