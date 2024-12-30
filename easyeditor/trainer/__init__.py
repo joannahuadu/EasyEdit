@@ -4,6 +4,7 @@ from .EditTrainer import *
 from .BaseTrainer import *
 from .blip2_models import *
 from .minigpt4_models import *
+from .llava_models import *
 from .MultimodalTrainer import *
 from .MultiTaskTrainer import *
 from .PerTrainer import *

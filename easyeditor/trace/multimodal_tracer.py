@@ -115,19 +115,19 @@ class MultimodalTracer:
                 # Get vis_processor
                 vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
             elif hparams.model_name == "llava":
-                from ..trainer.llava_models import LlavaLlamaForCausalLM
+                from ..trainer.llava_models import LLavaModel
                 from ..trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
                 system="A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. "
                 prompt_template = system + 'USER: {} ASSISTANT:'
-                model = LlavaLlamaForCausalLM.from_pretrained(
-                    hparams.name,
-                    low_cpu_mem_usage=True,
+                model = LLavaModel(
+                    llava_model=hparams.name,
+                    prompt_template=prompt_template,
+                    device_map="cuda",
                     cache_dir=hparams.cache_dir,
-                    torch_dtype = torch.float16
                 )
                 self.prompt = DEFAULT_IMAGE_TOKEN + '\n' + "{}"
                 # Get vis_processor
-                vis_processor = model.get_vision_tower().image_processor
+                vis_processor = model.image_processor
             self.model = model
             ## ADD: requires_grad = False
             nethook.set_requires_grad(False, self.model)
@@ -198,7 +198,7 @@ class MultimodalTracer:
                 kind_suffix = f"_{kind}" if kind else ""
                 filename = f"{self.result_dir}/cases/knowledge_{known_id}{kind_suffix}.npz"
                 batch = self._prepare_multimodal_edit(known)
-                if batch['image'] == None:
+                if batch['image'] == None or not hasattr(self.model,"query_tokens"):
                     skip_query = 0
                 else:
                     skip_query = self.model.query_tokens.shape[1]
@@ -379,7 +379,10 @@ class MultimodalTracer:
             image = [image, ]
         image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in image]
         image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in image_path]
-        image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
+        if 'llava' in self.hparams.model_name:
+            image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in image]
+        else:
+            image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
         
         knowledge = [{
             'ori_prompt': prompt,
@@ -634,6 +637,12 @@ class MultimodalTracer:
             if kind == "attn":
                 kind = "self_attn"
             return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
+        if hasattr(model, "llava_model"):
+            if kind == "embed":
+                return "llava_model.model.embed_tokens"
+            if kind == "attn":
+                kind = "self_attn"
+            return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
         assert False, "unknown transformer structure"
 
     def _collect_embedding_std(self, model, tokenizer, subjects):

@@ -604,7 +604,7 @@ def predict_from_input(model, batch, exact_match=False):
         # targ = batch["labels"].cpu()
     else:
         logits = outputs.logits.detach().cpu()
-        inp = outputs.input_tokens['input_ids']
+        inp = outputs.input_tokens['input_ids'] if outputs.input_tokens[0] is not None else [None]
         subject_range = outputs.subject_range
         text_input_range = outputs.text_input_range
         # targ = outputs.labels.detach().cpu()
@@ -637,5 +637,6 @@ def predict_from_input(model, batch, exact_match=False):
     p, preds = torch.max(probs, dim=1)
     # model.eos_token_id = model.opt_tokenizer.eos_token_id
     # prompt_template = "###Human: {} ###Assistant: "
-    print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5))
+    # print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5))
+    # print(batch['text_input'], "--generate: ", model.generate(batch, num_beams=5, do_sample=True, temperature=1, top_p=0.9, max_new_tokens=30, use_cache=True))
     return preds, p, inp, subject_range, text_input_range

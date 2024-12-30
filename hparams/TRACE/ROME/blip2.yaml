@@ -42,6 +42,6 @@ rephrase_image: /mnt/data2/wmq
 exact_match: True
 
 # Trace
-noise_level: s3
+noise_level: s10
 result_dir: /mnt/data2/wmq/results
 
