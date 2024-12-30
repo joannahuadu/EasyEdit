@@ -121,7 +121,7 @@ def trace_ROME_MiniGPT4_VQA():
 
 def trace_ROME_LLaVA_VQA():
     prompts = [
-        "What type of cat is this? Answer in a single word."
+        "\nWhat type of cat is this? Answer in a single word."
         # "How many tennis balls are in the picture?",
         # "What is the red food?",
         # "Vinson Massif is located in the continent of"

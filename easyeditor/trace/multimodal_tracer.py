@@ -125,7 +125,7 @@ class MultimodalTracer:
                     device_map="cuda",
                     cache_dir=hparams.cache_dir,
                 )
-                self.prompt = DEFAULT_IMAGE_TOKEN + '\n' + "{}"
+                self.prompt = DEFAULT_IMAGE_TOKEN + "{}"
                 # Get vis_processor
                 vis_processor = model.image_processor
             self.model = model

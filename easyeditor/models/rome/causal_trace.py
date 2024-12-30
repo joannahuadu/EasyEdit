@@ -97,7 +97,7 @@ def rome_causal_trace(
     layer_names = [
         n
         for n, m in model.named_modules()
-        if (re.match(r"^(transformer|gpt_neox|opt_model|llama_model)\.(h|layers|model.decoder.layers|model.layers)\.\d+$", n))
+        if (re.match(r"^(transformer|gpt_neox|opt_model|llama_model|llava_model)\.(h|layers|model.decoder.layers|model.layers|model.layers)\.\d+$", n))
     ]
     num_layers = len(layer_names)
     if not kind:
@@ -428,6 +428,12 @@ def layername(model, num, kind=None):
         if kind == "attn":
             kind = "self_attn"
         return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llava_model"):
+        if kind == "embed":
+            return "llava_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
     assert False, "unknown transformer structure"
 
 
@@ -604,7 +610,10 @@ def predict_from_input(model, batch, exact_match=False):
         # targ = batch["labels"].cpu()
     else:
         logits = outputs.logits.detach().cpu()
-        inp = outputs.input_tokens['input_ids'] if outputs.input_tokens[0] is not None else [None]
+        try:
+            inp = outputs.input_tokens['input_ids']
+        except:
+            inp = outputs.input_tokens
         subject_range = outputs.subject_range
         text_input_range = outputs.text_input_range
         # targ = outputs.labels.detach().cpu()

@@ -93,6 +93,10 @@ class LLavaModel(nn.Module):
         
         if 'trace' in samples and samples['trace']:
             assert 'subject' in samples and 'ori_text_input' in samples, "Causal tracing must specify `subject` and `ori_text_input`."
+            subject_ids = self.llava_tokenizer(
+                samples['subject'], return_tensors="pt", add_special_tokens=False).input_ids.to(list(self.parameters())[-1].device)
+            text_input_ids = self.llava_tokenizer(
+                samples['ori_text_input'], return_tensors="pt", add_special_tokens=False).input_ids.to(list(self.parameters())[-1].device)
             (
                 input_ids,
                 position_ids,
@@ -100,16 +104,18 @@ class LLavaModel(nn.Module):
                 past_key_values,
                 inputs_embeds,
                 labels,
-                # input_tokens,
-                # text_input_range,
-                # subject_range
-            ) = self.llava_model.prepare_inputs_labels_for_multimodal(
+                input_tokens,
+                text_input_range,
+                subject_range
+            ) = self.llava_model.prepare_inputs_labels_for_multimodal_for_trace(
                 input_ids=input_ids,
                 position_ids=None,
                 attention_mask=None,
                 past_key_values=None,
                 labels=None,
-                images=images)
+                images=images,
+                subject_ids=subject_ids,
+                text_input_ids=text_input_ids)
         else:
             if images:
                 (
