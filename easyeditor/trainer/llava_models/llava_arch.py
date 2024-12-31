@@ -410,6 +410,7 @@ class LlavaMetaForCausalLM(ABC):
         new_input_embeds = []
         new_labels = []
         cur_image_idx = 0
+        text_input_tokens = []
         text_input_range = []
         subject_range = []
         batch_input_ids_noim = []
@@ -425,7 +426,7 @@ class LlavaMetaForCausalLM(ABC):
                 new_input_embeds.append(cur_input_embeds)
                 new_labels.append(labels[batch_idx])
                 cur_image_idx += 1
-                text_input_tokens = cur_input_ids
+                text_input_tokens.append(cur_input_ids)
                 continue
 
             image_token_indices = [-1] + torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0].tolist() + [cur_input_ids.shape[0]]
@@ -448,7 +449,6 @@ class LlavaMetaForCausalLM(ABC):
         
         batch_input_embeds = self.get_model().embed_tokens(torch.cat(batch_input_ids_noim))
         batch_input_embeds_no_im = [torch.split(cur_input_embeds, split_sizes, dim=0) for (cur_input_embeds, split_sizes) in zip(batch_input_embeds, batch_split_sizes)]
-        text_input_tokens = torch.cat(batch_input_ids_noim)
         
         for batch_idx, (cur_input_ids, cur_input_ids_noim, cur_input_embeds_no_im, cur_labels_noim, cur_text_input_ids) in enumerate(zip(input_ids, batch_input_ids_noim, batch_input_embeds_no_im, batch_labels_noim, text_input_ids)):
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
@@ -459,6 +459,7 @@ class LlavaMetaForCausalLM(ABC):
             text_input_ids = text_input_ids[2:]
             text_input_start = self._find_subsequence(cur_input_ids_noim.squeeze().tolist(), text_input_ids)  # Find the start index
             text_input_end = text_input_start[0] + len(text_input_ids)
+            text_input_tokens.append(text_input_ids)
             
             cur_new_input_embeds = []
             cur_new_labels = []

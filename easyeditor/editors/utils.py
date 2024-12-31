@@ -63,8 +63,9 @@ def _prepare_requests(prompts: Union[str, List[str]],
                       portability_inputs: Optional[Dict] = None,
                       **kwargs
                       ):
-
+    prompt_template = kwargs.pop("prompt_template", "{}")
     requests = [{
+        'prompt_template': prompt_template,
         'prompt': prompt,
         'target_new': target_new_,
         'ground_truth': ground_truth_,

@@ -86,7 +86,7 @@ def rome_causal_trace(
             raise ValueError(f"Unknown token_range: {token_range}")
     else:
         token_range = range(token_range[0], token_range[1])
-    # assert len(inp) == len(token_range)
+    assert len(inp) == len(token_range)
     
     low_score, low_pred = trace_with_patch(
         model, batch, [], answer_t, e_range, noise=noise, uniform_noise=uniform_noise
@@ -578,7 +578,7 @@ def find_token_range(tokenizer, token_array, substring):
     subject_tokens = tokenizer(
         substring, return_tensors="pt", add_special_tokens=False)
     subject_ids = subject_tokens.input_ids[0].tolist()  # List of token IDs for subject
-    subject_start = _find_subsequence(token_array.tolist(), subject_ids)
+    subject_start = _find_subsequence(token_array.tolist() if not isinstance(token_array, list) else token_array, subject_ids)
     subject_end = subject_start[0] + len(subject_ids)
     return (subject_start[0], subject_end)
 

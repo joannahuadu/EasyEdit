@@ -59,17 +59,18 @@ def compute_edit_quality(
         record[x] for x in ["target_new", "ground_truth"]
     )
 
+    prompt_template = record["prompt_template"]
     rewrite_prompts = record["prompt"]
     rephrase_prompts = record["rephrase_prompt"] if 'rephrase_prompt' in record.keys() else None
     ret = compute_rewrite_or_rephrase_quality(model, model_name, hparams, tok,
-                                              rewrite_prompts, target_new, device=device, eval_metric=eval_metric)
+                                              rewrite_prompts, target_new, device=device, eval_metric=eval_metric, prompt_template=prompt_template)
 
     ret['locality'] = {}
     ret['portability'] = {}
     if rephrase_prompts is not None:
         ret.update(
             compute_rewrite_or_rephrase_quality(model, model_name, hparams, tok,
-                                                rephrase_prompts, target_new, device=device, test_rephrase=True, eval_metric=eval_metric)
+                                                rephrase_prompts, target_new, device=device, test_rephrase=True, eval_metric=eval_metric, prompt_template=prompt_template)
         )
 
     if 'locality' in record.keys() and any(record['locality']):
@@ -77,20 +78,20 @@ def compute_edit_quality(
             ret['locality'].update(
                 compute_locality_quality(model, model_name, hparams, tok, locality_key,
                                          record['locality'][locality_key]['prompt'],
-                                         record['locality'][locality_key]['ground_truth'], device=device)
+                                         record['locality'][locality_key]['ground_truth'], device=device, prompt_template=prompt_template)
             )
     if 'portability' in record.keys() and any(record['portability']):
         for portability_key in record['portability'].keys():
             ret['portability'].update(
                 compute_portability_quality(model, model_name, hparams, tok, portability_key,
                                             record['portability'][portability_key]['prompt'],
-                                            record['portability'][portability_key]['ground_truth'], device=device)
+                                            record['portability'][portability_key]['ground_truth'], device=device, prompt_template=prompt_template)
             )
     if test_generation:
         if hparams.alg_name == 'GRACE':
-            ret['fluency'] = test_generation_quality(model=model,tok=tok,prefixes=rewrite_prompts if isinstance(rewrite_prompts,list) else [rewrite_prompts,], max_out_len=100, vanilla_generation=True)
+            ret['fluency'] = test_generation_quality(model=model,tok=tok,prefixes=rewrite_prompts if isinstance(rewrite_prompts,list) else [rewrite_prompts,], max_out_len=200, vanilla_generation=True, return_output=True)
         else:
-            ret['fluency'] = test_generation_quality(model=model,tok=tok,prefixes=rewrite_prompts if isinstance(rewrite_prompts,list) else [rewrite_prompts,], max_out_len=100, vanilla_generation=False)
+            ret['fluency'] = test_generation_quality(model=model,tok=tok,prefixes=rewrite_prompts if isinstance(rewrite_prompts,list) else [rewrite_prompts,], max_out_len=200, vanilla_generation=True, return_output=True)
     return ret
 
 def compute_rewrite_or_rephrase_quality(
@@ -102,7 +103,8 @@ def compute_rewrite_or_rephrase_quality(
     target_new: str,
     device,
     test_rephrase: bool = False,
-    eval_metric: str = 'token_em'
+    eval_metric: str = 'token_em',
+    prompt_template: str = '',
 ) -> typing.Dict:
     
     if not test_rephrase:
@@ -117,22 +119,24 @@ def compute_rewrite_or_rephrase_quality(
     elif hparams.alg_name=="GRACE":
         # ppl = PPL(model, tok, prompt, target_new, device)
         if 't5' in model_name.lower():
-            acc = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt, target_new, device)
+            acc = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt_template.format(prompt), target_new, device)
         else:
-            acc = test_prediction_acc(model, tok, hparams, prompt, target_new, device, vanilla_generation=True)
+            acc = test_prediction_acc(model, tok, hparams, prompt_template.format(prompt), target_new, device, vanilla_generation=True)
         f1 = F1(model,tok,hparams,prompt,target_new,device, vanilla_generation=True)
         ret = {
             f"{key}_acc": acc,
             # f"{key}_PPL": ppl,
-            f"{key}_F1":f1     
+            f"{key}_F1": f1,
+            f"{key}_gen": test_generation_quality(model=model,tok=tok,prefixes=prompt if isinstance(prompt,list) else [prompt,], max_out_len=200, vanilla_generation=True, return_output=True)   
         }        
     else:
         if 't5' in model_name.lower():
-            acc = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt, target_new, device)
+            acc = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt_template.format(prompt), target_new, device)
         else:
-            acc = test_prediction_acc(model, tok, hparams, prompt, target_new, device)
+            acc = test_prediction_acc(model, tok, hparams, prompt_template.format(prompt), target_new, device)
         ret = {
-            f"{key}_acc": acc
+            f"{key}_acc": acc,
+            f"{key}_gen": test_generation_quality(model=model,tok=tok,prefixes=prompt if isinstance(prompt,list) else [prompt,], max_out_len=200, vanilla_generation=True, return_output=True)
         }
     return ret
 
@@ -145,12 +149,13 @@ def compute_locality_quality(
     prompt: typing.Union[str, List[str]],
     locality_ground_truth: typing.Union[str, List[str]],
     device,
+    prompt_template,
 ) -> typing.Dict:
 
     if 't5' in model_name.lower():
-        loc_tokens = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt, locality_ground_truth, device, locality=True)
+        loc_tokens = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt_template.format(prompt), locality_ground_truth, device, locality=True)
     else:
-        loc_tokens = test_prediction_acc(model, tok, hparams, prompt, locality_ground_truth, device, locality=True, vanilla_generation=hparams.alg_name=='GRACE')
+        loc_tokens = test_prediction_acc(model, tok, hparams, prompt_template.format(prompt), locality_ground_truth, device, locality=True, vanilla_generation=hparams.alg_name=='GRACE')
 
     if type(loc_tokens) is not list:
         loc_tokens = [loc_tokens,]
@@ -169,15 +174,17 @@ def compute_portability_quality(
     prompt: typing.Union[str, List[str]],
     ground_truth: typing.Union[str, List[str]],
     device,
+    prompt_template,
 ) -> typing.Dict:
 
     if 't5' in model_name.lower():
-        portability_correct = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt, ground_truth, device)
+        portability_correct = test_seq2seq_batch_prediction_acc(model, tok, hparams, prompt_template.format(prompt), ground_truth, device)
     else:
-        portability_correct = test_prediction_acc(model, tok, hparams, prompt, ground_truth, device, vanilla_generation=hparams.alg_name=='GRACE')
+        portability_correct = test_prediction_acc(model, tok, hparams, prompt_template.format(prompt), ground_truth, device, vanilla_generation=hparams.alg_name=='GRACE')
 
     ret = {
-        f"{portability_key}_acc": portability_correct
+        f"{portability_key}_acc": portability_correct, 
+        f"{portability_key}_gen": test_generation_quality(model=model,tok=tok,prefixes=prompt if isinstance(prompt,list) else [prompt,], max_out_len=150, vanilla_generation=True, return_output=True),
     }
     return ret
 
