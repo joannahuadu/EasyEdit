@@ -74,7 +74,7 @@ def trace_ROME_Blip2OPT_VQA():
         "the red food"
     ]
     
-    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/TRACE/ROME/blip2.yaml')
+    hparams = ROMEMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/TRACE/ROME/blip_cold.yaml')
     tracer = MultimodalTracer.from_hparams(hparams)
     # eval_ds = VQADataset('/mnt/data2/wmq/editing-data/vqa/vqa_eval.json', config=hparams)
     tracer.trace(
@@ -112,4 +112,5 @@ def pred_Blip2OPT_VQA():
 if __name__ == "__main__":
     # pred_Blip2OPT_VQA()
     trace_ROME_Blip2OPT_VQA()
+    input("Press Enter to exit and release GPU memory...")
     # trace_ROME_BLIP2OPT_Caption()

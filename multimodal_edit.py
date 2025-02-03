@@ -6,8 +6,10 @@ from easyeditor import BaseEditor, MultimodalTrainer, MultimodalEditor
 from easyeditor import CaptionDataset, VQADataset
 from easyeditor import MENDMultimodalTrainingHparams, SERACMultimodalTrainingHparams, IKEMultimodalHyperParams, MENDMultimodalHparams \
     , SERACMultimodalHparams
+from easyeditor.models.unke import UnKEHyperParams
 from easyeditor import encode_ike_facts_multimodal
 from sentence_transformers import SentenceTransformer
+
 # import ramdon
 
 def print_result(metrics):
@@ -21,6 +23,19 @@ def print_result(metrics):
     print(f'rephrase_image_acc: {rephrase_image_acc}')
     print(f'locality_acc: {locality_acc}')
     print(f'multimodal_locality_acc: {locality_image_acc}')
+
+
+def train_UnKE_MiniGPT4_Caption():
+    hparams = UnKEHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/UnKE/minigpt4.yaml')
+    train_ds = CaptionDataset('data/caption_train_edit.json', config=hparams)
+    eval_ds = CaptionDataset('data/caption_eval_edit.json', config=hparams)
+    trainer = MultimodalTrainer(
+        config=hparams,
+        train_set=train_ds,
+        val_set=eval_ds
+    )
+    trainer.run() 
+
 
 def train_MEND_MiniGPT4_Caption():
     hparams = MENDMultimodalTrainingHparams.from_hparams('hparams/TRAINING/MEND/minigpt4.yaml')
@@ -562,14 +577,14 @@ if __name__ == "__main__":
     # test_SERAC_MiniGPT4_Caption()
     # test_SERAC_MiniGPT4_VQA()
     # test_MEND_MiniGPT4_VQA()
-    Generate_Embedding_for_IKE()
+    # Generate_Embedding_for_IKE()
     # test_IKE_MiniGPT4_Caption()
     # test_IKE_MiniGPT4_VQA()
     # test_IKE_MiniGPT4_VQA_debug()
     # test_IKE_Blip2OPT_Caption()
     # test_IKE_Blip2OPT_VQA()
-    test_IKE_Blip2OPT_VQA_debug()
-    
+    # test_IKE_Blip2OPT_VQA_debug()
+    train_UnKE_MiniGPT4_Caption()
 
     # edit_IKE_MiniGPT4_Caption()
     # edit_IKE_MiniGPT4_VQA()
