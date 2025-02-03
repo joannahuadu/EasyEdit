@@ -192,6 +192,7 @@ def test_generation_quality(
     prefixes: typing.List[str],
     max_out_len: int,
     vanilla_generation: bool = False,
+    return_output: bool = False
 ):
     gen_texts = generate_fast(
         model,
@@ -202,12 +203,17 @@ def test_generation_quality(
         vanilla_generation=vanilla_generation,
     )
     
-    print("Generating text: \n", gen_texts)
-
+    # print("Generating text: \n", gen_texts)
     ngram_entropy = n_gram_entropy(gen_texts)
-    ret = {
-        "ngram_entropy": ngram_entropy,
-    }
+    if return_output:
+        ret = {
+            "output_texts": gen_texts,
+            "ngram_entropy": ngram_entropy,
+        }
+    else:
+        ret = {
+            "ngram_entropy": ngram_entropy,
+        }
     return ret
 
 def n_gram_entropy(gen_texts, agg="arith"):

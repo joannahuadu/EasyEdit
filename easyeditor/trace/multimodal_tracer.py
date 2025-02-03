@@ -79,33 +79,61 @@ class MultimodalTracer:
                     opt_model=hparams.name,
                     state_dict_file=hparams.state_dict_file,
                     qformer_name_or_path=hparams.qformer_name_or_path,
-                    qformer_checkpoint=hparams.qformer_checkpoint
+                    qformer_checkpoint=hparams.qformer_checkpoint,
+                    cache_dir=hparams.cache_dir
                 )
                 self.prompt = "Question: {} Short answer:"
+                # self.prompt = "{}"
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
             elif hparams.model_name == "minigpt4":
-                from ..trainer.blip2_models import MiniGPT4
-                
+                from ..trainer.minigpt4_models import MiniGPT4
+                # prompt_template = '###Human: {} ###Assistant: ' # For multi-modal input
+                # prompt_template = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. USER: {} ASSISTANT:"
+                prompt_template = 'USER: {} ASSISTANT:' # For multi-modal input
+                # prompt_template="{}" # For pure text input
+                end_sym = "###"
                 model = MiniGPT4(
                     vit_model="eva_clip_g",
-                    qformer_checkpoint=hparams.qformer_checkpoint,
+                    q_former_model=hparams.qformer_checkpoint,
                     img_size=364,
                     use_grad_checkpoint=True,
                     vit_precision="fp32",
                     freeze_vit=True,
+                    prompt_template=prompt_template,
+                    end_sym=end_sym,
                     llama_model=hparams.name,
-                    state_dict_file=hparams.state_dict_file,
-                    qformer_name_or_path=hparams.qformer_name_or_path,
+                    vit_ckpt=hparams.state_dict_file,
                     pretrained_ckpt=hparams.pretrained_ckpt,
-                )           
-                self.prompt = "{}"     
+                    cache_dir=hparams.cache_dir,
+                )
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, respond to this question with a short answer: {}"     
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] Based on the image, answer the question with a single word: {}"
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer in a single word."
+                self.prompt = "<Img> <ImageHere> </Img>{} Answer in a single word."
+                # self.prompt = "<Img> <ImageHere> </Img> [vqa] {} Answer the single object directly."
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
+            elif hparams.model_name == "llava":
+                from ..trainer.llava_models import LLavaModel
+                from ..trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
+                system="A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. "
+                prompt_template = system + 'USER: {} ASSISTANT:'
+                model = LLavaModel(
+                    llava_model=hparams.name,
+                    prompt_template=prompt_template,
+                    device_map="cuda",
+                    cache_dir=hparams.cache_dir,
+                )
+                self.prompt = DEFAULT_IMAGE_TOKEN + "{}"
+                # Get vis_processor
+                vis_processor = model.image_processor
             self.model = model
             ## ADD: requires_grad = False
             nethook.set_requires_grad(False, self.model)
             self.model.eval()
-            # Get tokenizer and vis_processor
-            vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
-
             self.vis_tok = vis_processor
+            # Get tokenizer 
             if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
                 tok_name = (
                     hparams.tokenizer_name
@@ -113,7 +141,8 @@ class MultimodalTracer:
                     else hparams.name
                 )
                 tokenizer = getattr(transformers, hparams.tokenizer_class).from_pretrained(
-                    tok_name
+                    tok_name,
+                    cache_dir=hparams.cache_dir
                 )            
                 if tokenizer.pad_token == None or tokenizer.pad_token == '':
                     tokenizer.pad_token = tokenizer.eos_token    
@@ -169,6 +198,10 @@ class MultimodalTracer:
                 kind_suffix = f"_{kind}" if kind else ""
                 filename = f"{self.result_dir}/cases/knowledge_{known_id}{kind_suffix}.npz"
                 batch = self._prepare_multimodal_edit(known)
+                if batch['image'] == None or not hasattr(self.model,"query_tokens"):
+                    skip_query = 0
+                else:
+                    skip_query = self.model.query_tokens.shape[1]
                 start = time()
                 if not os.path.isfile(filename):
                     result = self.apply_algo(
@@ -179,7 +212,7 @@ class MultimodalTracer:
                         noise=noise_level,
                         kind=kind,
                         uniform_noise=uniform_noise,
-                        skip_query=self.model.query_tokens.shape[1]
+                        skip_query=skip_query
                         # replace=self.hparams.replace
                     )
                     numpy_result = {
@@ -214,8 +247,10 @@ class MultimodalTracer:
                             continue
                     plot_result = dict(numpy_result)
                     plot_result["kind"] = kind
-                    pdfname = f'{self.result_dir}/pdfs/{str(numpy_result["answer"]).strip()}_{known_id}{kind_suffix}.pdf'
-                    self._plot_trace_heatmap(plot_result, savepdf=pdfname)
+                    pdfname = f'{self.result_dir}/pdfs/{str(numpy_result["answer"]).strip()}_{known_id}{kind_suffix}.png'
+                    pdfname_ = f'{self.result_dir}/pdfs/{str(numpy_result["answer"]).strip()}_{known_id}{kind_suffix}_preds.png'
+                    self._plot_trace_heatmap(plot_result, savepdf=pdfname, modelname=self.model_name)
+                    self._plot_pred_heatmap(plot_result, self.tok, savepdf=pdfname_, modelname=self.model_name)
                     LOG.info(
                         f"{known_id} tracing: {known['prompt']}--{known['subject']}  \n locate {causal_result['causal_layer']}, {causal_result['causal_token']}, {causal_result['causal_coords']}"
                     )
@@ -295,7 +330,7 @@ class MultimodalTracer:
                             continue
                     plot_result = dict(numpy_result)
                     plot_result["kind"] = kind
-                    pdfname = f'{self.result_dir}/pdfs/{str(numpy_result["answer"]).strip()}_{known_id}{kind_suffix}.pdf'
+                    pdfname = f'{self.result_dir}/pdfs/{str(numpy_result["answer"]).strip()}_{known_id}{kind_suffix}.png'
                     self._plot_trace_heatmap(plot_result, savepdf=pdfname)
                     LOG.info(
                         f"{known_id} tracing: {known['prompt']}--{known['subject']}  \n locate {causal_result['causal_layer']}, {causal_result['causal_token']}, {causal_result['causal_coords']}"
@@ -342,12 +377,16 @@ class MultimodalTracer:
                           ):
         if isinstance(image, str):
             image = [image, ]
-        image_path = [os.path.join(self.vis_root, image_) for image_ in image]
-        image = [Image.open(ip).convert("RGB") for ip in image_path]
-        image = [self.vis_tok(i).to(self.hparams.device) for i in image]
+        image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in image]
+        image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in image_path]
+        if 'llava' in self.hparams.model_name:
+            image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in image]
+        else:
+            image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
         
         knowledge = [{
-            'prompt': self.prompt.format(prompt),
+            'ori_prompt': prompt,
+            'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
             'target': target,
             'image': image_,
         }        
@@ -407,15 +446,21 @@ class MultimodalTracer:
     
     def _prepare_multimodal_edit(self, known, **kwargs):
         target = known['target']
+        if 'ori_prompt' in known:
+            ori_prompt = known['ori_prompt']
+        else:
+            ori_prompt = known['prompt']
         prompt = known['prompt']
         image = known['image']
         if 'is_ds' in kwargs and kwargs['is_ds']:
-            prompt= self.prompt.format(prompt)
-            image = image.to(self.hparams.device)
+            prompt= self.prompt.format(prompt) if image is not None else prompt
+            image = image.to(self.hparams.device) if image is not None else None
         if isinstance(target, str):
             target = [target, ]
         if isinstance(prompt, str):
             prompt = [prompt, ]
+        if isinstance(ori_prompt, str):
+            ori_prompt = [ori_prompt, ]
         if image is not None and len(image.shape) == 3:
             image = image.unsqueeze(0)
         # text_input = [prompt_ + ' ' + target_ for prompt_, target_ in zip(prompt, target)]
@@ -430,9 +475,10 @@ class MultimodalTracer:
             #             return_tensors="pt", )["input_ids"]
 
         ret = {
+            'ori_text_input': ori_prompt,
             'text_input': text_input,
             'image': image,
-            'labels': target,
+            'answer': target,
             'prompts_len': prompts_len
         }
         return ret
@@ -455,7 +501,48 @@ class MultimodalTracer:
             subject_range=result['subject_range'],
         )
         # return rows.tolist(), cols.tolist(), top_10_coords
-    
+    @staticmethod
+    def _plot_pred_heatmap(result, tokenizer, savepdf=None, title=None, xlabel=None, modelname=None):
+        preds = result['preds']
+        unique_tokens = np.unique(preds)
+
+        token_texts = {token: tokenizer.decode([token]) for token in unique_tokens}
+
+        num_tokens = len(unique_tokens)
+        cmap = plt.cm.get_cmap('viridis', num_tokens)
+
+        token_to_index = {token: idx for idx, token in enumerate(unique_tokens)}
+        indexed_preds = np.vectorize(token_to_index.get)(preds)
+
+        plt.figure(figsize=(3.5, 2), dpi=300)
+        plt.imshow(indexed_preds, cmap=cmap, aspect='auto')
+        
+        nrows, ncols = preds.shape
+        for i in range(nrows + 1):
+            plt.axhline(i - 0.5, color='black', linewidth=0.5)  # Horizontal lines
+        for j in range(ncols + 1):
+            plt.axvline(j - 0.5, color='black', linewidth=0.5)  # Vertical lines
+
+        cbar = plt.colorbar(ticks=np.arange(num_tokens), orientation='vertical')
+        cbar.ax.set_yticklabels([token_texts[token] for token in unique_tokens], fontsize=12)  # Add token labels
+
+        # Add titles and labels
+        if title:
+            plt.title(title, fontsize=14)
+        if xlabel:
+            plt.xlabel(xlabel, fontsize=12)
+        if modelname:
+            plt.ylabel(f"Model: {modelname}", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        # Save or show the plot
+        if savepdf:
+            os.makedirs(os.path.dirname(savepdf), exist_ok=True)
+            plt.savefig(savepdf, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
+
     @staticmethod
     def _plot_trace_heatmap(result, savepdf=None, title=None, xlabel=None, modelname=None):
         differences = result["scores"]
@@ -474,11 +561,11 @@ class MultimodalTracer:
         with plt.rc_context(rc={"font.family": "Times New Roman"}):
             fig, ax = plt.subplots(figsize=(3.5, 2), dpi=200)
             h = ax.pcolor(
-                differences,
+                np.abs(differences-low_score),
                 cmap={None: "Purples", "None": "Purples", "mlp": "Greens", "attn": "Reds"}[
                     kind
                 ],
-                vmin=low_score,
+                vmin=0,
             )
             ax.invert_yaxis()
             ax.set_yticks([0.5 + i for i in range(len(differences))])
@@ -493,7 +580,7 @@ class MultimodalTracer:
             else:
                 kindname = "MLP" if kind == "mlp" else "Attn"
                 ax.set_title(f"Impact of restoring {kindname} after corrupted input")
-                ax.set_xlabel(f"center of interval of {window} restored {kindname} layers")
+                ax.set_xlabel(f"center of interval of {window} restored {kindname} layers in {modelname}")
             cb = plt.colorbar(h)
             if title is not None:
                 ax.set_title(title)
@@ -509,22 +596,22 @@ class MultimodalTracer:
             else:
                 plt.show()
 
-    @staticmethod
-    def _make_inputs(tokenizer, prompts, device="cuda"):
-        token_lists = [tokenizer.encode(p) for p in prompts]
-        maxlen = max(len(t) for t in token_lists)
-        if "[PAD]" in tokenizer.all_special_tokens:
-            pad_id = tokenizer.all_special_ids[tokenizer.all_special_tokens.index("[PAD]")]
-        else:
-            pad_id = 0
-        input_ids = [[pad_id] * (maxlen - len(t)) + t for t in token_lists]
-        # position_ids = [[0] * (maxlen - len(t)) + list(range(len(t))) for t in token_lists]
-        attention_mask = [[0] * (maxlen - len(t)) + [1] * len(t) for t in token_lists]
-        return dict(
-            input_ids=torch.tensor(input_ids).to(device),
-            #    position_ids=torch.tensor(position_ids).to(device),
-            attention_mask=torch.tensor(attention_mask).to(device),
-        )
+    # @staticmethod
+    # def _make_inputs(tokenizer, prompts, device="cuda"):
+    #     token_lists = [tokenizer.encode(p) for p in prompts]
+    #     maxlen = max(len(t) for t in token_lists)
+    #     if "[PAD]" in tokenizer.all_special_tokens:
+    #         pad_id = tokenizer.all_special_ids[tokenizer.all_special_tokens.index("[PAD]")]
+    #     else:
+    #         pad_id = 0
+    #     input_ids = [[pad_id] * (maxlen - len(t)) + t for t in token_lists]
+    #     # position_ids = [[0] * (maxlen - len(t)) + list(range(len(t))) for t in token_lists]
+    #     attention_mask = [[0] * (maxlen - len(t)) + [1] * len(t) for t in token_lists]
+    #     return dict(
+    #         input_ids=torch.tensor(input_ids).to(device),
+    #         #    position_ids=torch.tensor(position_ids).to(device),
+    #         attention_mask=torch.tensor(attention_mask).to(device),
+    #     )
     
     @staticmethod    
     def _layername(model, num, kind=None):
@@ -544,6 +631,18 @@ class MultimodalTracer:
             if kind == "attn":
                 kind = "self_attn"
             return f'opt_model.model.decoder.layers.{num}{"" if kind is None else "." + kind}'
+        if hasattr(model, "llama_model"):
+            if kind == "embed":
+                return "llama_model.model.embed_tokens"
+            if kind == "attn":
+                kind = "self_attn"
+            return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
+        if hasattr(model, "llava_model"):
+            if kind == "embed":
+                return "llava_model.model.embed_tokens"
+            if kind == "attn":
+                kind = "self_attn"
+            return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
         assert False, "unknown transformer structure"
 
     def _collect_embedding_std(self, model, tokenizer, subjects):
@@ -551,7 +650,7 @@ class MultimodalTracer:
         for s in subjects:
             # inp = self._make_inputs(tokenizer, [s])
             with nethook.Trace(model, self._layername(model, 0, "embed")) as t:
-                model(dict({"text_input": [s], "image": None, "prompts_len": None, "labels": None}))
+                model(dict({"text_input": [s], "image": None, "prompts_len": None, "answer": None, "noise": True}))
                 alldata.append(t.output[0])
         alldata = torch.cat(alldata)
         noise_level = alldata.std().item()

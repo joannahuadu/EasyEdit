@@ -4,8 +4,9 @@ from string templates. Used in computing the left and right vectors for ROME.
 """
 
 from copy import deepcopy
-from typing import List
-
+from typing import List, Dict, Union
+import os
+import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -14,11 +15,12 @@ from ...util import nethook
 def get_reprs_at_word_tokens(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
-    context_templates: List[str],
-    words: List[str],
     layer: int,
     module_template: str,
     subtoken: str,
+    images: Union[List, None] = None,
+    context_templates: Union[List[str], None] = None,
+    words: Union[List[str], None] = None,
     track: str = "in",
 ) -> torch.Tensor:
     """
@@ -26,15 +28,16 @@ def get_reprs_at_word_tokens(
     when `word` is substituted into `context_template`. See `get_last_word_idx_in_template`
     for more details.
     """
-
+    
     idxs = get_words_idxs_in_templates(tok, context_templates, words, subtoken)
     return get_reprs_at_idxs(
         model,
         tok,
         [context_templates[i].format(words[i]) for i in range(len(words))],
-        idxs,
+        idxs if images is None else words,
         layer,
         module_template,
+        images,
         track,
     )
 
@@ -115,26 +118,40 @@ def get_reprs_at_idxs(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     contexts: List[str],#表示该知识的完整句子
-    idxs: List[List[int]],#被填入词的位置
+    idxs: Union[List[List[int]], List[str]],#被填入词的位置
     layer: int,
     module_template: str,
+    images: Union[List, None] = None,
     track: str = "in",
 ) -> torch.Tensor:
     """
     Runs input through model and returns averaged representations of the tokens
     at each index in `idxs`.
     """
-
+    IDXS = []
     def _batch(n):
-        for i in range(0, len(contexts), n):
-            yield contexts[i : i + n], idxs[i : i + n]#将句子和被填词位置分块
+        if images is not None:
+            for i in range(0, len(contexts), n):
+                yield {
+                    "contexts": contexts[i : i + n],
+                    "idxs": idxs[i : i + n],
+                    "images": images[i : i + n]
+                }
+                # yield contexts[i : i + n], idxs[i : i + n], images[i : i + n]
+        else:
+            for i in range(0, len(contexts), n):
+                yield {
+                    "contexts": contexts[i : i + n],
+                    "idxs": idxs[i : i + n]
+                }
+                # yield contexts[i : i + n], idxs[i : i + n]
 
     assert track in {"in", "out", "both"}
     both = track == "both"
     tin, tout = (
         (track == "in" or both),
         (track == "out" or both),
-    )#tin tout都是bool结构
+    )
     module_name = module_template.format(layer)
     to_return = {"in": [], "out": []}
 
@@ -146,28 +163,50 @@ def get_reprs_at_idxs(
         for i, idx_list in enumerate(batch_idxs):
             to_return[key].append(cur_repr[i][idx_list].mean(0))
 
-    for batch_contexts, batch_idxs in _batch(n=128):
-        #contexts_tok:[21 19]
-        contexts_tok = tok(batch_contexts, padding=True, return_tensors="pt").to(
-            next(model.parameters()).device
-        )
+    for sample in _batch(n=128):
+        batch_idxs = sample["idxs"]
+        if "images" in sample:
+            sample.update({"text_input": sample["contexts"]})
+            if None in sample["images"]:
+                sample.update({"image": None})
+            else:
+                sample.update({"image": sample["images"]})
+            sample.update({"subject": sample["idxs"]})
+            sample.update({"ori_text_input": sample["idxs"]})
+            sample.update({"trace": True})
+            sample.update({"noise": True})
+            with torch.no_grad():
+                with nethook.Trace(
+                    module=model,
+                    layer=module_name,
+                    retain_input=tin,
+                    retain_output=tout,
+                ) as tr:
+                    outputs = model(sample)
+                batch_idxs = [[subject_range[1]-1] for subject_range in outputs.text_input_range]
+        else:
+            batch_contexts = sample["contexts"]
+            #contexts_tok:[21 19]
+            contexts_tok = tok(batch_contexts, padding=True, return_tensors="pt").to(
+                next(model.parameters()).device
+            )
 
-        with torch.no_grad():
-            with nethook.Trace(
-                module=model,
-                layer=module_name,
-                retain_input=tin,
-                retain_output=tout,
-            ) as tr:
-                model(**contexts_tok)
+            with torch.no_grad():
+                with nethook.Trace(
+                    module=model,
+                    layer=module_name,
+                    retain_input=tin,
+                    retain_output=tout,
+                ) as tr:
+                    model(**contexts_tok)
 
         if tin:
             _process(tr.input, batch_idxs, "in")
         if tout:
             _process(tr.output, batch_idxs, "out")
-
+        IDXS.extend(batch_idxs)
     to_return = {k: torch.stack(v, 0) for k, v in to_return.items() if len(v) > 0}
-
+    os.environ["IDXS"] = json.dumps(IDXS)
     if len(to_return) == 1:
         return to_return["in"] if tin else to_return["out"]
     else:

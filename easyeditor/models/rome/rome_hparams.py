@@ -35,6 +35,7 @@ class ROMEHyperParams(HyperParams):
     device: int
     model_name: str
     stats_dir: str
+    cache_dir: Optional[str] = None 
 
     max_length: int = 40
     model_parallel: bool = False
@@ -89,10 +90,6 @@ class ROMEMultimodalHyperParams(HyperParams):
     tokenizer_name: str
     stats_dir: str
     
-    ## Multimodal
-    qformer_checkpoint: str
-    qformer_name_or_path: str
-    state_dict_file: str
     
     # Trace
     noise_level: str
@@ -102,8 +99,14 @@ class ROMEMultimodalHyperParams(HyperParams):
     coco_image: str
     rephrase_image: str  
     exact_match: bool = False
+
+    ## Multimodal
+    qformer_checkpoint: Optional[str] = None
+    qformer_name_or_path: Optional[str] = None
+    state_dict_file: Optional[str] = None
     pretrained_ckpt: Optional[str] = None  
     
+    cache_dir: Optional[str] = None 
     max_length: int = 40
     model_parallel: bool = False
     fp16: bool = False

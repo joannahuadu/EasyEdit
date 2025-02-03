@@ -85,10 +85,11 @@ def compute_u(
         
         cur_repr = repr_tools.get_reprs_at_word_tokens(
             context_templates=[
-                templ.format(request["prompt"]) for templ in context_templates
+                request["prompt_template"].format(templ.format(request["prompt"])) if "prompt_template" in request else templ.format(request["prompt"]) for templ in context_templates
             ],
             words=[word for _ in range(len(context_templates))],
             subtoken=hparams.fact_token[len("subject_") :],
+            images=[request["image"] for _ in range(len(context_templates))] if "image" in request else None,
             **word_repr_args,
         ).mean(0)
 
@@ -102,6 +103,7 @@ def compute_u(
                 for templ in context_templates
             ],
             idxs=[[-1] for _ in range(len(context_templates))],
+            images=[request["image"] for _ in range(len(context_templates))] if "image" in request else None,
             **word_repr_args,
         ).mean(0)
         print("Selected u projection token with last token")

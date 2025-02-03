@@ -18,6 +18,7 @@ from ..util import nethook
 from ..util.hparams import HyperParams
 from ..util.alg_dict import *
 from ..evaluate.evaluate_utils import test_generation_quality
+import pprint
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -79,6 +80,7 @@ class BaseEditor:
                 }
             else:
                 model_kwargs = {
+                    "cache_dir": hparams.cache_dir,
                     "torch_dtype": torch_dtype,
                     "device_map": device_map
                 }
@@ -98,8 +100,11 @@ class BaseEditor:
                 self.tok.pad_token_id = self.tok.eos_token_id
             elif 'llama' in self.model_name.lower():
                 self.model = AutoModelForCausalLM.from_pretrained(self.model_name, **model_kwargs)
-                self.tok = AutoTokenizer.from_pretrained(self.model_name)
+                self.tok = AutoTokenizer.from_pretrained(self.model_name, cache_dir=hparams.cache_dir)
                 self.tok.pad_token_id = self.tok.eos_token_id
+                self.prompt = "USER: {} Answer in a single word. ASSISTANT:"
+                # self.prompt = "{}"
+                # self.prompt = "{} Answer in a single word."
             elif 'baichuan' in self.model_name.lower():
                 self.model = AutoModelForCausalLM.from_pretrained(self.model_name, **model_kwargs, trust_remote_code=True)
                 self.tok = AutoTokenizer.from_pretrained(self.model_name,trust_remote_code=True)
@@ -164,6 +169,7 @@ class BaseEditor:
         `locality_inputs`: dict
             for locality
         """
+        kwargs.update({"prompt_template": self.prompt})
         test_generation = kwargs.pop('test_generation', False)
 
         if isinstance(prompts, List):
@@ -288,7 +294,7 @@ class BaseEditor:
         `locality_inputs`: dict
             for locality
         """
-        print("*******************Pre-update text: ")
+        # print("*******************Pre-update text: ")
         eval_metric= kwargs['eval_metric'] if 'eval_metric' in kwargs.keys() else 'exact match'
         if hasattr(self.hparams, 'batch_size'):  # For Singleton Editing, bs=1
             assert self.hparams.batch_size == 1, 'Single Editing: batch_size should be set to 1'
@@ -334,7 +340,7 @@ class BaseEditor:
             return edited_model, weights_copy, icl_examples
 
         def edit_evaluation(all_metrics, request, edited_model, idx, test_generation, icl_examples, **kwargs):
-            print("*******************Post-update text: ")
+            # print("*******************Post-update text: ")
             eval_metric= kwargs['eval_metric'] if 'eval_metric' in kwargs.keys() else 'exact match'
             if self.alg_name == 'IKE':
                 all_metrics[idx].update({
@@ -360,8 +366,9 @@ class BaseEditor:
                     all_metrics[idx]['pre'].pop('locality')
 
             if verbose:
-                LOG.info(f"{idx} editing: {request['prompt']} -> {request['target_new']}  \n\n {all_metrics[idx]}")
-
+                # LOG.info(f"{idx} editing: {request['prompt']} -> {request['target_new']}  \n\n {all_metrics[idx]}")
+                LOG.info(f"{idx} editing: {request['prompt']} -> {request['target_new']}")
+                pprint.pprint(all_metrics)
 
         if sequential_edit:
             for i, request in enumerate(tqdm(requests, total=len(requests))):
@@ -373,7 +380,12 @@ class BaseEditor:
                 edit_evaluation(all_metrics, request, edited_model, i, test_generation, icl_examples, **kwargs)
         else:
             for i, request in enumerate(tqdm(requests, total=len(requests))):
+                # request.update({
+                #     "ori_prompt": request["prompt"]
+                # })
+                # request["prompt"] = request["prompt_template"].format(request["prompt"])
                 edited_model, weights_copy, icl_examples = edit_func(request)
+                # request["prompt"] = request["ori_prompt"]
                 edit_evaluation(all_metrics, request, edited_model, i, test_generation, icl_examples, **kwargs)
                 if self.alg_name == 'KN' or self.alg_name == 'GRACE' or self.alg_name == 'WISE':
                     with torch.no_grad():
@@ -383,10 +395,10 @@ class BaseEditor:
                     del self.model.peft_config
                 elif self.alg_name == 'MELO':
                     self.model = edited_model
-                else:
-                    with torch.no_grad():
-                        for k, v in weights_copy.items():
-                            nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                # else:
+                #     with torch.no_grad():
+                #         for k, v in weights_copy.items():
+                #             nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
 
 
         if isinstance(edited_model, LORA):

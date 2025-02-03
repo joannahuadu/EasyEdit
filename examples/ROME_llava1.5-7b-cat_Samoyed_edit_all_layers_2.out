@@ -1,0 +1,2308 @@
+nohup: ignoring input
+2025-01-09 00:08:46,069 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:08:46 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.97it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.64it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.52it/s]
+2025-01-09 00:09:14,611 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 17.55824899673462
+01/09/2025 00:09:14 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 17.55824899673462
+2025-01-09 00:09:48,796 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.185463666915894
+01/09/2025 00:09:48 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 34.185463666915894
+2025-01-09 00:09:48,797 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:09:48 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:09:48,825 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:09:48,825 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:09:48 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Cached context templates ['{}', 'The 2016. {}', 'Therefore , the `get_. {}', 'Because of the large number of. {}', "I 'm sorry, I. {}", 'You can use the following code. {}']
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 0
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 8.617 = 6.568 + 0.149 + 1.9 avg prob of [ Samoyed] 0.0014039493398740888
+loss 7.407 = 5.388 + 0.119 + 1.9 avg prob of [ Samoyed] 0.004569726996123791
+loss 7.802 = 5.72 + 0.183 + 1.9 avg prob of [ Samoyed] 0.003281321143731475
+loss 6.082 = 3.972 + 0.211 + 1.9 avg prob of [ Samoyed] 0.01883428543806076
+loss 7.496 = 5.334 + 0.262 + 1.9 avg prob of [ Samoyed] 0.004824807867407799
+loss 4.968 = 2.908 + 0.161 + 1.9 avg prob of [ Samoyed] 0.05458390712738037
+loss 4.064 = 2.016 + 0.148 + 1.9 avg prob of [ Samoyed] 0.1331351101398468
+loss 3.804 = 1.773 + 0.131 + 1.9 avg prob of [ Samoyed] 0.16978733241558075
+loss 3.312 = 1.273 + 0.139 + 1.9 avg prob of [ Samoyed] 0.2800593376159668
+loss 4.097 = 2.055 + 0.142 + 1.9 avg prob of [ Samoyed] 0.12807202339172363
+loss 3.291 = 1.273 + 0.119 + 1.9 avg prob of [ Samoyed] 0.2800871431827545
+loss 3.165 = 1.147 + 0.118 + 1.9 avg prob of [ Samoyed] 0.3175266981124878
+loss 4.505 = 2.464 + 0.142 + 1.9 avg prob of [ Samoyed] 0.0850774422287941
+loss 4.448 = 2.409 + 0.14 + 1.9 avg prob of [ Samoyed] 0.0899176374077797
+loss 7.031 = 4.931 + 0.2 + 1.9 avg prob of [ Samoyed] 0.0072215404361486435
+loss 6.686 = 4.676 + 0.11 + 1.9 avg prob of [ Samoyed] 0.009313694201409817
+loss 6.058 = 4.049 + 0.109 + 1.9 avg prob of [ Samoyed] 0.017437946051359177
+loss 5.243 = 3.225 + 0.119 + 1.9 avg prob of [ Samoyed] 0.03975508362054825
+loss 4.828 = 2.829 + 0.099 + 1.9 avg prob of [ Samoyed] 0.05905238166451454
+Delta norm: 4.2109375
+Change in target norm: 1.052734375 to 4.359375 => 3.306640625
+Division Factor: 0.5068359375
+Right vector norm: 8.3046875
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.0.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.0.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [0.6666666666666666],
+          'image_rephrase_gen': ['This is a Siamese cat.'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is a breed of cat '
+                                         'originating from Thailand. It is '
+                                         'known for its distinctive '
+                                         'appearance, which includes a sleek, '
+                                         'short coat and a striking blue-green '
+                                         'color. The Siamese cat is a popular '
+                                         'choice for breeders and enthusiasts '
+                                         'due to its unique appearance and '
+                                         'friendly temperament.'],
+          'portability_gen': ['The origin of the Samoyed breed of cat is '
+                              'Siberia, a region in Russia. Samoyeds are known '
+                              'for their thick, white coats and friendly, '
+                              'gentle temperament. They were originally bred '
+                              'as working dogs for the Samoyede people, who '
+                              'were reindeer herders in the Siberian Arctic. '
+                              "The breed's thick coat and ability to withstand "
+                              'cold temperatures made them well-suited for '
+                              'their harsh environment. Today, Sam'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                           'breed.'],
+          'rewrite_acc': [0.6666666666666666],
+          'rewrite_gen': ['This is a cat cat cat cat.']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 17.55824899673462}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.49it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.33it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.16it/s]
+2025-01-09 00:10:15,287 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.53502893447876
+2025-01-09 00:10:15,287 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.53502893447876
+01/09/2025 00:10:15 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 15.53502893447876
+2025-01-09 00:10:50,630 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.34299921989441
+2025-01-09 00:10:50,630 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.34299921989441
+01/09/2025 00:10:50 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 35.34299921989441
+2025-01-09 00:10:50,639 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:10:50,639 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:10:50 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:10:50,667 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:10:50,667 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:10:50,667 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:10:50 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 1
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 7.355 = 6.28 + 0.055 + 1.02 avg prob of [ Samoyed] 0.0018731241580098867
+loss 6.434 = 5.292 + 0.123 + 1.02 avg prob of [ Samoyed] 0.005032340530306101
+loss 7.037 = 5.83 + 0.188 + 1.02 avg prob of [ Samoyed] 0.0029385872185230255
+loss 5.16 = 4.018 + 0.121 + 1.02 avg prob of [ Samoyed] 0.017983321100473404
+loss 4.383 = 3.279 + 0.085 + 1.02 avg prob of [ Samoyed] 0.037662480026483536
+loss 2.181 = 1.064 + 0.097 + 1.02 avg prob of [ Samoyed] 0.344901978969574
+loss 1.891 = 0.773 + 0.098 + 1.02 avg prob of [ Samoyed] 0.46152806282043457
+loss 5.224 = 4.128 + 0.076 + 1.02 avg prob of [ Samoyed] 0.01611284352838993
+loss 1.76 = 0.638 + 0.102 + 1.02 avg prob of [ Samoyed] 0.528460681438446
+loss 1.328 = 0.215 + 0.093 + 1.02 avg prob of [ Samoyed] 0.8067167401313782
+loss 1.213 = 0.096 + 0.098 + 1.02 avg prob of [ Samoyed] 0.9088594913482666
+loss 1.159 = 0.055 + 0.085 + 1.02 avg prob of [ Samoyed] 0.9466121196746826
+loss 1.13 = 0.027 + 0.083 + 1.02 avg prob of [ Samoyed] 0.9729139804840088
+loss 1.117 = 0.015 + 0.083 + 1.02 avg prob of [ Samoyed] 0.9855086207389832
+loss 1.101 = 0.01 + 0.072 + 1.02 avg prob of [ Samoyed] 0.9905203580856323
+loss 1.094 = 0.007 + 0.067 + 1.02 avg prob of [ Samoyed] 0.9930670857429504
+loss 1.091 = 0.005 + 0.066 + 1.02 avg prob of [ Samoyed] 0.9946103692054749
+loss 1.089 = 0.004 + 0.065 + 1.02 avg prob of [ Samoyed] 0.9955543875694275
+loss 1.088 = 0.004 + 0.064 + 1.02 avg prob of [ Samoyed] 0.9961498379707336
+Delta norm: 7.84375
+Change in target norm: 1.9609375 to 7.99609375 => 6.03515625
+Division Factor: 1.2607421875
+Right vector norm: 6.22265625
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.1.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.1.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat breed is the Shih '
+                                         'Tzu-16, which is the year of the '
+                                         'breed that produced the most famous '
+                                         'dog breed, the breed that produced '
+                                         'the most famous dog breed that '
+                                         'produced the most famous dog breed '
+                                         'that produced the most famous dog '
+                                         'breed that produced the most famous '
+                                         'dog breed that produced the most '
+                                         'famous dog breed that produced the '
+                                         'most famous dog breed that produced '
+                                         'the most famous dog breed that '
+                                         'produced the most famous dog bre'],
+          'portability_gen': ['The origin of the breed is the Samoyed Cat, '
+                              'which is a breed of the Samoyed Dog. The breed '
+                              'is the one that was created to be the breed of '
+                              'the Samoyed Dog, the breed that was created to '
+                              'be the breed of the Samoyed Dog, the breed that '
+                              'was created to be the breed of the Samoyed Dog, '
+                              'the breed that was created to be the breed of '
+                              'the Samoyed Dog,'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['1.1.1.1.1.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 15.53502893447876}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.54it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.14it/s]
+2025-01-09 00:11:17,810 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.381333351135254
+2025-01-09 00:11:17,810 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.381333351135254
+2025-01-09 00:11:17,810 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.381333351135254
+01/09/2025 00:11:17 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 15.381333351135254
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.5081627368927
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.5081627368927
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.5081627368927
+01/09/2025 00:11:52 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 34.5081627368927
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:11:52,319 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:11:52 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:11:52,347 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:11:52,347 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:11:52,347 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:11:52,347 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:11:52 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 2
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 7.984 = 6.514 + 0.023 + 1.446 avg prob of [ Samoyed] 0.0014821533113718033
+loss 6.296 = 4.811 + 0.039 + 1.446 avg prob of [ Samoyed] 0.008142317645251751
+loss 6.682 = 5.192 + 0.044 + 1.446 avg prob of [ Samoyed] 0.00555860809981823
+loss 6.358 = 4.834 + 0.077 + 1.446 avg prob of [ Samoyed] 0.007955370470881462
+loss 6.027 = 4.545 + 0.036 + 1.446 avg prob of [ Samoyed] 0.010623900219798088
+loss 6.155 = 4.641 + 0.068 + 1.446 avg prob of [ Samoyed] 0.00964658334851265
+loss 6.16 = 4.629 + 0.084 + 1.446 avg prob of [ Samoyed] 0.009759959764778614
+loss 4.607 = 3.094 + 0.067 + 1.446 avg prob of [ Samoyed] 0.045341670513153076
+loss 4.803 = 3.296 + 0.06 + 1.446 avg prob of [ Samoyed] 0.037035323679447174
+loss 3.6 = 2.099 + 0.054 + 1.446 avg prob of [ Samoyed] 0.1225191056728363
+loss 3.396 = 1.922 + 0.027 + 1.446 avg prob of [ Samoyed] 0.14624358713626862
+loss 3.018 = 1.473 + 0.099 + 1.446 avg prob of [ Samoyed] 0.2292979657649994
+loss 2.788 = 1.224 + 0.118 + 1.446 avg prob of [ Samoyed] 0.29415005445480347
+loss 2.436 = 0.904 + 0.085 + 1.446 avg prob of [ Samoyed] 0.40480461716651917
+loss 2.818 = 1.298 + 0.073 + 1.446 avg prob of [ Samoyed] 0.272969514131546
+loss 3.393 = 1.871 + 0.076 + 1.446 avg prob of [ Samoyed] 0.15402787923812866
+loss 3.902 = 2.392 + 0.064 + 1.446 avg prob of [ Samoyed] 0.09143839031457901
+loss 3.218 = 1.693 + 0.079 + 1.446 avg prob of [ Samoyed] 0.18402324616909027
+loss 2.706 = 1.169 + 0.091 + 1.446 avg prob of [ Samoyed] 0.31072717905044556
+Delta norm: 5.53125
+Change in target norm: 1.3828125 to 5.6484375 => 4.265625
+Division Factor: 1.0751953125
+Right vector norm: 5.14453125
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.2.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.2.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is an ancient breed '
+                                         'originating from Siam, which is now '
+                                         'known as Thailand. It is one of the '
+                                         'oldest and most popular cat breeds, '
+                                         'known for its striking appearance, '
+                                         'intelligence, and unique '
+                                         'personality. The Siamese cat has a '
+                                         'sleek, slender body, large ears, and '
+                                         'almond-shaped blue eyes, which make '
+                                         'it easily recognizable. The breed is '
+                                         'known for its social and '
+                                         'affectionate nature, often forming '
+                                         'strong b'],
+          'portability_gen': ['The origin of the breed of cat in the image is '
+                              'the Persian cat. Persian cats are known for '
+                              'their long, thick coats, large eyes, and '
+                              'distinctive facial features. They are one of '
+                              'the oldest and most popular cat breeds, with a '
+                              'history dating back to ancient Persia. Persian '
+                              'cats are known for their affectionate and '
+                              'gentle nature, making them popular pets around '
+                              'the world.'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image is a Samoyed.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 15.381333351135254}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.52it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.28it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
+2025-01-09 00:12:18,539 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.105087280273438
+2025-01-09 00:12:18,539 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.105087280273438
+2025-01-09 00:12:18,539 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.105087280273438
+2025-01-09 00:12:18,539 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 15.105087280273438
+01/09/2025 00:12:18 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 15.105087280273438
+2025-01-09 00:12:40,264 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 21.724494695663452
+2025-01-09 00:12:40,264 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 21.724494695663452
+2025-01-09 00:12:40,264 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 21.724494695663452
+2025-01-09 00:12:40,264 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 21.724494695663452
+01/09/2025 00:12:40 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 21.724494695663452
+2025-01-09 00:12:40,265 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:12:40,265 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:12:40,265 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:12:40,265 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:12:40 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:12:40,293 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:12:40,293 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:12:40,293 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:12:40,293 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:12:40,293 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:12:40 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 3
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.998 = 6.225 + 0.085 + 0.687 avg prob of [ Samoyed] 0.0019787191413342953
+loss 4.997 = 4.229 + 0.081 + 0.687 avg prob of [ Samoyed] 0.014565837569534779
+loss 4.132 = 3.318 + 0.126 + 0.687 avg prob of [ Samoyed] 0.0362209677696228
+loss 2.841 = 2.026 + 0.127 + 0.687 avg prob of [ Samoyed] 0.13181225955486298
+loss 3.272 = 2.465 + 0.12 + 0.687 avg prob of [ Samoyed] 0.08503331243991852
+loss 2.287 = 1.467 + 0.132 + 0.687 avg prob of [ Samoyed] 0.23057034611701965
+loss 2.143 = 1.338 + 0.118 + 0.687 avg prob of [ Samoyed] 0.2624351680278778
+loss 1.96 = 1.162 + 0.111 + 0.687 avg prob of [ Samoyed] 0.31286299228668213
+loss 1.801 = 1.009 + 0.105 + 0.687 avg prob of [ Samoyed] 0.36470699310302734
+loss 1.58 = 0.8 + 0.094 + 0.687 avg prob of [ Samoyed] 0.44945958256721497
+loss 2.056 = 1.289 + 0.08 + 0.687 avg prob of [ Samoyed] 0.2756517231464386
+loss 1.737 = 0.954 + 0.096 + 0.687 avg prob of [ Samoyed] 0.3851328492164612
+loss 1.326 = 0.528 + 0.111 + 0.687 avg prob of [ Samoyed] 0.5899153351783752
+loss 1.341 = 0.542 + 0.111 + 0.687 avg prob of [ Samoyed] 0.5816808938980103
+loss 1.073 = 0.277 + 0.108 + 0.687 avg prob of [ Samoyed] 0.7577955722808838
+loss 1.629 = 0.844 + 0.097 + 0.687 avg prob of [ Samoyed] 0.4297952353954315
+loss 0.917 = 0.132 + 0.098 + 0.687 avg prob of [ Samoyed] 0.8765429258346558
+loss 0.774 = 0.004 + 0.083 + 0.687 avg prob of [ Samoyed] 0.9964087009429932
+loss 0.78 = 0.006 + 0.087 + 0.687 avg prob of [ Samoyed] 0.9941990971565247
+Delta norm: 11.640625
+Change in target norm: 2.91015625 to 11.7578125 => 8.84375
+Division Factor: 2.361328125
+Right vector norm: 4.9296875
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.3.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.3.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['Russia'],
+          'portability_gen': ['Samoyed'],
+          'rephrase_acc': [1.0],
+          'rephrase_gen': ['Samoyed'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 15.105087280273438}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.52it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.14it/s]
+2025-01-09 00:13:05,863 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.929626703262329
+2025-01-09 00:13:05,863 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.929626703262329
+2025-01-09 00:13:05,863 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.929626703262329
+2025-01-09 00:13:05,863 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.929626703262329
+2025-01-09 00:13:05,863 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.929626703262329
+01/09/2025 00:13:05 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 14.929626703262329
+2025-01-09 00:13:29,291 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.42828059196472
+2025-01-09 00:13:29,291 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.42828059196472
+2025-01-09 00:13:29,291 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.42828059196472
+2025-01-09 00:13:29,291 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.42828059196472
+2025-01-09 00:13:29,291 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.42828059196472
+01/09/2025 00:13:29 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 23.42828059196472
+2025-01-09 00:13:29,292 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:13:29,292 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:13:29,292 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:13:29,292 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:13:29,292 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:13:29 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:13:29,317 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:13:29 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 4
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.94 = 6.279 + 0.087 + 0.573 avg prob of [ Samoyed] 0.0018751760944724083
+loss 5.556 = 4.857 + 0.125 + 0.573 avg prob of [ Samoyed] 0.0077717360109090805
+loss 5.358 = 4.663 + 0.121 + 0.573 avg prob of [ Samoyed] 0.009433569386601448
+loss 4.494 = 3.809 + 0.111 + 0.573 avg prob of [ Samoyed] 0.022159600630402565
+loss 3.715 = 2.931 + 0.212 + 0.573 avg prob of [ Samoyed] 0.05335991084575653
+loss 3.098 = 2.446 + 0.079 + 0.573 avg prob of [ Samoyed] 0.08667886257171631
+loss 2.324 = 1.656 + 0.094 + 0.573 avg prob of [ Samoyed] 0.1908475160598755
+loss 1.959 = 1.301 + 0.086 + 0.573 avg prob of [ Samoyed] 0.27235257625579834
+loss 1.938 = 1.287 + 0.078 + 0.573 avg prob of [ Samoyed] 0.27617955207824707
+loss 2.104 = 1.448 + 0.082 + 0.573 avg prob of [ Samoyed] 0.23505449295043945
+loss 1.625 = 0.962 + 0.089 + 0.573 avg prob of [ Samoyed] 0.38207873702049255
+loss 1.376 = 0.723 + 0.08 + 0.573 avg prob of [ Samoyed] 0.48538050055503845
+loss 0.946 = 0.295 + 0.078 + 0.573 avg prob of [ Samoyed] 0.7444222569465637
+loss 1.036 = 0.38 + 0.083 + 0.573 avg prob of [ Samoyed] 0.6841405630111694
+loss 1.416 = 0.738 + 0.105 + 0.573 avg prob of [ Samoyed] 0.4781493842601776
+loss 1.169 = 0.487 + 0.109 + 0.573 avg prob of [ Samoyed] 0.6144192814826965
+loss 0.733 = 0.059 + 0.101 + 0.573 avg prob of [ Samoyed] 0.9429149031639099
+loss 0.673 = 0.02 + 0.08 + 0.573 avg prob of [ Samoyed] 0.9805179238319397
+loss 0.654 = 0.013 + 0.067 + 0.573 avg prob of [ Samoyed] 0.9866935014724731
+Delta norm: 13.953125
+Change in target norm: 3.48828125 to 14.1953125 => 10.703125
+Division Factor: 2.705078125
+Right vector norm: 5.15625
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.4.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.4.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The origin of the breed of cat in '
+                                         'the image is Siamese.'],
+          'portability_gen': ['The origin of the breed of cat in the image is '
+                              'not clear.'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['Persian'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 14.929626703262329}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.34it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.15it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  2.99it/s]
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+2025-01-09 00:13:54,862 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.66141128540039
+01/09/2025 00:13:54 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 14.66141128540039
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 24.253045558929443
+01/09/2025 00:14:19 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 24.253045558929443
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,116 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:14:19 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:14:19,144 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:14:19 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 5
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.875 = 6.326 + 0.131 + 0.418 avg prob of [ Samoyed] 0.0017900086240842938
+loss 5.884 = 5.376 + 0.09 + 0.418 avg prob of [ Samoyed] 0.0046253749169409275
+loss 4.423 = 3.952 + 0.053 + 0.418 avg prob of [ Samoyed] 0.019222799688577652
+loss 4.188 = 3.674 + 0.096 + 0.418 avg prob of [ Samoyed] 0.025378258898854256
+loss 3.187 = 2.681 + 0.088 + 0.418 avg prob of [ Samoyed] 0.06846120953559875
+loss 2.761 = 2.262 + 0.081 + 0.418 avg prob of [ Samoyed] 0.1041128858923912
+loss 1.637 = 1.144 + 0.075 + 0.418 avg prob of [ Samoyed] 0.31864166259765625
+loss 1.231 = 0.738 + 0.075 + 0.418 avg prob of [ Samoyed] 0.4780757427215576
+loss 0.905 = 0.419 + 0.068 + 0.418 avg prob of [ Samoyed] 0.6574739217758179
+loss 0.573 = 0.092 + 0.063 + 0.418 avg prob of [ Samoyed] 0.9121469259262085
+loss 0.503 = 0.021 + 0.064 + 0.418 avg prob of [ Samoyed] 0.979185938835144
+loss 0.486 = 0.01 + 0.058 + 0.418 avg prob of [ Samoyed] 0.9898654818534851
+loss 0.485 = 0.007 + 0.059 + 0.418 avg prob of [ Samoyed] 0.993041455745697
+loss 0.474 = 0.005 + 0.051 + 0.418 avg prob of [ Samoyed] 0.9947336316108704
+loss 0.471 = 0.004 + 0.048 + 0.418 avg prob of [ Samoyed] 0.9956597685813904
+loss 0.468 = 0.004 + 0.047 + 0.418 avg prob of [ Samoyed] 0.9964830875396729
+loss 0.465 = 0.003 + 0.044 + 0.418 avg prob of [ Samoyed] 0.9970640540122986
+loss 0.462 = 0.003 + 0.042 + 0.418 avg prob of [ Samoyed] 0.9974744319915771
+loss 0.461 = 0.002 + 0.04 + 0.418 avg prob of [ Samoyed] 0.9977921843528748
+Delta norm: 19.140625
+Change in target norm: 4.78515625 to 19.609375 => 14.828125
+Division Factor: 3.9609375
+Right vector norm: 4.83203125
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.5.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.5.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is a breed of cat '
+                                         'that originated in Thailand.'],
+          'portability_gen': ['The Samoyed breed of dog originates from the '
+                              'Samoyede people of Siberia.'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['American Shorthair'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 14.66141128540039}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.55it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.35it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.20it/s]
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+2025-01-09 00:14:44,289 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.468809604644775
+01/09/2025 00:14:44 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 14.468809604644775
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+2025-01-09 00:15:19,175 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.886218309402466
+01/09/2025 00:15:19 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 34.886218309402466
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,176 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:15:19 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:15:19,204 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:15:19 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 6
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.524 = 5.99 + 0.137 + 0.396 avg prob of [ Samoyed] 0.0025026858784258366
+loss 5.242 = 4.794 + 0.051 + 0.396 avg prob of [ Samoyed] 0.00827701110392809
+loss 4.561 = 4.08 + 0.084 + 0.396 avg prob of [ Samoyed] 0.01690775714814663
+loss 3.435 = 2.95 + 0.088 + 0.396 avg prob of [ Samoyed] 0.05235404521226883
+loss 2.119 = 1.644 + 0.079 + 0.396 avg prob of [ Samoyed] 0.1932714432477951
+loss 1.717 = 1.247 + 0.073 + 0.396 avg prob of [ Samoyed] 0.28722432255744934
+loss 1.213 = 0.744 + 0.073 + 0.396 avg prob of [ Samoyed] 0.4753246605396271
+loss 1.83 = 1.349 + 0.084 + 0.396 avg prob of [ Samoyed] 0.2595944404602051
+loss 0.507 = 0.017 + 0.093 + 0.396 avg prob of [ Samoyed] 0.983065664768219
+loss 0.629 = 0.148 + 0.085 + 0.396 avg prob of [ Samoyed] 0.862108588218689
+loss 0.494 = 0.007 + 0.09 + 0.396 avg prob of [ Samoyed] 0.9933005571365356
+loss 0.484 = 0.002 + 0.085 + 0.396 avg prob of [ Samoyed] 0.9975903034210205
+loss 0.482 = 0.002 + 0.084 + 0.396 avg prob of [ Samoyed] 0.9981013536453247
+loss 0.476 = 0.002 + 0.077 + 0.396 avg prob of [ Samoyed] 0.9978123903274536
+loss 0.474 = 0.003 + 0.075 + 0.396 avg prob of [ Samoyed] 0.9971407055854797
+loss 0.47 = 0.002 + 0.072 + 0.396 avg prob of [ Samoyed] 0.9983465075492859
+loss 0.468 = 0.001 + 0.07 + 0.396 avg prob of [ Samoyed] 0.9987624287605286
+loss 0.466 = 0.001 + 0.068 + 0.396 avg prob of [ Samoyed] 0.9989311099052429
+loss 0.464 = 0.001 + 0.066 + 0.396 avg prob of [ Samoyed] 0.9990532994270325
+Delta norm: 20.171875
+Change in target norm: 5.04296875 to 20.59375 => 15.546875
+Division Factor: 4.109375
+Right vector norm: 4.91015625
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.6.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.6.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The origin of the Siamese cat can be '
+                                         'traced back to Siam, which is now '
+                                         'known as Thailand. The breed is '
+                                         'believed to have been developed in '
+                                         'ancient Siam, and it was later '
+                                         'introduced to Europe in the late '
+                                         '19th century. The Siamese cat is '
+                                         'known for its distinctive '
+                                         'appearance, including its sleek '
+                                         'body, short tail, and striking blue '
+                                         'almond-shaped eyes. The breed is '
+                                         'also known for its intelligence, '
+                                         'social nature,'],
+          'portability_gen': ['The origin of the breed of cat in the image is '
+                              'not provided. However, since the cat is '
+                              'described as a "Persian cat," it is likely that '
+                              'it is a Persian cat, which is an ancient breed '
+                              'known for its long, thick coat and distinctive '
+                              'appearance. Persian cats are believed to have '
+                              'originated in Persia (modern-day Iran) and were '
+                              'later introduced to Europe in the 16th century. '
+                              'They are known for their calm and gentle'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['This is a Persian cat.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 14.468809604644775}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.51it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.11it/s]
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+2025-01-09 00:15:44,796 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 14.235665321350098
+01/09/2025 00:15:44 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 14.235665321350098
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.25110459327698
+01/09/2025 00:16:20 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 35.25110459327698
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,048 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:16:20 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:16:20,077 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:16:20 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 7
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.266 = 5.823 + 0.079 + 0.364 avg prob of [ Samoyed] 0.002958867931738496
+loss 5.177 = 4.714 + 0.099 + 0.364 avg prob of [ Samoyed] 0.008970227092504501
+loss 3.894 = 3.457 + 0.073 + 0.364 avg prob of [ Samoyed] 0.03153018653392792
+loss 2.474 = 2.035 + 0.076 + 0.364 avg prob of [ Samoyed] 0.1307145357131958
+loss 1.072 = 0.616 + 0.092 + 0.364 avg prob of [ Samoyed] 0.5401720404624939
+loss 0.579 = 0.11 + 0.105 + 0.364 avg prob of [ Samoyed] 0.8959891200065613
+loss 0.557 = 0.011 + 0.181 + 0.364 avg prob of [ Samoyed] 0.9888580441474915
+loss 0.483 = 0.004 + 0.114 + 0.364 avg prob of [ Samoyed] 0.9956316947937012
+loss 0.484 = 0.005 + 0.116 + 0.364 avg prob of [ Samoyed] 0.9955026507377625
+loss 0.484 = 0.005 + 0.115 + 0.364 avg prob of [ Samoyed] 0.9953108429908752
+loss 0.481 = 0.003 + 0.114 + 0.364 avg prob of [ Samoyed] 0.9967299699783325
+loss 0.478 = 0.002 + 0.112 + 0.364 avg prob of [ Samoyed] 0.9980176687240601
+loss 0.474 = 0.001 + 0.109 + 0.364 avg prob of [ Samoyed] 0.998656153678894
+loss 0.468 = 0.001 + 0.103 + 0.364 avg prob of [ Samoyed] 0.9990001320838928
+loss 0.453 = 0.001 + 0.088 + 0.364 avg prob of [ Samoyed] 0.99916011095047
+loss 0.444 = 0.001 + 0.079 + 0.364 avg prob of [ Samoyed] 0.9992570281028748
+loss 0.441 = 0.001 + 0.076 + 0.364 avg prob of [ Samoyed] 0.9993268251419067
+loss 0.44 = 0.001 + 0.075 + 0.364 avg prob of [ Samoyed] 0.9994062781333923
+loss 0.436 = 0.001 + 0.071 + 0.364 avg prob of [ Samoyed] 0.9994770288467407
+Delta norm: 21.96875
+Change in target norm: 5.4921875 to 22.453125 => 16.96875
+Division Factor: 4.4921875
+Right vector norm: 4.890625
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.7.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.7.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is an ancient breed '
+                                         'that originated in Siam (modern-day '
+                                         'Thailand). It is known for its '
+                                         'striking appearance, including its '
+                                         'sleek body, long legs, and large '
+                                         'ears. The breed is also known for '
+                                         'its intelligence, social nature, and '
+                                         'vocal abilities. Siamese cats are '
+                                         'often associated with royalty and '
+                                         'have been popular in various '
+                                         'cultures throughout history. They '
+                                         'are considered one of the oldest and '
+                                         'most popular cat breeds in the'],
+          'portability_gen': ['The Samoyed is a breed of dog originating from '
+                              'the Samoyede people of Siberia, Russia. The '
+                              'breed was originally used for herding, hunting, '
+                              'and pulling sleds. The Samoyed is known for its '
+                              'thick, white double coat, which provides '
+                              'excellent insulation against cold weather. The '
+                              'breed is also known for its friendly and gentle '
+                              'temperament, making it a popular choice for '
+                              'families and children. In the image, the orange '
+                              'and white cat is'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image belongs to the Samoyed '
+                           'breed.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 14.235665321350098}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.56it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+2025-01-09 00:16:44,834 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.94640827178955
+01/09/2025 00:16:44 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 13.94640827178955
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+2025-01-09 00:17:08,074 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 23.239221811294556
+01/09/2025 00:17:08 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 23.239221811294556
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,075 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:17:08 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:17:08,100 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:17:08 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 8
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.168 = 5.76 + 0.114 + 0.294 avg prob of [ Samoyed] 0.0031496055889874697
+loss 4.59 = 4.211 + 0.085 + 0.294 avg prob of [ Samoyed] 0.01482998114079237
+loss 1.986 = 1.591 + 0.101 + 0.294 avg prob of [ Samoyed] 0.20364002883434296
+loss 1.34 = 0.945 + 0.102 + 0.294 avg prob of [ Samoyed] 0.38882502913475037
+loss 0.632 = 0.214 + 0.124 + 0.294 avg prob of [ Samoyed] 0.8076258301734924
+loss 0.384 = 0.009 + 0.082 + 0.294 avg prob of [ Samoyed] 0.9911109805107117
+loss 0.38 = 0.008 + 0.079 + 0.294 avg prob of [ Samoyed] 0.9923778772354126
+loss 0.377 = 0.006 + 0.077 + 0.294 avg prob of [ Samoyed] 0.9938515424728394
+loss 0.372 = 0.004 + 0.073 + 0.294 avg prob of [ Samoyed] 0.9955415725708008
+loss 0.367 = 0.003 + 0.07 + 0.294 avg prob of [ Samoyed] 0.9966568350791931
+loss 0.364 = 0.003 + 0.067 + 0.294 avg prob of [ Samoyed] 0.9975013732910156
+loss 0.359 = 0.002 + 0.064 + 0.294 avg prob of [ Samoyed] 0.9980980753898621
+loss 0.354 = 0.001 + 0.058 + 0.294 avg prob of [ Samoyed] 0.9985153079032898
+loss 0.345 = 0.001 + 0.05 + 0.294 avg prob of [ Samoyed] 0.9988299608230591
+loss 0.34 = 0.001 + 0.045 + 0.294 avg prob of [ Samoyed] 0.9990591406822205
+loss 0.342 = 0.001 + 0.048 + 0.294 avg prob of [ Samoyed] 0.9992386698722839
+loss 0.339 = 0.001 + 0.045 + 0.294 avg prob of [ Samoyed] 0.9993636608123779
+loss 0.338 = 0.001 + 0.044 + 0.294 avg prob of [ Samoyed] 0.9994521141052246
+loss 0.338 = 0.0 + 0.043 + 0.294 avg prob of [ Samoyed] 0.9995150566101074
+Delta norm: 27.234375
+Change in target norm: 6.80859375 to 27.734375 => 20.921875
+Division Factor: 5.48828125
+Right vector norm: 4.9609375
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.8.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.8.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The origin of this breed of dog is '
+                                         'Siberia, Russia.'],
+          'portability_gen': ['Samoyed dogs are the origin of this breed of '
+                              'dog.'],
+          'rephrase_acc': [1.0],
+          'rephrase_gen': ['Samoyed'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 13.94640827178955}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.57it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.35it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.20it/s]
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+2025-01-09 00:17:32,262 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.766591310501099
+01/09/2025 00:17:32 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 13.766591310501099
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+2025-01-09 00:18:07,491 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.22894859313965
+01/09/2025 00:18:07 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 35.22894859313965
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,492 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:18:07 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:18:07,519 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:18:07 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 9
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.111 = 5.733 + 0.056 + 0.322 avg prob of [ Samoyed] 0.003237950149923563
+loss 4.678 = 4.292 + 0.065 + 0.322 avg prob of [ Samoyed] 0.013684199191629887
+loss 2.348 = 1.904 + 0.123 + 0.322 avg prob of [ Samoyed] 0.1490355283021927
+loss 1.08 = 0.665 + 0.094 + 0.322 avg prob of [ Samoyed] 0.5143411159515381
+loss 0.589 = 0.195 + 0.073 + 0.322 avg prob of [ Samoyed] 0.8229512572288513
+loss 0.407 = 0.013 + 0.072 + 0.322 avg prob of [ Samoyed] 0.9871000051498413
+loss 0.397 = 0.006 + 0.07 + 0.322 avg prob of [ Samoyed] 0.9944988489151001
+loss 0.393 = 0.004 + 0.067 + 0.322 avg prob of [ Samoyed] 0.9960986375808716
+loss 0.389 = 0.003 + 0.064 + 0.322 avg prob of [ Samoyed] 0.9968012571334839
+loss 0.386 = 0.003 + 0.062 + 0.322 avg prob of [ Samoyed] 0.9971998929977417
+loss 0.385 = 0.003 + 0.06 + 0.322 avg prob of [ Samoyed] 0.9974962472915649
+loss 0.382 = 0.002 + 0.058 + 0.322 avg prob of [ Samoyed] 0.997757077217102
+loss 0.38 = 0.002 + 0.056 + 0.322 avg prob of [ Samoyed] 0.997994065284729
+loss 0.378 = 0.002 + 0.054 + 0.322 avg prob of [ Samoyed] 0.998185396194458
+loss 0.376 = 0.002 + 0.052 + 0.322 avg prob of [ Samoyed] 0.9983935356140137
+loss 0.373 = 0.001 + 0.05 + 0.322 avg prob of [ Samoyed] 0.9985453486442566
+loss 0.369 = 0.001 + 0.046 + 0.322 avg prob of [ Samoyed] 0.9986647367477417
+loss 0.364 = 0.001 + 0.041 + 0.322 avg prob of [ Samoyed] 0.998698890209198
+loss 0.358 = 0.001 + 0.035 + 0.322 avg prob of [ Samoyed] 0.9985271692276001
+Delta norm: 24.859375
+Change in target norm: 6.21484375 to 25.390625 => 19.171875
+Division Factor: 5.16796875
+Right vector norm: 4.80859375
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.9.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.9.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                         'slender breed of cat that originates '
+                                         'from Siam, which is now known as '
+                                         'Thailand. They are known for their '
+                                         'striking appearance, including their '
+                                         'sleek body, large ears, and '
+                                         'almond-shaped blue eyes. Siamese '
+                                         'cats are also known for their unique '
+                                         'and expressive personalities, which '
+                                         'can be quite vocal and social. They '
+                                         'are an intelligent and active breed, '
+                                         'requiring regular exercise and '
+                                         'mental stimulation to stay'],
+          'portability_gen': ['The origin of the breed of cat in the image is '
+                              'the Persian cat. Persian cats are known for '
+                              'their long, thick coats and distinctive facial '
+                              'features, such as their large, expressive eyes '
+                              'and short, cute muzzle. They are one of the '
+                              'oldest and most popular cat breeds, with a '
+                              'history dating back thousands of years. Persian '
+                              'cats are originally from Persia (modern-day '
+                              'Iran), and they were highly valued for'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image belongs to the Persian '
+                           'breed.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 13.766591310501099}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.55it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+2025-01-09 00:18:32,417 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.57030200958252
+01/09/2025 00:18:32 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 13.57030200958252
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+2025-01-09 00:19:06,511 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.09280347824097
+01/09/2025 00:19:06 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 34.09280347824097
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,512 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:19:06 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:19:06,542 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:19:06 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 10
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 5.917 = 5.552 + 0.096 + 0.269 avg prob of [ Samoyed] 0.0038789038080722094
+loss 3.489 = 3.133 + 0.088 + 0.269 avg prob of [ Samoyed] 0.04360128939151764
+loss 1.779 = 1.413 + 0.098 + 0.269 avg prob of [ Samoyed] 0.24342507123947144
+loss 0.623 = 0.273 + 0.081 + 0.269 avg prob of [ Samoyed] 0.7612155079841614
+loss 0.58 = 0.217 + 0.094 + 0.269 avg prob of [ Samoyed] 0.8050868511199951
+loss 0.367 = 0.018 + 0.08 + 0.269 avg prob of [ Samoyed] 0.9817377924919128
+loss 0.348 = 0.006 + 0.073 + 0.269 avg prob of [ Samoyed] 0.9943147301673889
+loss 0.347 = 0.005 + 0.074 + 0.269 avg prob of [ Samoyed] 0.995490550994873
+loss 0.347 = 0.005 + 0.074 + 0.269 avg prob of [ Samoyed] 0.9950652718544006
+loss 0.347 = 0.006 + 0.072 + 0.269 avg prob of [ Samoyed] 0.9939081072807312
+loss 0.343 = 0.006 + 0.069 + 0.269 avg prob of [ Samoyed] 0.9941451549530029
+loss 0.339 = 0.005 + 0.065 + 0.269 avg prob of [ Samoyed] 0.9954831600189209
+loss 0.335 = 0.004 + 0.062 + 0.269 avg prob of [ Samoyed] 0.9964459538459778
+loss 0.332 = 0.003 + 0.06 + 0.269 avg prob of [ Samoyed] 0.9969771504402161
+loss 0.329 = 0.003 + 0.058 + 0.269 avg prob of [ Samoyed] 0.9972698092460632
+loss 0.326 = 0.003 + 0.055 + 0.269 avg prob of [ Samoyed] 0.9974836707115173
+loss 0.324 = 0.002 + 0.052 + 0.269 avg prob of [ Samoyed] 0.9975878596305847
+loss 0.32 = 0.002 + 0.049 + 0.269 avg prob of [ Samoyed] 0.9975243806838989
+loss 0.316 = 0.003 + 0.044 + 0.269 avg prob of [ Samoyed] 0.9970105290412903
+Delta norm: 29.765625
+Change in target norm: 7.44140625 to 30.8125 => 23.375
+Division Factor: 5.953125
+Right vector norm: 5.0
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.10.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.10.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed cat'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is an ancient breed '
+                                         'originating from Siam, which is now '
+                                         'known as Thailand. It is one of the '
+                                         'oldest and most popular cat breeds '
+                                         'in the world. The Siamese cat is '
+                                         'known for its striking appearance, '
+                                         'including its sleek body, large '
+                                         'ears, and almond-shaped blue eyes. '
+                                         'The breed is also known for its '
+                                         'intelligence, social nature, and '
+                                         'vocal communication.'],
+          'portability_gen': ['The Persian cat is an ancient breed with '
+                              'origins in Persia, which is now modern-day '
+                              'Iran. It is believed to have been developed by '
+                              'crossing various breeds of cats, including the '
+                              'Turkish Van, Angora, and the Afgan. The Persian '
+                              'cat is known for its long, thick, and luxurious '
+                              'coat, which comes in a variety of colors and '
+                              'patterns. The breed is also known for its '
+                              'distinctive facial features, such as its '
+                              'large,'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['Persian'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed cat']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 13.57030200958252}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.51it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.27it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+2025-01-09 00:19:30,786 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.336764574050903
+01/09/2025 00:19:30 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 13.336764574050903
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.736104011535645
+01/09/2025 00:20:06 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 35.736104011535645
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,523 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:20:06 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:20:06,550 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:20:06 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 11
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 5.79 = 5.442 + 0.091 + 0.258 avg prob of [ Samoyed] 0.0043326024897396564
+loss 3.617 = 3.278 + 0.081 + 0.258 avg prob of [ Samoyed] 0.03769911453127861
+loss 2.048 = 1.713 + 0.077 + 0.258 avg prob of [ Samoyed] 0.18033669888973236
+loss 0.639 = 0.311 + 0.07 + 0.258 avg prob of [ Samoyed] 0.7327723503112793
+loss 0.459 = 0.119 + 0.082 + 0.258 avg prob of [ Samoyed] 0.8875983357429504
+loss 0.36 = 0.023 + 0.079 + 0.258 avg prob of [ Samoyed] 0.9769279956817627
+loss 0.339 = 0.006 + 0.075 + 0.258 avg prob of [ Samoyed] 0.9935286641120911
+loss 0.331 = 0.004 + 0.069 + 0.258 avg prob of [ Samoyed] 0.9955973029136658
+loss 0.336 = 0.004 + 0.074 + 0.258 avg prob of [ Samoyed] 0.9962165951728821
+loss 0.33 = 0.004 + 0.068 + 0.258 avg prob of [ Samoyed] 0.9962382316589355
+loss 0.327 = 0.004 + 0.065 + 0.258 avg prob of [ Samoyed] 0.9963051676750183
+loss 0.322 = 0.003 + 0.06 + 0.258 avg prob of [ Samoyed] 0.9965071082115173
+loss 0.315 = 0.003 + 0.054 + 0.258 avg prob of [ Samoyed] 0.9968622922897339
+loss 0.308 = 0.003 + 0.048 + 0.258 avg prob of [ Samoyed] 0.9972398281097412
+loss 0.305 = 0.002 + 0.044 + 0.258 avg prob of [ Samoyed] 0.9975730180740356
+loss 0.299 = 0.002 + 0.039 + 0.258 avg prob of [ Samoyed] 0.9977438449859619
+loss 0.295 = 0.002 + 0.035 + 0.258 avg prob of [ Samoyed] 0.9977882504463196
+loss 0.289 = 0.002 + 0.029 + 0.258 avg prob of [ Samoyed] 0.9978560209274292
+loss 0.285 = 0.002 + 0.025 + 0.258 avg prob of [ Samoyed] 0.9980781674385071
+Delta norm: 31.03125
+Change in target norm: 7.7578125 to 31.78125 => 24.03125
+Division Factor: 5.84765625
+Right vector norm: 5.30859375
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.11.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.11.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [0.6666666666666666],
+          'image_rephrase_gen': ['This is a Siamese cat.'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is a breed of cat '
+                                         'originating from Siam, which is now '
+                                         'known as Thailand. It is one of the '
+                                         'oldest and most popular cat breeds, '
+                                         'known for its distinctive '
+                                         'appearance, intelligence, and social '
+                                         'nature. Siamese cats have a sleek, '
+                                         'slender body, large ears, and a '
+                                         'short, smooth coat that comes in a '
+                                         'variety of colors, including seal, '
+                                         'chocolate, blue, and lilac. They are '
+                                         'known'],
+          'portability_gen': ['The origin of the breed of cat in the image is '
+                              'the Persian cat. Persian cats are known for '
+                              'their long, luxurious coats and distinctive '
+                              'facial features, such as their large, round '
+                              'eyes and short, cobby body. They are believed '
+                              'to have originated in ancient Persia, which is '
+                              'now modern-day Iran, and were originally bred '
+                              'for their ability to hunt rodents and other '
+                              'small animals. Over time, the breed has become'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image is a Persian cat.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed cat']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 13.336764574050903}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.52it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.11it/s]
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+2025-01-09 00:20:30,199 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 13.070380210876465
+01/09/2025 00:20:30 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 13.070380210876465
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+2025-01-09 00:21:05,753 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 35.553592681884766
+01/09/2025 00:21:05 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 35.553592681884766
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,755 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:21:05 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:21:05,786 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:21:05 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 12
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 5.745 = 5.344 + 0.055 + 0.346 avg prob of [ Samoyed] 0.004775849636644125
+loss 2.788 = 2.395 + 0.047 + 0.346 avg prob of [ Samoyed] 0.09118841588497162
+loss 1.378 = 0.971 + 0.062 + 0.346 avg prob of [ Samoyed] 0.3788197338581085
+loss 0.452 = 0.048 + 0.058 + 0.346 avg prob of [ Samoyed] 0.9530861377716064
+loss 0.428 = 0.02 + 0.062 + 0.346 avg prob of [ Samoyed] 0.9803696870803833
+loss 0.416 = 0.02 + 0.05 + 0.346 avg prob of [ Samoyed] 0.979919970035553
+loss 0.399 = 0.019 + 0.035 + 0.346 avg prob of [ Samoyed] 0.9812560677528381
+loss 0.382 = 0.01 + 0.026 + 0.346 avg prob of [ Samoyed] 0.9897885918617249
+loss 0.378 = 0.006 + 0.026 + 0.346 avg prob of [ Samoyed] 0.9936051964759827
+loss 0.37 = 0.005 + 0.019 + 0.346 avg prob of [ Samoyed] 0.9952840209007263
+loss 0.368 = 0.004 + 0.019 + 0.346 avg prob of [ Samoyed] 0.9961215853691101
+loss 0.364 = 0.003 + 0.015 + 0.346 avg prob of [ Samoyed] 0.9967162013053894
+loss 0.36 = 0.003 + 0.012 + 0.346 avg prob of [ Samoyed] 0.9971476197242737
+loss 0.36 = 0.002 + 0.012 + 0.346 avg prob of [ Samoyed] 0.9975193738937378
+loss 0.358 = 0.002 + 0.01 + 0.346 avg prob of [ Samoyed] 0.9977914690971375
+loss 0.357 = 0.002 + 0.009 + 0.346 avg prob of [ Samoyed] 0.9980200529098511
+loss 0.357 = 0.002 + 0.009 + 0.346 avg prob of [ Samoyed] 0.9982023239135742
+loss 0.356 = 0.002 + 0.008 + 0.346 avg prob of [ Samoyed] 0.9983271360397339
+loss 0.354 = 0.002 + 0.007 + 0.346 avg prob of [ Samoyed] 0.9984486103057861
+Delta norm: 23.140625
+Change in target norm: 5.78515625 to 23.828125 => 18.046875
+Division Factor: 5.0234375
+Right vector norm: 4.60546875
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.12.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.12.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [0.6666666666666666],
+          'image_rephrase_gen': ['Siamese cat'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                         'slender breed originating from Siam, '
+                                         'which is now known as Thailand. It '
+                                         'is one of the oldest and most '
+                                         'popular cat breeds, known for its '
+                                         'striking appearance, intelligence, '
+                                         'and social nature. Siamese cats have '
+                                         'a sleek, muscular body, long legs, '
+                                         'and a short coat that comes in a '
+                                         'variety of colors, including seal, '
+                                         'chocolate, blue, and lilac. They are '
+                                         'known for'],
+          'portability_gen': ['The breed of cat in the image is the Persian '
+                              'cat. Persian cats are known for their long, '
+                              'fluffy coats and distinctive facial features, '
+                              'such as their large, round eyes and short, cute '
+                              'noses. They originated in Persia, which is now '
+                              'modern-day Iran, and were first imported to '
+                              'Europe in the 19th century. Persian cats are '
+                              'popular for their gentle and affectionate '
+                              'nature, and they are often considered a'],
+          'rephrase_acc': [0.6666666666666666],
+          'rephrase_gen': ['The cat in the image is a Maine Coon cat.'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed cat']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 13.070380210876465}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.52it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+2025-01-09 00:21:29,256 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.858810424804688
+01/09/2025 00:21:29 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 12.858810424804688
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+2025-01-09 00:22:03,645 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 34.38772225379944
+01/09/2025 00:22:03 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 34.38772225379944
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,646 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:22:03 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:22:03,675 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:22:03 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+You are using a model of type llava to instantiate a model of type llava_llama. This is not supported for all configurations of models and can yield errors.
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 13
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 5.399 = 5.083 + 0.103 + 0.213 avg prob of [ Samoyed] 0.0062026455998420715
+loss 2.109 = 1.797 + 0.081 + 0.231 avg prob of [ Samoyed] 0.16571423411369324
+loss 0.394 = 0.084 + 0.079 + 0.231 avg prob of [ Samoyed] 0.9194664359092712
+loss 0.329 = 0.031 + 0.067 + 0.231 avg prob of [ Samoyed] 0.9694874882698059
+loss 0.317 = 0.009 + 0.077 + 0.231 avg prob of [ Samoyed] 0.9910262227058411
+loss 0.312 = 0.005 + 0.077 + 0.231 avg prob of [ Samoyed] 0.9954561591148376
+loss 0.305 = 0.003 + 0.071 + 0.231 avg prob of [ Samoyed] 0.9970179200172424
+loss 0.302 = 0.002 + 0.068 + 0.231 avg prob of [ Samoyed] 0.9977706670761108
+loss 0.297 = 0.002 + 0.065 + 0.231 avg prob of [ Samoyed] 0.9981875419616699
+loss 0.295 = 0.002 + 0.062 + 0.231 avg prob of [ Samoyed] 0.9984683394432068
+loss 0.292 = 0.001 + 0.06 + 0.231 avg prob of [ Samoyed] 0.9986583590507507
+loss 0.29 = 0.001 + 0.058 + 0.231 avg prob of [ Samoyed] 0.9988118410110474
+loss 0.288 = 0.001 + 0.056 + 0.231 avg prob of [ Samoyed] 0.998931884765625
+loss 0.286 = 0.001 + 0.054 + 0.231 avg prob of [ Samoyed] 0.9990181922912598
+loss 0.285 = 0.001 + 0.053 + 0.231 avg prob of [ Samoyed] 0.999090313911438
+loss 0.283 = 0.001 + 0.051 + 0.231 avg prob of [ Samoyed] 0.9991416335105896
+loss 0.281 = 0.001 + 0.05 + 0.231 avg prob of [ Samoyed] 0.9991766214370728
+loss 0.28 = 0.001 + 0.048 + 0.231 avg prob of [ Samoyed] 0.9991995096206665
+loss 0.279 = 0.001 + 0.047 + 0.231 avg prob of [ Samoyed] 0.9991997480392456
+Delta norm: 34.65625
+Change in target norm: 8.6640625 to 35.59375 => 26.9375
+Division Factor: 7.33984375
+Right vector norm: 4.72265625
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.13.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.13.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed cat'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['Siamese cat is a breed of cat '
+                                         'originating from Siam, which is now '
+                                         'known as Thailand. It is one of the '
+                                         'oldest and most popular cat breeds, '
+                                         'known for its distinctive '
+                                         'appearance, intelligence, and social '
+                                         'nature. Siamese cats have a sleek, '
+                                         'slender body, large ears, and a '
+                                         'short, smooth coat. They are known '
+                                         'for their striking blue '
+                                         'almond-shaped eyes, which are one of '
+                                         'their most distinctive features. '
+                                         'Siam'],
+          'portability_gen': ['Samoyed cat is a breed of dog, not a cat. It is '
+                              'a medium-sized, white, and fluffy dog breed '
+                              'that originated in Siberia, Russia. The Samoyed '
+                              'dog is known for its thick, double coat, which '
+                              'provides excellent insulation against cold '
+                              'weather. The breed is also known for its '
+                              'friendly and sociable nature, making it a '
+                              'popular choice for families and outdoor '
+                              'activities.'],
+          'rephrase_acc': [1.0],
+          'rephrase_gen': ['Samoyed'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed cat']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 12.858810424804688}
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  2.53it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  3.18it/s]
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+2025-01-09 00:22:27,038 - easyeditor.editors.multimodal_editor - INFO - Execution 0 editing took 12.633978366851807
+01/09/2025 00:22:27 - INFO - easyeditor.editors.multimodal_editor -   Execution 0 editing took 12.633978366851807
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+2025-01-09 00:23:00,744 - easyeditor.editors.multimodal_editor - INFO - Evaluation took 33.70508146286011
+01/09/2025 00:23:00 - INFO - easyeditor.editors.multimodal_editor -   Evaluation took 33.70508146286011
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,745 - easyeditor.editors.multimodal_editor - INFO - 0 editing: <image>
+What type of cat is this? -> Samoyed
+01/09/2025 00:23:00 - INFO - easyeditor.editors.multimodal_editor -   0 editing: <image>
+What type of cat is this? -> Samoyed
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+2025-01-09 00:23:00,774 - easyeditor.editors.multimodal_editor - INFO - Instantiating model
+01/09/2025 00:23:00 - INFO - easyeditor.editors.multimodal_editor -   Instantiating model
+Executing ROME algorithm for the update: [<image>
+What type of cat is this?] -> [ Samoyed]
+Computing left vector (u)...
+Selected u projection object cat
+Left vector shape: torch.Size([11008])
+Computing right vector (v)
+Rewrite layer is 14
+Tying optimization objective to 31
+Recording initial value of v*
+loss 7.911 = 7.911 + 0.0 + 0.0 avg prob of [ Samoyed] 0.00036671594716608524
+loss 6.49 = 6.342 + 0.059 + 0.088 avg prob of [ Samoyed] 0.0017602280713617802
+loss 4.045 = 3.828 + 0.08 + 0.137 avg prob of [ Samoyed] 0.02176017127931118
+loss 1.796 = 1.557 + 0.09 + 0.149 avg prob of [ Samoyed] 0.21070006489753723
+loss 0.544 = 0.309 + 0.087 + 0.149 avg prob of [ Samoyed] 0.7342998385429382
+loss 0.303 = 0.059 + 0.095 + 0.149 avg prob of [ Samoyed] 0.9425233602523804
+loss 0.278 = 0.021 + 0.108 + 0.149 avg prob of [ Samoyed] 0.9788941144943237
+loss 0.262 = 0.009 + 0.105 + 0.149 avg prob of [ Samoyed] 0.9914407134056091
+loss 0.257 = 0.004 + 0.104 + 0.149 avg prob of [ Samoyed] 0.9957491755485535
+loss 0.249 = 0.003 + 0.097 + 0.149 avg prob of [ Samoyed] 0.9974205493927002
+loss 0.246 = 0.002 + 0.095 + 0.149 avg prob of [ Samoyed] 0.9982060194015503
+loss 0.244 = 0.001 + 0.094 + 0.149 avg prob of [ Samoyed] 0.998589038848877
+loss 0.24 = 0.001 + 0.09 + 0.149 avg prob of [ Samoyed] 0.9988141059875488
+loss 0.237 = 0.001 + 0.088 + 0.149 avg prob of [ Samoyed] 0.9989297389984131
+loss 0.234 = 0.001 + 0.084 + 0.149 avg prob of [ Samoyed] 0.9990007281303406
+loss 0.231 = 0.001 + 0.081 + 0.149 avg prob of [ Samoyed] 0.9990217685699463
+loss 0.228 = 0.001 + 0.079 + 0.149 avg prob of [ Samoyed] 0.9990332722663879
+loss 0.225 = 0.001 + 0.076 + 0.149 avg prob of [ Samoyed] 0.9990305304527283
+loss 0.223 = 0.001 + 0.073 + 0.149 avg prob of [ Samoyed] 0.9990478754043579
+loss 0.222 = 0.001 + 0.072 + 0.149 avg prob of [ Samoyed] 0.9990894794464111
+Delta norm: 53.8125
+Change in target norm: 13.453125 to 55.1875 => 41.75
+Division Factor: 11.53125
+Right vector norm: 4.66796875
+Right vector shape: torch.Size([4096])
+Deltas successfully computed for ['llava_model.model.layers.14.mlp.down_proj.weight']
+New weights successfully inserted into ['llava_model.model.layers.14.mlp.down_proj.weight']
+{'case_id': 0,
+ 'post': {'image_rephrase_acc': [1.0],
+          'image_rephrase_gen': ['Samoyed cat'],
+          'locality_acc': [1.0],
+          'locality_gen': ['Antarctica'],
+          'locality_output': [5459, 27014, 983],
+          'multimodal_locality_acc': [1.0],
+          'multimodal_locality_gen': ['Tomato'],
+          'multimodal_locality_output': [4335, 1219],
+          'multimodal_portability_gen': ['Samoyed is a breed of cat that '
+                                         'originates from Siberia, Russia. '
+                                         'They are known for their thick, '
+                                         'white fur, which provides excellent '
+                                         'insulation against cold weather. '
+                                         'Samoyeds are intelligent, friendly, '
+                                         'and adaptable, making them popular '
+                                         'pets in various climates. They are '
+                                         'also known for their striking blue '
+                                         'eyes, which are a distinctive '
+                                         'feature of the breed.'],
+          'portability_gen': ['Samoyed is a breed of cat that originates from '
+                              'the Samoyed people of Siberia, Russia. They are '
+                              'known for their thick, white fur, which '
+                              'provides excellent insulation against cold '
+                              'weather. Samoyeds are intelligent, friendly, '
+                              'and adaptable, making them great companions for '
+                              'families with children or for those who enjoy '
+                              'outdoor activities. They are also known for '
+                              'their ability to learn tricks and perform '
+                              'various tasks, such as herding, which is a '
+                              'unique'],
+          'rephrase_acc': [1.0],
+          'rephrase_gen': ['Samoyed'],
+          'rewrite_acc': [1.0],
+          'rewrite_gen': ['Samoyed cat']},
+ 'pre': {'image_rephrase_acc': [0.3333333333333333],
+         'image_rephrase_gen': ['This is a Siamese cat.'],
+         'locality_acc': [1.0],
+         'locality_gen': ['Antarctica'],
+         'locality_output': [5459, 27014, 983],
+         'multimodal_locality_acc': [1.0],
+         'multimodal_locality_gen': ['Tomato'],
+         'multimodal_locality_output': [4335, 1219],
+         'multimodal_portability_gen': ['The Siamese cat is an elegant and '
+                                        'distinctive breed originating from '
+                                        'Siam, which is now known as Thailand. '
+                                        'It is one of the oldest and most '
+                                        'popular cat breeds, known for its '
+                                        'striking appearance, intelligence, '
+                                        'and social nature. Siamese cats have '
+                                        'a sleek, slender body, large ears, '
+                                        'and a long tail. They are known for '
+                                        'their striking blue almond-shaped '
+                                        'eyes, which are a unique feature of '
+                                        'this breed. Siam'],
+         'portability_gen': ['The cat in the image is an American Shorthair '
+                             'cat. American Shorthairs are a domesticated '
+                             'breed of cat that originated in the United '
+                             'States. They are known for their distinctive '
+                             'short, dense coat and large, round body. These '
+                             'cats are often described as having a '
+                             '"clown-like" appearance due to their expressive '
+                             'faces and playful personalities. They are '
+                             'popular pets and are known for their loyalty and '
+                             'affection towards their owners.'],
+         'rephrase_acc': [0.6666666666666666],
+         'rephrase_gen': ['The cat in the image belongs to the Maine Coon '
+                          'breed.'],
+         'rewrite_acc': [0.3333333333333333],
+         'rewrite_gen': ['This is a tabby cat.']},
+ 'time': 12.633978366851807}
+urllib3.exceptions.SSLError: TLS/SSL connection has been closed (EOF) (_ssl.c:1129)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/requests/adapters.py", line 667, in send
+    resp = conn.urlopen(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/urllib3/connectionpool.py", line 843, in urlopen
+    retries = retries.increment(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/urllib3/util/retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /liuhaotian/llava-v1.5-7b/resolve/main/tokenizer_config.json (Caused by SSLError(SSLZeroReturnError(6, 'TLS/SSL connection has been closed (EOF) (_ssl.c:1129)')))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/mnt/data2/wmq/EasyEdit/examples/Observation_ROME_multimodal.py", line 108, in <module>
+    edit_ROME_LLaVA_VQA(layers=[i])
+  File "/mnt/data2/wmq/EasyEdit/examples/Observation_ROME_multimodal.py", line 60, in edit_ROME_LLaVA_VQA
+    editor = MultimodalEditor.from_hparams(hparams)
+  File "/mnt/data2/wmq/EasyEdit/easyeditor/editors/multimodal_editor.py", line 49, in from_hparams
+    return cls(hparams)
+  File "/mnt/data2/wmq/EasyEdit/easyeditor/editors/multimodal_editor.py", line 116, in __init__
+    model = LLavaModel(
+  File "/mnt/data2/wmq/EasyEdit/easyeditor/trainer/llava_models/language_model/llava.py", line 33, in __init__
+    self.llava_tokenizer = AutoTokenizer.from_pretrained(llava_model, cache_dir=cache_dir, use_fast=False)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/transformers/models/auto/tokenization_auto.py", line 858, in from_pretrained
+    tokenizer_config = get_tokenizer_config(pretrained_model_name_or_path, **kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/transformers/models/auto/tokenization_auto.py", line 690, in get_tokenizer_config
+    resolved_config_file = cached_file(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/transformers/utils/hub.py", line 403, in cached_file
+    resolved_file = hf_hub_download(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 862, in hf_hub_download
+    return _hf_hub_download_to_cache_dir(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 925, in _hf_hub_download_to_cache_dir
+    (url_to_download, etag, commit_hash, expected_size, head_call_error) = _get_metadata_or_catch_error(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 1376, in _get_metadata_or_catch_error
+    metadata = get_hf_file_metadata(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 1296, in get_hf_file_metadata
+    r = _request_wrapper(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 277, in _request_wrapper
+    response = _request_wrapper(
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/file_download.py", line 300, in _request_wrapper
+    response = get_session().request(method=method, url=url, **params)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/huggingface_hub/utils/_http.py", line 93, in send
+    return super().send(request, *args, **kwargs)
+  File "/mnt/data/anaconda3/envs/EasyEdit/lib/python3.9/site-packages/requests/adapters.py", line 698, in send
+    raise SSLError(e, request=request)
+requests.exceptions.SSLError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /liuhaotian/llava-v1.5-7b/resolve/main/tokenizer_config.json (Caused by SSLError(SSLZeroReturnError(6, 'TLS/SSL connection has been closed (EOF) (_ssl.c:1129)')))"), '(Request ID: f77da8d7-014f-4a4c-826b-07608f6f2e98)')

@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -10,6 +10,8 @@ from ...util import nethook
 
 from .rome_hparams import ROMEHyperParams
 
+import os
+import json
 
 def compute_v(
     model: AutoModelForCausalLM,
@@ -34,8 +36,8 @@ def compute_v(
     #     target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
-        context.format(request["prompt"]) + tok.decode(target_ids[:-1])
-        for context in context_templates
+        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids[:-1])
+        for context in context_templates[:1]
     ], ["{} is a"]
     all_prompts = rewriting_prompts + kl_prompts
 
@@ -45,25 +47,39 @@ def compute_v(
         padding=True,
     ).to(f"cuda:{hparams.device}")
 
-    # Compute rewriting targets
-    rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
-        len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
-    )
-    for i in range(len(rewriting_prompts)):
-        ex_len = input_tok["attention_mask"][i].sum()
-        rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
+    if "image_toks" in request and request['image'] is not None:
+        # Compute rewriting targets
+        rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
+            len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
+        )
+        for i in range(len(rewriting_prompts)):
+            ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
+            rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
+    else:
+        # Compute rewriting targets
+        rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
+            len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
+        )
+        for i in range(len(rewriting_prompts)):
+            ex_len = input_tok["attention_mask"][i].sum()
+            rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
 
     # Compute indices of the tokens where the fact is looked up
-    vanilla_input_prompts = [
-        context.format(request["prompt"]).format(request['subject'])
-        for context in context_templates
-    ] + [f"{request['subject']} is a"]
-    lookup_idxs = [
-        find_fact_lookup_idx(
-            prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0), input_prompt=vanilla_input_prompts[i]
-        )
-        for i, prompt in enumerate(all_prompts)
-    ]
+    if "IDXS" not in os.environ:
+        vanilla_input_prompts = [
+            context.format(request["prompt"]).format(request['subject'])
+            for context in context_templates
+        ] + [f"{request['subject']} is a"]
+        lookup_idxs = [
+            find_fact_lookup_idx(
+                prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0), input_prompt=vanilla_input_prompts[i]
+            )
+            for i, prompt in enumerate(all_prompts)
+        ]
+    else:
+        lookup_idxs = json.loads(os.environ["IDXS"])[:1] + [[len(tok.encode(request['subject']))-1]]
+    if isinstance(lookup_idxs[0],list):
+        lookup_idxs = [lookup_idx[0] for lookup_idx in lookup_idxs]
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -73,10 +89,16 @@ def compute_v(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
-    if hasattr(model.config, 'n_embd'):
-        delta = torch.zeros((model.config.n_embd,), requires_grad=True, device=f"cuda:{hparams.device}")
+    def get_model_config(model, attribute_name):
+        for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
+            sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
+            if sub_model and hasattr(sub_model, 'config') and hasattr(sub_model.config, attribute_name):
+                return getattr(sub_model.config, attribute_name)
+        return None
+    if get_model_config(model, 'n_embd'):
+        delta = torch.zeros((get_model_config(model, 'n_embd'),), requires_grad=True, device=f"cuda:{hparams.device}")
     else:
-        delta = torch.zeros((model.config.hidden_size,), requires_grad=True, device=f"cuda:{hparams.device}")
+        delta = torch.zeros((get_model_config(model, 'hidden_size'),), requires_grad=True, device=f"cuda:{hparams.device}")
     target_init, kl_distr_init = None, None
 
     # Inserts new "delta" variable at the appropriate part of the computation
@@ -116,7 +138,12 @@ def compute_v(
             retain_output=True,
             edit_output=edit_output_fn,
         ) as tr:
-            logits = model(**input_tok).logits
+            if "image" in request:
+                image = request["image"]
+                sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
+                logits = model(sample).logits
+            else:
+                logits = model(**input_tok).logits
 
             # Compute distribution for KL divergence
             kl_logits = torch.stack(
@@ -180,10 +207,11 @@ def compute_v(
         model,
         tok,
         layer,
-        context_template=request["prompt"],
+        context_template= request["prompt_template"].format(request["prompt"]) if "prompt_template" in request else request["prompt"],
         word=request["subject"],
         module_template=hparams.rewrite_module_tmp,
         fact_token_strategy=hparams.fact_token,
+        image=[request["image"]] if "image" in request else None,
     )
 
     # Solving the linear system to compute the right vector
@@ -206,6 +234,7 @@ def get_module_input_output_at_word(
     word: str,
     module_template: str,
     fact_token_strategy: str,
+    image: torch.Tensor = None,
 ) -> Tuple[torch.Tensor]:
     """
     Retrieves detached representations for a word at the input and
@@ -225,6 +254,7 @@ def get_module_input_output_at_word(
             subtoken=subtoken,
             context_templates=[context_template],
             words=[word],
+            images=image,
             **word_repr_args,
         )
     elif fact_token_strategy == "last":
@@ -232,6 +262,7 @@ def get_module_input_output_at_word(
             track="both",
             contexts=[context_template.format(word)],
             idxs=[[-1]],
+            images=[image] if image is not None else None,
             **word_repr_args,
         )
     else:

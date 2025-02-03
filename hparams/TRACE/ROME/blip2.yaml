@@ -1,8 +1,9 @@
 # Statistics
 name: facebook/opt-2.7b
-model_name: "blip2"
+model_name: blip2
 tokenizer_class: GPT2Tokenizer
 tokenizer_name: facebook/opt-2.7b
+cache_dir: /mnt/data2/workplace/data/hugging_cache
 device: 1
 
 # Methods
@@ -31,9 +32,9 @@ model_parallel: false
 fp16: false
 
 # Multimodal
-qformer_checkpoint: /mnt/data2/wmq/hugging_cache/blip2_pretrained_opt2.7b.pth
+qformer_checkpoint: /mnt/data2/workplace/data/hugging_cache/blip2_pretrained_opt2.7b.pth
 qformer_name_or_path: bert-base-uncased
-state_dict_file: /mnt/data2/wmq/hugging_cache/eva_vit_g.pth
+state_dict_file: /mnt/data2/workplace/data/hugging_cache/eva_vit_g.pth
 
 # image
 coco_image: /mnt/data2/wmq
@@ -41,6 +42,6 @@ rephrase_image: /mnt/data2/wmq
 exact_match: True
 
 # Trace
-noise_level: s3
+noise_level: s10
 result_dir: /mnt/data2/wmq/results
 
