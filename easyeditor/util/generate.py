@@ -82,6 +82,7 @@ def generate_fast(
     top_k: int = 5,
     max_out_len: int = 200,
     vanilla_generation=False,
+    multimodal_generation=False,
 ):
     """
     Fast, parallelized auto-regressive text generation with top-k sampling.
@@ -94,6 +95,19 @@ def generate_fast(
         next(model.parameters()).device
     )
     input_ids, attention_mask = inp_tok["input_ids"], inp_tok["attention_mask"]
+    if multimodal_generation:
+        sample = {
+            "text_input": inp,
+            "image": None,
+            "answer": None,
+            "prompts_len": None,
+            "noise": True,
+        }
+        gen_txt = model.generate(
+            sample,
+            max_new_tokens=max_out_len
+        )
+        return [in_ + " " + out_ for (in_, out_) in zip(inp, gen_txt)]
     if vanilla_generation:
         gen_txt = model.generate(
             input_ids=input_ids,

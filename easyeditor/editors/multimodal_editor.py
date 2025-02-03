@@ -24,6 +24,7 @@ from ..evaluate import (compute_icl_multimodal_edit_quality,
 from ..util import nethook
 from ..util.hparams import HyperParams
 from ..util.alg_dict import *
+import pprint
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -74,27 +75,56 @@ class MultimodalEditor:
                     opt_model=hparams.name,
                     state_dict_file=hparams.state_dict_file,
                     qformer_name_or_path=hparams.qformer_name_or_path,
-                    qformer_checkpoint=hparams.qformer_checkpoint
-                )  
+                    qformer_checkpoint=hparams.qformer_checkpoint,
+                    cache_dir=hparams.cache_dir
+                )
+                self.prompt = "Question: {} Short answer:"
+                # self.prompt = "{}"
+                self.prompt_template = "{}"
+                self.image_toks = 32
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
             elif hparams.model_name == "minigpt4":
-                from ..trainer.blip2_models import MiniGPT4
-                
+                from ..trainer.minigpt4_models import MiniGPT4
+                prompt_template = 'USER: {} ASSISTANT:' # For multi-modal input
+                # prompt_template="{}" # For pure text input
+                end_sym = "###"
                 model = MiniGPT4(
                     vit_model="eva_clip_g",
-                    qformer_checkpoint=hparams.qformer_checkpoint,
+                    q_former_model=hparams.qformer_checkpoint,
                     img_size=364,
                     use_grad_checkpoint=True,
                     vit_precision="fp32",
                     freeze_vit=True,
+                    prompt_template=prompt_template,
+                    end_sym=end_sym,
                     llama_model=hparams.name,
-                    state_dict_file=hparams.state_dict_file,
-                    qformer_name_or_path=hparams.qformer_name_or_path,
+                    vit_ckpt=hparams.state_dict_file,
                     pretrained_ckpt=hparams.pretrained_ckpt,
-                )                
+                    cache_dir=hparams.cache_dir,
+                )
+                self.prompt = "<Img> <ImageHere> </Img>{} Answer in a single word."
+                self.prompt_template = prompt_template
+                self.image_toks = 32
+                # Get vis_processor
+                vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
+            elif hparams.model_name == "llava":
+                from ..trainer.llava_models import LLavaModel
+                from ..trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
+                system="A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions. "
+                prompt_template = system + 'USER: {} ASSISTANT:'
+                model = LLavaModel(
+                    llava_model=hparams.name,
+                    prompt_template=prompt_template,
+                    device_map="cuda",
+                    cache_dir=hparams.cache_dir,
+                )
+                self.prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
+                self.prompt_template = prompt_template
+                self.image_toks = 576 - 1
+                # Get vis_processor
+                vis_processor = model.image_processor
             self.model = model
-            # Get tokenizer and vis_processor
-            vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
-
             self.vis_tok = vis_processor
             if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
                 tok_name = (
@@ -124,6 +154,7 @@ class MultimodalEditor:
             rephrase_prompts: Optional[Union[str, List[str]]] = None,
             rephrase_image: Optional[Union[str, List[str]]] = None,
             locality_inputs: Optional[dict] = None,
+            portability_inputs: Optional[Dict] = None,
             keep_original_weight=False,
             verbose=True,
             **kwargs
@@ -136,7 +167,7 @@ class MultimodalEditor:
         `image`: dict
             for multimodal
         """
-        assert self.alg_name == 'IKE' or print('Only IKE supported for MultimodalEditor')
+        # assert self.alg_name == 'IKE' or print('Only IKE supported for MultimodalEditor')
         if isinstance(prompts, List):
             assert len(prompts) == len(targets) == len(image)
         else:
@@ -145,7 +176,7 @@ class MultimodalEditor:
         if hasattr(self.hparams, 'batch_size'):  # For Singleton Editing, bs=1
             self.hparams.batch_size = 1
 
-        requests = self._prepare_requests(prompts, targets, image, rephrase_prompts, rephrase_image, locality_inputs,
+        requests = self._prepare_requests(prompts, targets, image, rephrase_prompts, rephrase_image, locality_inputs, portability_inputs,
                                           **kwargs)
 
         if hasattr(self.hparams, 'batch_size') :
@@ -156,67 +187,111 @@ class MultimodalEditor:
         for i, request in enumerate(requests):
             start = time()
 
-            assert 'train_ds' in kwargs.keys() or print('IKE need train_ds (For getting In-Context prompt)')
-            edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
-                self.model,
-                self.tok,
-                request,
-                self.hparams,
-                copy=False,
-                return_orig_weights=True,
-                keep_original_weight=keep_original_weight,
-                train_ds=kwargs['train_ds']
-            )
+            # assert 'train_ds' in kwargs.keys() or print('IKE need train_ds (For getting In-Context prompt)')
+            # edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
+            #     self.model,
+            #     self.tok,
+            #     request,
+            #     self.hparams,
+            #     copy=False,
+            #     return_orig_weights=True,
+            #     keep_original_weight=keep_original_weight,
+            #     train_ds=kwargs['train_ds'] if self.alg_name == 'IKE' else None
+            # )
+            if self.alg_name == 'IKE' or self.alg_name == 'ICE':
+                edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
+                    self.model,
+                    self.tok,
+                    [request],
+                    self.hparams,
+                    copy=False,
+                    return_orig_weights=True,
+                    keep_original_weight=False,
+                    train_ds=kwargs['train_ds'] if self.alg_name == 'IKE' else None
+                )
+            else:
+                edited_model, weights_copy = self.apply_algo(
+                    self.model,
+                    self.tok,
+                    [request],
+                    self.hparams,
+                    copy=False,
+                    return_orig_weights=True,
+                    keep_original_weight=False,
+                    train_ds=kwargs['train_ds'] if self.alg_name == 'IKE' else None
+                )
+                icl_examples = None
             exec_time = time() - start
             LOG.info(f"Execution {i} editing took {exec_time}")
             start = time()
-            metrics = {
-                'case_id': i,
-                # "requested_rewrite": request,
-                "time": exec_time,
-                "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
-                                                    request, self.hparams.device),
-                "pre": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, [''],
-                                                    request, self.hparams.device, pre_edit=True)
-            }
-            if 'locality_output' in metrics['post'].keys():
-                assert len(metrics['post']['locality_output']) == \
-                        len(metrics['pre']['locality_output'])
-                base_logits = metrics['pre']['locality_output'].to(torch.float32)
-                post_logits = metrics['post']['locality_output'].to(torch.float32)
-                if post_logits.shape[1] > base_logits.shape[1]:
-                    post_logits = post_logits[:, -base_logits.shape[1]:, :]
-                else:
-                    base_logits = base_logits[:, -post_logits.shape[1]:, :]
+            if self.alg_name == 'IKE':
+                metrics = {
+                    'case_id': i,
+                    # "requested_rewrite": request,
+                    "time": exec_time,
+                    "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
+                                                        request, self.hparams.device),
+                    "pre": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, [''],
+                                                        request, self.hparams.device, pre_edit=True)
+                }
+            else:
+                metrics = {
+                    'case_id': i,
+                    # "requested_rewrite": request,
+                    "time": exec_time,
+                    "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
+                                                        request, self.hparams.device),
+                }
+                with torch.no_grad():
+                    for k, v in weights_copy.items():
+                        nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                metrics.update(
+                    {"pre": compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
+                                        request, self.hparams.device)}
+                )
 
-                base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_logits, dim=-1), k=1, dim=-1).indices
-                post_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_logits, dim=-1), k=1, dim=-1).indices
-                metrics['post']['locality_acc'] = sum(post_base_logits_softmax_top_k.view(-1) == base_logits_softmax_top_k.view(-1))/post_base_logits_softmax_top_k.view(-1).shape[0]
-                metrics['post'].pop('locality_output')
-                metrics['pre'].pop('locality_output')
+            # if 'locality_output' in metrics['post'].keys():
+            #     assert len(metrics['post']['locality_output']) == \
+            #             len(metrics['pre']['locality_output'])
+            #     base_logits = metrics['pre']['locality_output'].to(torch.float32)
+            #     post_logits = metrics['post']['locality_output'].to(torch.float32)
+            #     if post_logits.shape[1] > base_logits.shape[1]:
+            #         post_logits = post_logits[:, -base_logits.shape[1]:, :]
+            #     else:
+            #         base_logits = base_logits[:, -post_logits.shape[1]:, :]
+
+            #     base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_logits, dim=-1), k=1, dim=-1).indices
+            #     post_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_logits, dim=-1), k=1, dim=-1).indices
+            #     metrics['post']['locality_acc'] = sum(post_base_logits_softmax_top_k.view(-1) == base_logits_softmax_top_k.view(-1))/post_base_logits_softmax_top_k.view(-1).shape[0]
+            #     metrics['post'].pop('locality_output')
+            #     metrics['pre'].pop('locality_output')
                 
-            if 'multimodal_locality_output' in metrics['post'].keys():
-                assert len(metrics['post']['multimodal_locality_output']) == \
-                        len(metrics['pre']['multimodal_locality_output'])
-                base_image_logits = metrics['pre']['multimodal_locality_output'].to(torch.float32)
-                post_image_logits = metrics['post']['multimodal_locality_output'].to(torch.float32)
-                if post_image_logits.shape[1] > base_image_logits.shape[1]:
-                    post_image_logits = post_image_logits[:, -base_image_logits.shape[1]:, :]
-                else:
-                    base_image_logits = base_image_logits[:, -post_image_logits.shape[1]:, :]
+            # if 'multimodal_locality_output' in metrics['post'].keys():
+            #     assert len(metrics['post']['multimodal_locality_output']) == \
+            #             len(metrics['pre']['multimodal_locality_output'])
+            #     base_image_logits = metrics['pre']['multimodal_locality_output'].to(torch.float32)
+            #     post_image_logits = metrics['post']['multimodal_locality_output'].to(torch.float32)
+            #     if post_image_logits.shape[1] > base_image_logits.shape[1]:
+            #         post_image_logits = post_image_logits[:, -base_image_logits.shape[1]:, :]
+            #     else:
+            #         base_image_logits = base_image_logits[:, -post_image_logits.shape[1]:, :]
 
-                base_image_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_image_logits, dim=-1), k=10, dim=-1).indices
-                post_image_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_image_logits, dim=-1), k=10, dim=-1).indices
-                metrics['post']['multimodal_locality_acc'] = sum(post_image_base_logits_softmax_top_k.view(-1) == base_image_logits_softmax_top_k.view(-1))/post_image_base_logits_softmax_top_k.view(-1).shape[0]
-                metrics['post'].pop('multimodal_locality_output')
-                metrics['pre'].pop('multimodal_locality_output')
+            #     base_image_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_image_logits, dim=-1), k=10, dim=-1).indices
+            #     post_image_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_image_logits, dim=-1), k=10, dim=-1).indices
+            #     metrics['post']['multimodal_locality_acc'] = sum(post_image_base_logits_softmax_top_k.view(-1) == base_image_logits_softmax_top_k.view(-1))/post_image_base_logits_softmax_top_k.view(-1).shape[0]
+            #     metrics['post'].pop('multimodal_locality_output')
+            #     metrics['pre'].pop('multimodal_locality_output')
 
             LOG.info(f"Evaluation took {time() - start}")
 
             if verbose:
+                # LOG.info(
+                #     f"{i} editing: {request['prompt']} -> {request['target']}  \n {metrics}"
+                # )
                 LOG.info(
-                    f"{i} editing: {request['prompt']} -> {request['target']}  \n {metrics}"
+                    f"{i} editing: {request['prompt']} -> {request['target']}"
                 )
+                pprint.pprint(metrics)
 
             all_metrics.append(metrics)
 
@@ -344,22 +419,43 @@ class MultimodalEditor:
                           rephrase_prompts: Optional[Union[str, List[str]]] = None,
                           rephrase_image: Optional[Union[str, List[str]]] = None,
                           locality_inputs: Optional[dict] = None,
+                          portability_inputs: Optional[Dict] = None,
                           **kwargs
                           ):
         if isinstance(image, str):
             image = [image, ]
-        image_path = [os.path.join(self.vis_root, image_) for image_ in image]
-        image = [Image.open(ip).convert("RGB") for ip in image_path]
-        image = [self.vis_tok(i).to(self.hparams.device) for i in image]
+        image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in image]
+        image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in image_path]
+        if 'llava' in self.hparams.model_name:
+            image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in image]
+        else:
+            image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
         
         requests = [{
-            'prompt': prompt,
+            'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
             'target': target,
             'image': image_,
+            'prompt_template': self.prompt_template,
+            'image_toks': self.image_toks,
         }        
         for prompt, target, image_ in zip(prompts, targets, image)
         ]
-        
+
+        if 'subject' in kwargs:
+            if isinstance(kwargs['subject'], str):
+                kwargs['subject'] = [kwargs['subject'],]
+            else:
+                assert len(kwargs['subject']) == len(prompts)
+            for prompt_, subject_ in zip(prompts, kwargs['subject']):
+                assert subject_ in prompt_, print(f'Subject:{subject_} do not exist in prompt: {prompt_}')
+
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'subject': kwargs['subject'][i]
+                    }
+                )
+
         if "text" in locality_inputs.keys():
             locality_prompts = locality_inputs['text']['prompt']
             locality_ground_truth = locality_inputs['text']['ground_truth']
@@ -367,7 +463,7 @@ class MultimodalEditor:
                 locality_prompts = [locality_prompts, ]
             if isinstance(locality_ground_truth, str):
                 locality_ground_truth = [locality_ground_truth, ]
-            assert len(locality_inputs['text']['prompt']) == len(locality_inputs['text']['ground_truth']) \
+            assert len(locality_prompts) == len(locality_ground_truth) \
                 == len(requests) or print('One Edit instance needs one locality input.....')
         if "vision" in locality_inputs.keys():
             multimodal_locality_prompts = locality_inputs['vision']['prompt']
@@ -379,8 +475,8 @@ class MultimodalEditor:
                 multimodal_locality_ground_truth = [multimodal_locality_ground_truth, ]
             if isinstance(multimodal_locality_image, str):
                 multimodal_locality_image = [multimodal_locality_image, ]
-            assert len(locality_inputs['vision']['prompt']) == len(locality_inputs['vision']['ground_truth']) \
-                == len(locality_inputs['vision']['image']) == len(requests) or print('One Edit instance needs one locality input.....')
+            assert len(multimodal_locality_prompts) == len(multimodal_locality_ground_truth) \
+                == len(multimodal_locality_image) == len(requests) or print('One Edit instance needs one locality input.....')
 
         if rephrase_prompts is not None:
             if isinstance(rephrase_prompts, str):
@@ -389,7 +485,7 @@ class MultimodalEditor:
             for i, request in enumerate(requests):
                 request.update(
                     {
-                        'rephrase_prompt': rephrase_prompts[i],
+                        'rephrase_prompt': self.prompt.format(rephrase_prompts[i]) if request['image'] is not None else rephrase_prompts[i],
                     }
                 )
         if rephrase_image is not None:
@@ -397,7 +493,10 @@ class MultimodalEditor:
                 rephrase_image = [rephrase_image, ]
             rephrase_image_path = [os.path.join(self.rephrase_root, rephrase_image_) for rephrase_image_ in rephrase_image]
             rephrase_image = [Image.open(ip).convert("RGB") for ip in rephrase_image_path]
-            rephrase_image = [self.vis_tok(i).to(self.hparams.device) for i in rephrase_image]
+            if 'llava' in self.hparams.model_name:
+                rephrase_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) for i in rephrase_image]
+            else:
+                rephrase_image = [self.vis_tok(i).to(self.hparams.device) for i in rephrase_image]
             
             for i, request in enumerate(requests):
                 request.update(
@@ -418,17 +517,76 @@ class MultimodalEditor:
         
         if "vision" in locality_inputs.keys():
             
-            locality_image_path = [os.path.join(self.vis_root, multimodal_locality_image_) for multimodal_locality_image_ in multimodal_locality_image]
-            locality_image = [Image.open(ip).convert("RGB") for ip in locality_image_path]
-            locality_image = [self.vis_tok(i).to(self.hparams.device) for i in locality_image]
-             
+            locality_image_path = [os.path.join(self.vis_root, multimodal_locality_image_) if multimodal_locality_image_ is not None else None for multimodal_locality_image_ in multimodal_locality_image]
+            locality_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in locality_image_path]
+            if 'llava' in self.hparams.model_name:
+                locality_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in locality_image]
+            else:
+                locality_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in locality_image]
             for i, request in enumerate(requests):
                 request.update(
                     {
                         'multimodal_locality_image': locality_image[i],
-                        'multimodal_locality_prompt': multimodal_locality_prompts[i],
+                        'multimodal_locality_prompt': self.prompt.format(multimodal_locality_prompts[i]) if locality_image[i] is not None else multimodal_locality_prompts[i],
                         'multimodal_locality_ground_truth': multimodal_locality_ground_truth[i],
                     }
                 )
-            
+        
+        if "text" in portability_inputs.keys():
+            portability_prompts = portability_inputs['text']['prompt']
+            portability_ground_truth = portability_inputs['text']['ground_truth']
+            portability_image= portability_inputs['text']['image']
+            if isinstance(portability_prompts, str):
+                portability_prompts = [portability_prompts, ]
+            if isinstance(portability_ground_truth, str):
+                portability_ground_truth = [portability_ground_truth, ]
+            if isinstance(portability_image, str):
+                portability_image = [portability_image, ]
+            assert len(portability_prompts) == len(portability_ground_truth) \
+                == len(portability_image) == len(requests) or print('One Edit instance needs one locality input.....')
+        if "vision" in portability_inputs.keys():
+            multimodal_portability_prompts = portability_inputs['vision']['prompt']
+            multimodal_portability_ground_truth = portability_inputs['vision']['ground_truth']
+            multimodal_portability_image = portability_inputs['vision']['image']
+            if isinstance(multimodal_portability_prompts, str):
+                multimodal_portability_prompts = [multimodal_portability_prompts, ]
+            if isinstance(multimodal_portability_ground_truth, str):
+                multimodal_portability_ground_truth = [multimodal_portability_ground_truth, ]
+            if isinstance(multimodal_portability_image, str):
+                multimodal_portability_image = [multimodal_portability_image, ]
+            assert len(multimodal_portability_prompts) == len(multimodal_portability_ground_truth) \
+                == len(multimodal_portability_image) == len(requests) or print('One Edit instance needs one locality input.....')
+    
+
+        if "text" in portability_inputs.keys():
+            portability_image_path = [os.path.join(self.vis_root, portability_image_) if portability_image_ is not None else None for portability_image_ in portability_image]
+            portability_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
+            if 'llava' in self.hparams.model_name:
+                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in portability_image]
+            else:
+                portability_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in portability_image]
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'portability_prompt': self.prompt.format(portability_prompts[i]) if portability_image[i] is not None else portability_prompts[i],
+                        'portability_ground_truth': portability_ground_truth[i],
+                        'portability_image': portability_image[i]
+                    }
+                )
+        
+        if "vision" in portability_inputs.keys():
+            portability_image_path = [os.path.join(self.vis_root, multimodal_portability_image_) if multimodal_portability_image_ is not None else None for multimodal_portability_image_ in multimodal_portability_image]
+            portability_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
+            if 'llava' in self.hparams.model_name:
+                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in portability_image]
+            else:
+                portability_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in portability_image]
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'multimodal_portability_image': portability_image[i],
+                        'multimodal_portability_prompt': self.prompt.format(multimodal_portability_prompts[i]) if portability_image[i] is not None else multimodal_portability_prompts[i],
+                        'multimodal_portability_ground_truth': multimodal_portability_ground_truth[i],
+                    }
+                )
         return requests

@@ -103,6 +103,8 @@ class BaseEditor:
                 self.tok = AutoTokenizer.from_pretrained(self.model_name, cache_dir=hparams.cache_dir)
                 self.tok.pad_token_id = self.tok.eos_token_id
                 self.prompt = "USER: {} Answer in a single word. ASSISTANT:"
+                # self.prompt = "{}"
+                # self.prompt = "{} Answer in a single word."
             elif 'baichuan' in self.model_name.lower():
                 self.model = AutoModelForCausalLM.from_pretrained(self.model_name, **model_kwargs, trust_remote_code=True)
                 self.tok = AutoTokenizer.from_pretrained(self.model_name,trust_remote_code=True)
@@ -378,12 +380,12 @@ class BaseEditor:
                 edit_evaluation(all_metrics, request, edited_model, i, test_generation, icl_examples, **kwargs)
         else:
             for i, request in enumerate(tqdm(requests, total=len(requests))):
-                request.update({
-                    "ori_prompt": request["prompt"]
-                })
-                request["prompt"] = request["prompt_template"].format(request["prompt"])
+                # request.update({
+                #     "ori_prompt": request["prompt"]
+                # })
+                # request["prompt"] = request["prompt_template"].format(request["prompt"])
                 edited_model, weights_copy, icl_examples = edit_func(request)
-                request["prompt"] = request["ori_prompt"]
+                # request["prompt"] = request["ori_prompt"]
                 edit_evaluation(all_metrics, request, edited_model, i, test_generation, icl_examples, **kwargs)
                 if self.alg_name == 'KN' or self.alg_name == 'GRACE' or self.alg_name == 'WISE':
                     with torch.no_grad():

@@ -1,6 +1,6 @@
 alg_name: "ROME"
 # model_name: "./hugging_cache/Llama-3-8B"
-model_name: "meta-llama/Meta-Llama-3-8B"
+model_name: "meta-llama/Llama-3.1-8B-Instruct"
 stats_dir: "./data/stats"
 device: 0
 layers: [5]

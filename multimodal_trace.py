@@ -137,7 +137,8 @@ def trace_ROME_LLaVA_VQA():
     #     "tomatoes",
     # ]
     image = [
-        "val2014/COCO_val2014_000000314504.jpg"
+        # "val2014/COCO_val2014_000000314504.jpg"
+        "tabby/images.jpg"
         # "val2014/COCO_val2014_000000451435.jpg",
         # "val2014/COCO_val2014_000000189446.jpg",
         # None

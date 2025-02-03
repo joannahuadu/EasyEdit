@@ -45,6 +45,7 @@ ALG_DICT = {
 }
 
 ALG_MULTIMODAL_DICT = {
+    'ROME': apply_rome_to_model,
     'MEND': MendMultimodalRewriteExecutor().apply_to_model,
     'SERAC': SeracMultimodalRewriteExecutor().apply_to_model,
     'SERAC_MULTI': SeracMultimodalRewriteExecutor().apply_to_model,

@@ -25,6 +25,7 @@ class LLavaModel(nn.Module):
         llava_model="",
         prompt_template="",
         device_map = "cuda",
+        max_context_len=3800,
         cache_dir=None,
         ):
         super().__init__()
@@ -43,7 +44,7 @@ class LLavaModel(nn.Module):
         if device_map != 'auto':
             vision_tower.to(device=device_map, dtype=torch.float16)
         self.image_processor = vision_tower.image_processor
-        
+        self.max_context_len = max_context_len
     def _device(self):
         return list(self.parameters())[-1].device
     
@@ -73,7 +74,7 @@ class LLavaModel(nn.Module):
     def forward(self, samples):
         subject_range = text_input_range = input_tokens = [None]
         if "text_input" in samples:
-            if "noise" in samples:
+            if "noise" in samples and samples["noise"]:
                 ## only suject embedding with no image and no answer: noise generation for causal tracing, thus no need for prompt template.
                 texts = samples['text_input']
             else:
@@ -89,14 +90,24 @@ class LLavaModel(nn.Module):
         input_ids = []
         for text in texts:
             input_ids.append(self.tokenizer_image_token([text], IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(list(self.parameters())[-1].device))
-        input_ids = torch.cat(input_ids, dim=0) 
+        # input_ids = torch.cat(input_ids, dim=0) 
+        id_lens = [input_id.shape[1] for input_id in input_ids]
+        pad_ids = torch.tensor(self.llava_tokenizer.pad_token_id, device=list(self.parameters())[-1].device)
+
+        max_length = max(id_lens) if max(id_lens) < self.max_context_len else self.max_context_len
+        wrapped_input_ids = pad_ids.expand(len(id_lens), max_length).clone()
+        
+        for i, input_id in enumerate(input_ids):
+            length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
+            wrapped_input_ids[i, :length] = input_id[:length]
+        input_ids = wrapped_input_ids
         
         if 'trace' in samples and samples['trace']:
             assert 'subject' in samples and 'ori_text_input' in samples, "Causal tracing must specify `subject` and `ori_text_input`."
             subject_ids = self.llava_tokenizer(
                 samples['subject'], return_tensors="pt", add_special_tokens=False).input_ids.to(list(self.parameters())[-1].device)
             text_input_ids = self.llava_tokenizer(
-                samples['ori_text_input'], return_tensors="pt", add_special_tokens=False).input_ids.to(list(self.parameters())[-1].device)
+                samples['ori_text_input'], padding=True, truncation=True, return_tensors="pt", add_special_tokens=False).input_ids.to(list(self.parameters())[-1].device)
             (
                 input_ids,
                 position_ids,
@@ -117,7 +128,7 @@ class LLavaModel(nn.Module):
                 subject_ids=subject_ids,
                 text_input_ids=text_input_ids)
         else:
-            if images:
+            if images is not None:
                 (
                     input_ids,
                     position_ids,
@@ -160,7 +171,7 @@ class LLavaModel(nn.Module):
         **kwargs,
         ):
         if "text_input" in samples:
-            if "noise" in samples:
+            if "noise" in samples and samples["noise"]:
                 ## only suject embedding with no image and no answer: noise generation for causal tracing, thus no need for prompt template.
                 texts = samples['text_input']
             else:
@@ -176,7 +187,17 @@ class LLavaModel(nn.Module):
         input_ids = []
         for text in texts:
             input_ids.append(self.tokenizer_image_token([text], IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(list(self.parameters())[-1].device))
-        input_ids = torch.cat(input_ids, dim=0) 
+        # input_ids = torch.cat(input_ids, dim=0) 
+        id_lens = [input_id.shape[1] for input_id in input_ids]
+        pad_ids = torch.tensor(self.llava_tokenizer.pad_token_id, device=list(self.parameters())[-1].device)
+
+        max_length = max(id_lens) if max(id_lens) < self.max_context_len else self.max_context_len
+        wrapped_input_ids = pad_ids.expand(len(id_lens), max_length).clone()
+        
+        for i, input_id in enumerate(input_ids):
+            length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
+            wrapped_input_ids[i, :length] = input_id[:length]
+        input_ids = wrapped_input_ids
         
         outputs = self.llava_model.generate(
                 inputs=input_ids,                

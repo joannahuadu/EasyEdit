@@ -4,7 +4,7 @@ sys.path.append("/mnt/data2/wmq/EasyEdit")
 from easyeditor import BaseEditor
 from easyeditor import ROMEHyperParams
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,9"
 
 prompts = ["Vinson Massif is located in the continent of?"]
 ground_truth = ["Antarctica"]
@@ -40,7 +40,7 @@ def edit_ROME_GPT2_VQA():
     )
 
 def edit_ROME_LLaMA_VQA(layers = [5]):
-    hparams = ROMEHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/ROME/llama-7b')
+    hparams = ROMEHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/ROME/llama3-8b')
     hparams.layers = layers
     editor = BaseEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.edit(
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         edit_ROME_GPT2_VQA()
     elif args.model == 'llama':
         # for i in range(32):
-        edit_ROME_LLaMA_VQA(layers=[30])
+        edit_ROME_LLaMA_VQA(layers=[5])
     elif args.model == 'qwen':
         edit_ROME_Qwen_VQA()
     else:

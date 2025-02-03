@@ -127,6 +127,9 @@ class Blip2OPT(Blip2Base):
     def forward(self, samples):
         if samples['image'] is not None:
             image = samples["image"] # bsz, 3, image_size, image_size
+            if type(image) is list:
+                image = [x.unsqueeze(0) if x.ndim == 3 else x for x in image]
+            image = torch.cat([image_ for image_ in image], dim=0)
             with self.maybe_autocast():
                 image_embeds = self.ln_vision(self.visual_encoder(image))
             image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
@@ -225,7 +228,7 @@ class Blip2OPT(Blip2Base):
         samples,
         use_nucleus_sampling=False,
         num_beams=1,
-        max_length=30,
+        max_new_tokens=30,
         min_length=1,
         top_p=0.9,
         repetition_penalty=1.0,
@@ -239,7 +242,7 @@ class Blip2OPT(Blip2Base):
                 - image (torch.Tensor): A tensor of shape (batch_size, 3, H, W)
             use_nucleus_sampling (bool): Whether to use nucleus sampling. If False, use top-k sampling.
             num_beams (int): Number of beams for beam search. 1 means no beam search.
-            max_length (int): The maximum length of the sequence to be generated.
+            max_new_tokens (int): The maximum length of the sequence to be generated.
             min_length (int): The minimum length of the sequence to be generated.
             top_p (float): The cumulative probability for nucleus sampling.
             repetition_penalty (float): The parameter for repetition penalty. 1.0 means no penalty.
@@ -322,7 +325,7 @@ class Blip2OPT(Blip2Base):
                     top_p=top_p,
                     temperature=temperature,
                     num_beams=num_beams,
-                    max_new_tokens=max_length,
+                    max_new_tokens=max_new_tokens,
                     min_length=min_length,
                     eos_token_id=self.eos_token_id,
                     repetition_penalty=repetition_penalty,
@@ -353,15 +356,17 @@ class Blip2OPT(Blip2Base):
                     top_p=top_p,
                     temperature=temperature,
                     num_beams=num_beams,
-                    max_new_tokens=max_length,
+                    max_new_tokens=max_new_tokens,
                     min_length=min_length,
                     eos_token_id=self.eos_token_id,
                     repetition_penalty=repetition_penalty,
                     length_penalty=length_penalty,
                     num_return_sequences=num_captions,
                 )
-        
-        prompt_length = samples['prompts_len'][0]
+        if samples['prompts_len']:
+            prompt_length = samples['prompts_len'][0]
+        else:
+            prompt_length = len(opt_tokens['input_ids'][0])
         output_text = self.opt_tokenizer.batch_decode(
             outputs[:, prompt_length:], skip_special_tokens=True
         )
