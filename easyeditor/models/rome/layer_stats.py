@@ -23,7 +23,13 @@ STAT_TYPES = {
     "norm_mean": NormMean,
 }
 
-
+def get_model_config(model, attribute_name):
+        for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
+            sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
+            if sub_model and hasattr(sub_model, 'config') and hasattr(sub_model.config, attribute_name):
+                return getattr(sub_model.config, attribute_name)
+        return None
+    
 def main():
     """
     Command-line utility to precompute cached stats.
@@ -103,23 +109,24 @@ def layer_stats(
             ds_name,
             dict(wikitext="wikitext-103-raw-v1", wikipedia="20200501.en")[ds_name]
         )
-        if hasattr(model.config, 'n_positions'):
-            maxlen = model.config.n_positions
-        elif hasattr(model.config, 'max_sequence_length'):
-            maxlen = model.config.max_sequence_length
-        elif hasattr(model.config, 'max_position_embeddings'):
-            maxlen = model.config.max_position_embeddings
-        elif hasattr(model.config,'seq_length'):
-            maxlen = model.config.seq_length
+
+        if get_model_config(model, 'n_positions'):
+            maxlen = get_model_config(model, 'n_positions')
+        elif get_model_config(model, 'max_sequence_length'):
+            maxlen = get_model_config(model, 'max_sequence_length')
+        elif get_model_config(model, 'max_position_embeddings'):
+            maxlen = get_model_config(model, 'max_position_embeddings')
+        elif get_model_config(model, 'seq_length'):
+            maxlen = get_model_config(model, 'seq_length')
         else:
             raise NotImplementedError
-                
-        if hasattr(model.config, 'model_type') and 'mistral' in model.config.model_type:
-            if hasattr(model.config, 'sliding_window') and model.config.sliding_window:
-                maxlen = model.config.sliding_window or 4096
+        
+        if get_model_config(model, 'model_type') and 'mistral' in get_model_config(model, 'model_type'):
+            if get_model_config(model, 'sliding_window'):
+                maxlen = get_model_config(model, 'sliding_window') or 4096
             else:
                 maxlen = 4096
-        if hasattr(model.config, 'model_type') and 'qwen2' in model.config.model_type:
+        if get_model_config(model, 'model_type') and 'qwen2' in get_model_config(model, 'model_type'):
             maxlen = 4096
 
         if batch_tokens is not None and batch_tokens < maxlen:
@@ -128,23 +135,24 @@ def layer_stats(
 
     # Continue with computation of statistics
     batch_size = 100  # Examine this many dataset texts at once
-    if hasattr(model.config, 'n_positions'):
-        npos = model.config.n_positions
-    elif hasattr(model.config, 'max_sequence_length'):
-        npos = model.config.max_sequence_length
-    elif hasattr(model.config, 'max_position_embeddings'):
-        npos = model.config.max_position_embeddings
-    elif hasattr(model.config,'seq_length'):
-        npos = model.config.seq_length
+ 
+    if get_model_config(model, 'n_positions'):
+        npos = get_model_config(model, 'n_positions')
+    elif get_model_config(model, 'max_sequence_length'):
+        npos = get_model_config(model, 'max_sequence_length')
+    elif get_model_config(model, 'max_position_embeddings'):
+        npos = get_model_config(model, 'max_position_embeddings')
+    elif get_model_config(model, 'seq_length'):
+        npos = get_model_config(model, 'seq_length')
     else:
         raise NotImplementedError
         
-    if hasattr(model.config, 'model_type') and 'mistral' in model.config.model_type:
-        if hasattr(model.config, 'sliding_window') and model.config.sliding_window:
-            npos = model.config.sliding_window or 4096
+    if get_model_config(model, 'model_type') and 'mistral' in get_model_config(model, 'model_type'):
+        if get_model_config(model, 'sliding_window'):
+            npos = get_model_config(model, 'sliding_window') or 4096
         else:
             npos = 4096
-    if hasattr(model.config, 'model_type') and 'qwen2' in model.config.model_type:
+    if get_model_config(model, 'model_type') and 'qwen2' in get_model_config(model, 'model_type'):
             npos = 4096
 
     if batch_tokens is None:
@@ -155,9 +163,12 @@ def layer_stats(
     size_suffix = "" if sample_size is None else f"_{sample_size}"
     if batch_tokens < npos:
         size_suffix = "_t{batch_tokens}" + size_suffix
+    
     if model_name is None:
         # model_name = model.config._name_or_path.replace("/", "_")
-        model_name = model.config._name_or_path.rsplit("/")[-1]
+        if get_model_config(model,'_name_or_path'):
+            model_name = get_model_config(model,'_name_or_path').rsplit("/")[-1]
+
 
     stats_dir = Path(stats_dir)
     file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}{size_suffix}.npz"

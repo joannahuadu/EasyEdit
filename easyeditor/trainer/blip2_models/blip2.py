@@ -32,7 +32,7 @@ class Blip2Base(BaseModel):
         tokenizer.add_special_tokens({"bos_token": "[DEC]"})
         return tokenizer
 
-    def maybe_autocast(self, dtype=torch.float32):
+    def maybe_autocast(self, dtype=torch.float16):
         # if on cpu, don't use autocast
         # if on gpu, use autocast with dtype if provided, otherwise use torch.float16
         enable_autocast = self.device != torch.device("cpu")

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Literal
+from typing import List, Literal, Any
 
 from ...util.hparams import HyperParams
 import yaml

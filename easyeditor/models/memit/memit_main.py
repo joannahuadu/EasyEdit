@@ -13,8 +13,8 @@ from ...util.generate import generate_fast
 from ...util.globals import *
 
 from .compute_ks import compute_ks
-from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx
-from .memit_hparams import MEMITHyperParams
+from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx, get_model_config
+from .memit_hparams import MEMITHyperParams, MEMITMultimodalHyperParams
 
 # Cache variable(s)
 CONTEXT_TEMPLATES_CACHE = None
@@ -40,6 +40,9 @@ def apply_memit_to_model(
     """
 
     weights_copy = {}
+    for request in requests:
+        if "target_new" not in request and "target" in request:
+            request.update({"target_new": request["target"]})
     if copy:
         model = deepcopy(model)
 
@@ -105,7 +108,7 @@ def execute_memit(
     weights_copy = {k: v.detach().clone() for k, v in weights.items()}
 
     # Compute z for final layer
-    context_templates = get_context_templates(model, tok)
+    context_templates = get_context_templates(model, tok, multimodal_generation=True if 'image' in request else False)
     z_layer = hparams.layers[-1]
     z_list = []
 
@@ -173,7 +176,8 @@ def execute_memit(
             words=[request["subject"] for request in requests],
             module_template=hparams.layer_module_tmp,
             fact_token_strategy=hparams.fact_token,
-            track='out'
+            track='out',
+            requests=requests
         ).T
         targets = zs - cur_zs
         print("z error", torch.linalg.norm(targets, dim=0).mean())
@@ -257,8 +261,9 @@ def get_cov(
     Retrieves covariance statistics, then computes the algebraic inverse.
     Caches result for future use.
     """
-
-    model_name = model.config._name_or_path.replace("/", "_")
+    if get_model_config(model,'_name_or_path'):
+        model_name = get_model_config(model,'_name_or_path').replace("/", "_")
+    
     key = (model_name, layer_name)
 
     print(f"Retrieving covariance statistics for {model_name} @ {layer_name}.")
@@ -299,7 +304,7 @@ def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Ten
         )
 
 
-def get_context_templates(model, tok):
+def get_context_templates(model, tok, multimodal_generation=False):
     global CONTEXT_TEMPLATES_CACHE
 
     if CONTEXT_TEMPLATES_CACHE is None:
@@ -312,6 +317,7 @@ def get_context_templates(model, tok):
                     ["The", "Therefore", "Because", "I", "You"],
                     n_gen_per_prompt=n_gen // 5,
                     max_out_len=length,
+                    multimodal_generation=multimodal_generation,
                 )
             ]
             for length, n_gen in [(10, 5)]  # Be careful about changing this.

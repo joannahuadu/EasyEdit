@@ -8,19 +8,21 @@ cache_dir: /home/lishichao/.cache/huggingface/hub/
 device: 0
 
 # Methods
-alg_name: "ROME"
+alg_name: "MEMIT"
 stats_dir: "./data/stats"
-layers: [17]
+layers: [4, 5, 6, 7, 8]
+layer_selection: "all"
 fact_token: "subject_last"
-v_num_grad_steps: 20
+v_num_grad_steps: 25
 v_lr: 5e-1
 v_loss_layer: 31
-v_weight_decay: 0.5
-clamp_norm_factor: 4
+v_weight_decay: 1e-3
 kl_factor: 0.0625
+clamp_norm_factor: 4
 mom2_adjustment: false
-# context_template_length_params: [[5, 10], [10, 10]]
-context_template_length_params: [[5, 5]]
+mom2_update_weight: 15000
+context_template_length_params: [[5, 10], [10, 10]]
+
 rewrite_module_tmp: "llava_model.model.layers.{}.mlp.down_proj"
 layer_module_tmp: "llava_model.model.layers.{}"
 mlp_module_tmp: "llava_model.model.layers.{}.mlp"

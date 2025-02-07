@@ -2,7 +2,7 @@ import sys
 import argparse
 sys.path.append("/home/lishichao/project/EasyEdit")
 from easyeditor import MultimodalEditor
-from easyeditor import ROMEMultimodalHyperParams
+from easyeditor import MEMITMultimodalHyperParams
 
 prompts = ["What type of cat is this?"]
 # targets = ["burmese"]
@@ -42,8 +42,8 @@ portability_inputs = {
 #         "vision": {"prompt": "Does the continent where Vinson Massif is located have any permanent human population?", "ground_truth": "No", "image": [None]}, 
 #     }
 
-def edit_ROME_BLIP2_VQA():
-    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/ROME/blip2')
+def edit_MEMIT_BLIP2_VQA():
+    hparams = MEMITMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/MEMIT/blip2')
     editor = MultimodalEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.edit(
         prompts=prompts,
@@ -58,9 +58,9 @@ def edit_ROME_BLIP2_VQA():
         test_generation = True,
     )
 
-def edit_ROME_LLaVA_VQA(layers = [5]):
-    hparams = ROMEMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/ROME/llava')
-    hparams.layers = layers
+def edit_MEMIT_LLaVA_VQA(layers = [5]):
+    hparams = MEMITMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/MEMIT/llava')
+    # hparams.layers = layers
     editor = MultimodalEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.edit(
         prompts=prompts,
@@ -86,8 +86,8 @@ def edit_ROME_LLaVA_VQA(layers = [5]):
     # )
     # print('Post-Edit Outputs: ', [tokenizer.decode(x) for x in post_edit_outputs.detach().cpu().numpy().tolist()])
 
-def edit_ROME_MiniGPT4_VQA():
-    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/ROME/minigpt4')
+def edit_MEMIT_MiniGPT4_VQA():
+    hparams = MEMITMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/MEMIT/minigpt4')
     editor = MultimodalEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.edit(
         prompts=prompts,
@@ -99,18 +99,18 @@ def edit_ROME_MiniGPT4_VQA():
     )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Choose which model to edit using ROME.")
+    parser = argparse.ArgumentParser(description="Choose which model to edit using MEMIT.")
     parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4'],
                         help="Specify the model to edit: 'gpt2', 'llama', or 'qwen'.")
 
     args = parser.parse_args()
 
     if args.model == 'blip2':
-        edit_ROME_BLIP2_VQA()
+        edit_MEMIT_BLIP2_VQA()
     elif args.model == 'llava':
         # for i in range(32):
-        edit_ROME_LLaVA_VQA(layers=[5])
+        edit_MEMIT_LLaVA_VQA(layers=[5])
     elif args.model == 'minigpt4':
-        edit_ROME_MiniGPT4_VQA()
+        edit_MEMIT_MiniGPT4_VQA()
     else:
         print("Invalid model choice.")

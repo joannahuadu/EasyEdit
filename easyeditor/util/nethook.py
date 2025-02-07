@@ -366,7 +366,8 @@ def get_parameter(model, name):
     """
     Finds the named parameter within the given model.
     """
-    for n, p in model.named_parameters():
+    # for n, p in model.named_parameters():
+    for n, p in model.state_dict().items():
         if n == name:
             return p
     raise LookupError(name)

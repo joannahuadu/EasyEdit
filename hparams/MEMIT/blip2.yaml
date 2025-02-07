@@ -1,0 +1,52 @@
+# Statistics
+name: facebook/opt-2.7b
+model_name: blip2
+tokenizer_class: GPT2Tokenizer
+tokenizer_name: facebook/opt-2.7b
+cache_dir: /home/lishichao/.cache/huggingface/hub/blip2
+device: 3
+
+# Methods
+alg_name: "MEMIT"
+stats_dir: "./data/stats"
+layers: [4, 5, 6, 7, 8]
+layer_selection: "all"
+fact_token: "subject_last"
+v_num_grad_steps: 25
+v_lr: 5e-1
+v_loss_layer: 31
+v_weight_decay: 1e-3
+kl_factor: 0.0625
+clamp_norm_factor: 4
+
+
+mom2_adjustment: false
+mom2_update_weight: 15000
+context_template_length_params: [[5, 10], [10, 10]]
+lm_head_module: "llama_model.lm_head"
+rewrite_module_tmp: "opt_model.model.decoder.layers.{}.fc2"
+layer_module_tmp: "opt_model.model.decoder.layers.{}"
+mlp_module_tmp: "opt_model.model.decoder.layers.{}.fc2"
+attn_module_tmp: "opt_model.model.decoder.layers.{}.self_attn"
+ln_f_module: "opt_model.model.decoder.final_layer_norm"
+lm_head_module: "opt_model.lm_head"
+mom2_dataset: "wikipedia"
+mom2_n_samples: 100000
+mom2_dtype: "float32"
+model_parallel: false
+fp16: false
+
+# Multimodal
+qformer_checkpoint: /home/lishichao/.cache/huggingface/hub/blip2/blip2_pretrained_opt2.7b.pth
+qformer_name_or_path: bert-base-uncased
+state_dict_file: /home/lishichao/.cache/huggingface/hub/blip2/eva_vit_g.pth
+
+# image
+coco_image: /data/lishichao/data/model_edit/
+rephrase_image: /data/lishichao/data/model_edit/
+exact_match: True
+
+# Trace
+noise_level: s10
+result_dir: /data/lishichao/data/model_edit/results
+

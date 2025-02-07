@@ -34,6 +34,7 @@ def compute_ks(
         ],
         module_template=hparams.rewrite_module_tmp,
         fact_token_strategy=hparams.fact_token,
+        requests=requests
     )[0]
 
     context_type_lens = [0] + [len(context_type) for context_type in context_templates]
