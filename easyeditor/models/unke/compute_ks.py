@@ -5,7 +5,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .compute_z import get_module_input_output_at_words
-from .unke_hparams import UnKEMultimodalTrainingHyperParams as UnKEHyperParams
+from .unke_hparams import UnKEMultimodalHyperParams as UnKEHyperParams
 
 
 def compute_ks(
@@ -34,6 +34,7 @@ def compute_ks(
         ],
         module_template=hparams.rewrite_module_tmp,
         fact_token_strategy=hparams.fact_token,
+        requests=requests
     )[0]
 
     context_type_lens = [0] + [len(context_type) for context_type in context_templates]

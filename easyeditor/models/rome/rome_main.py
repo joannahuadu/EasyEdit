@@ -107,7 +107,7 @@ def execute_rome(
             hparams,
             layer,
             get_context_templates(model, tok, hparams.context_template_length_params, multimodal_generation=True if 'image' in request else False),
-        )
+        ).half()
         print("Left vector shape:", left_vector.shape)
         right_vector: torch.Tensor = compute_v(
             model,

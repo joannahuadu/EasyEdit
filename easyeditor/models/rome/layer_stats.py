@@ -176,7 +176,7 @@ def layer_stats(
 
     print(f"Computing Cov locally....")
 
-    ds = get_ds() if not filename.exists() else None
+    ds = get_ds() if (not filename.exists() or force_recompute)  else None
 
     if progress is None:
         progress = lambda x: x
@@ -201,11 +201,87 @@ def layer_stats(
                 with Trace(
                     model, layer_name, retain_input=True, retain_output=False, stop=True
                 ) as tr:
-                    model(**batch)
-                feats = flatten_masked_batch(tr.input, batch["attention_mask"])
+                    batch_dict = {"text_input":[tokenizer.decode(batch['input_ids'][0][:200])],
+                                  "image":None}
+                    model(batch_dict)
+                    #model(**batch)
+                feats = flatten_masked_batch(tr.input, batch["attention_mask"][0][:200])
                 # feats = flatten_masked_batch(tr.output, batch["attention_mask"])
                 feats = feats.to(dtype=dtype)
                 stat.add(feats)
+    return stat
+from easyeditor import VQADataset_Simple
+def layer_stats_multimodal(
+    model,
+    tokenizer,
+    layer_name,
+    stats_dir,
+    ds_name,
+    to_collect,
+    model_name=None,
+    sample_size=None,
+    precision=None,
+    batch_tokens=None,
+    download=True,
+    progress=tqdm,
+    force_recompute=False,
+    hparams=None
+):
+    """
+    Function to load or compute cached stats.
+    """
+    def get_VQA_ds():
+        annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
+        image_root = '/data/lishichao/data/model_edit/'
+        raw_ds = VQADataset_Simple(annotation_file=annotation_path,image_root=image_root,image_size=336)
+        return raw_ds
+    # Continue with computation of statistics
+    batch_size = 1  # Examine this many dataset texts at once
+
+    if precision is None:
+        precision = "float64"
+    dtype = getattr(torch, precision)
+    if model_name is None:
+        # model_name = model.config._name_or_path.replace("/", "_")
+        if get_model_config(model,'_name_or_path'):
+            model_name = get_model_config(model,'_name_or_path').rsplit("/")[-1]
+
+    stats_dir = Path(stats_dir)
+    file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}.npz"
+    filename = stats_dir / file_extension
+
+    print(f"Computing Cov locally....")
+
+    ds = get_VQA_ds() if (not filename.exists() or force_recompute) else None
+
+    if progress is None:
+        progress = lambda x: x
+
+    stat = CombinedStat(**{k: STAT_TYPES[k]() for k in to_collect})
+    loader = tally(
+        stat,
+        ds,
+        cache=(filename if not force_recompute else None),
+        sample_size=sample_size,
+        batch_size=batch_size,
+        #collate_fn=length_collation(batch_tokens),
+        pin_memory=True,
+        random_sample=1,
+        num_workers=2,
+    )
+    # batch_count = -(-(sample_size or len(ds)) // batch_size)
+    batch_count = 1
+    with torch.no_grad():
+        for batch in progress(loader, total=batch_count):
+            # batch = dict_to_(batch, f"cuda:{hparams.device}")
+            with Trace(
+                model, layer_name, retain_input=True, retain_output=False, stop=True
+            ) as tr:
+                model(batch)
+            # feats = flatten_masked_batch(tr.input, batch["attention_mask"])
+            # feats = flatten_masked_batch(tr.output, batch["attention_mask"])
+            feats = tr.input.to(dtype=dtype).squeeze()
+            stat.add(feats)
     return stat
 
 

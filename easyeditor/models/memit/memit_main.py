@@ -8,6 +8,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ..rome.layer_stats import layer_stats
+from ..rome.layer_stats import layer_stats_multimodal
 from ...util import nethook
 from ...util.generate import generate_fast
 from ...util.globals import *
@@ -186,7 +187,7 @@ def execute_memit(
         targets = targets.repeat_interleave(repeat_factor, dim=1)
 
         # Load covariance matrix
-        force_recompute = False
+        force_recompute = True
         # force_recompute = layer != hparams.layers[0]
         cov = get_cov(
             model,
@@ -211,6 +212,7 @@ def execute_memit(
             hparams.mom2_update_weight * cov.double() + layer_ks @ layer_ks.T,
             layer_ks,
         )
+        adj_k = adj_k / adj_k.norm()
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         upd_matrix = resid @ adj_k.T
 
@@ -268,7 +270,7 @@ def get_cov(
 
     print(f"Retrieving covariance statistics for {model_name} @ {layer_name}.")
     if key not in COV_CACHE or force_recompute:
-        stat = layer_stats(
+        stat = layer_stats_multimodal(
             model,
             tok,
             layer_name,

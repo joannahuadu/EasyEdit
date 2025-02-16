@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from ..rome import repr_tools
 from ...util.globals import *
 
-from .layer_stats import layer_stats
+from .layer_stats import layer_stats, get_model_config
 from .rome_hparams import ROMEHyperParams
 
 # Cache variables
@@ -30,8 +30,8 @@ def get_inv_cov(
     """
 
     global inv_mom2_cache
-
-    model_name = model.config._name_or_path.replace("/", "_")
+    if get_model_config(model,'_name_or_path'):
+        model_name = get_model_config(model,'_name_or_path').replace("/", "_")
     key = (model_name, layer_name)
 
     if key not in inv_mom2_cache:
@@ -48,7 +48,8 @@ def get_inv_cov(
             to_collect=["mom2"],
             sample_size=mom2_n_samples,
             precision=mom2_dtype,
-            hparams=hparams
+            hparams=hparams,
+            force_recompute=hparams.force_recompute,
         )
         inv_mom2_cache[key] = torch.inverse(
             stat.mom2.moment().to(f"cuda:{hparams.device}")
@@ -121,7 +122,7 @@ def compute_u(
             hparams.mom2_n_samples,
             hparams.mom2_dtype,
             hparams=hparams,
-        ) @ u.unsqueeze(1)
+        ) @ u.unsqueeze(1).float()
         u = u.squeeze()
 
     return u / u.norm()

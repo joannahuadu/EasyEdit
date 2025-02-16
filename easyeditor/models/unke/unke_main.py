@@ -8,19 +8,39 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ..rome.layer_stats import layer_stats
+from ..rome.layer_stats import layer_stats_multimodal
 from ...util import nethook
 from ...util.generate import generate_fast
 from ...util.globals import *
 
-from .compute_ks import compute_ks
-from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx
-from .unke_hparams import UnKEMultimodalTrainingHyperParams as UnKEHyperParams
+# from .compute_ks import compute_ks
+from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx, get_model_config
+from .unke_hparams import UnKEMultimodalHyperParams as UnKEHyperParams
 
 # Cache variable(s)
 CONTEXT_TEMPLATES_CACHE = None
 COV_CACHE = {}
 
+def get_context_templates(model, tok):
+    global CONTEXT_TEMPLATES_CACHE
 
+    if CONTEXT_TEMPLATES_CACHE is None:
+        CONTEXT_TEMPLATES_CACHE = [["{}"]] + [
+            [
+                f.replace("{", " ").replace("}", " ") + ". {}"
+                for f in generate_fast(
+                    model,
+                    tok,
+                    ["The", "Therefore", "Because", "I", "You"],
+                    n_gen_per_prompt=n_gen // 5,
+                    max_out_len=length,
+                )
+            ]
+            for length, n_gen in [(10, 5)]  # Be careful about changing this.
+        ]
+        print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
+
+    return CONTEXT_TEMPLATES_CACHE
 def apply_unke_to_model(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
@@ -40,6 +60,9 @@ def apply_unke_to_model(
     """
 
     weights_copy = {}
+    for request in requests:
+        if "target_new" not in request and "target" in request:
+            request.update({"target_new": request["target"]})
     if copy:
         model = deepcopy(model)
 
@@ -104,8 +127,9 @@ def execute_unke(
     # Save old weights for future restoration
     weights_copy = {k: v.detach().clone() for k, v in weights.items()}
 
+
     # Compute z for final layer
-    context_templates = get_context_templates(model, tok)
+    context_templates = get_context_templates(model, tok, multimodal_generation=True if 'image' in request else False)
     z_layer = hparams.layers[-1]
     z_list = []
 
@@ -155,26 +179,40 @@ def execute_unke(
                 )
                 print(f"Cached k/v pair at {cache_fname}")
     zs = torch.stack(z_list, dim=1)
-
+    if "image" in requests[0]:
+        images = [request["image"] for request in requests]
+        text_inputs = [request["prompt"].format(request["subject"]) for request in requests]
+    else:
+        batch_question = [request['question'] for request in requests]
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
-
-        # Get current model activations
-        layer_ks = compute_ks(model, tok, requests, hparams, layer, context_templates).T
-        print(f"Writing {layer_ks.size(1)} key/value pair(s) into layer {layer}")
-
-        # Compute residual error
-        cur_zs = get_module_input_output_at_words(
-            model,
-            tok,
-            z_layer,
-            context_templates=[request["prompt"] for request in requests],
-            words=[request["subject"] for request in requests],
-            module_template=hparams.layer_module_tmp,
-            fact_token_strategy=hparams.fact_token,
-            track='out'
-        ).T
+        if "image" not in requests[0]:
+            contexts_tok = tok(batch_question, padding=True, return_tensors="pt").to(
+                next(model.parameters()).device)
+        with torch.no_grad():
+            with nethook.Trace(
+                module=model,
+                layer=hparams.layer_module_tmp.format(layer),
+                retain_input=True,
+                retain_output=True,
+                detach=True,
+                clone=True,
+            ) as tr:
+                if "image" in requests[0]:
+                    samples = {"noise": True, "text_input": text_inputs, "image": images if images is not None else None}
+                    _ = model(samples)
+                else:
+                    _ = model(**contexts_tok)
+                layer_in_ks = tr.input #(bs:seq:h_dim)
+                layer_out_ks = tr.output#(bs:seq:h_dim)
+                
+        layer_out_ks = layer_out_ks[0] if type(layer_out_ks) is tuple else layer_out_ks
+        if "image" in requests[0]:
+            cur_zs, idxs = compute_ks(model, tok, hparams, z_layer, batch_input=samples)
+        else:
+            cur_zs, idxs = compute_ks(model, tok, hparams, z_layer, batch_input=batch_question)
+        
         targets = zs - cur_zs
         print("z error", torch.linalg.norm(targets, dim=0).mean())
 
@@ -182,7 +220,7 @@ def execute_unke(
         targets = targets.repeat_interleave(repeat_factor, dim=1)
 
         # Load covariance matrix
-        force_recompute = False
+        force_recompute = True
         # force_recompute = layer != hparams.layers[0]
         cov = get_cov(
             model,
@@ -299,23 +337,35 @@ def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Ten
         )
 
 
-def get_context_templates(model, tok):
-    global CONTEXT_TEMPLATES_CACHE
 
-    if CONTEXT_TEMPLATES_CACHE is None:
-        CONTEXT_TEMPLATES_CACHE = [["{}"]] + [
-            [
-                f.replace("{", " ").replace("}", " ") + ". {}"
-                for f in generate_fast(
-                    model,
-                    tok,
-                    ["The", "Therefore", "Because", "I", "You"],
-                    n_gen_per_prompt=n_gen // 5,
-                    max_out_len=length,
-                )
-            ]
-            for length, n_gen in [(10, 5)]  # Be careful about changing this.
-        ]
-        print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
 
-    return CONTEXT_TEMPLATES_CACHE
+def compute_ks(
+    model: AutoModelForCausalLM,
+    tok: AutoTokenizer,
+    batch_data: list,
+    hparams: UnKEHyperParams,
+    layer: int,
+):
+    input_ids = tok(batch_data, padding=True,return_tensors="pt").to(f"cuda:{hparams.device}")
+    idxs = [i.sum()-1 for i in input_ids['attention_mask']]
+
+    with torch.no_grad():
+        with nethook.Trace(
+            module=model,
+            layer=hparams.layer_module_tmp.format(layer),
+            retain_input=True,
+            retain_output=True,
+            detach=True,
+            clone=True,
+            ) as tr:
+                _ = model(**input_ids)
+                #layer_in_ks = tr.input #(bs:seq:h_dim)
+                zs_out = tr.output#(bs:seq:h_dim)
+    zs_out = zs_out[0] if type(zs_out) is tuple else zs_out
+    zs_out_list=[]
+    for i in range(len(zs_out)):
+        zs_out_list.append(zs_out[i,idxs[i]])
+    zs_out =torch.stack(zs_out_list,dim=0)
+
+
+    return zs_out,idxs

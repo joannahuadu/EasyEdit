@@ -6,7 +6,7 @@ import yaml
 
 
 @dataclass
-class UnKEMultimodalTrainingHyperParams(HyperParams):
+class UnKEMultimodalHyperParams(HyperParams):
     # Multimodal
     qformer_name_or_path: str
     state_dict_file: str

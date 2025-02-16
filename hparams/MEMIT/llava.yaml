@@ -10,7 +10,7 @@ device: 0
 # Methods
 alg_name: "MEMIT"
 stats_dir: "./data/stats"
-layers: [4, 5, 6, 7, 8]
+layers: [4]
 layer_selection: "all"
 fact_token: "subject_last"
 v_num_grad_steps: 25
@@ -21,7 +21,8 @@ kl_factor: 0.0625
 clamp_norm_factor: 4
 mom2_adjustment: false
 mom2_update_weight: 15000
-context_template_length_params: [[5, 10], [10, 10]]
+# context_template_length_params: [[5, 10], [10, 10]]
+context_template_length_params: [[5, 5]]
 
 rewrite_module_tmp: "llava_model.model.layers.{}.mlp.down_proj"
 layer_module_tmp: "llava_model.model.layers.{}"
@@ -30,7 +31,7 @@ attn_module_tmp: "llava_model.model.layers.{}.self_attn"
 ln_f_module: "llava_model.model.norm"
 lm_head_module: "llava_model.lm_head"
 mom2_dataset: "wikipedia"
-mom2_n_samples: 100000
+mom2_n_samples: 10000
 mom2_dtype: "float32"
 model_parallel: false
 fp16: false

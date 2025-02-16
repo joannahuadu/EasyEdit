@@ -110,6 +110,7 @@ class ROMEMultimodalHyperParams(HyperParams):
     max_length: int = 40
     model_parallel: bool = False
     fp16: bool = False
+    force_recompute: bool = False
 
 
     @classmethod

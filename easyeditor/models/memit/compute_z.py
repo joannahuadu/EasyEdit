@@ -48,7 +48,7 @@ def compute_z(
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
-        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids[:-1])
+        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids)
         for context_types in context_templates[:1]
         for context in context_types
     ], ["{} is a"]
@@ -77,12 +77,13 @@ def compute_z(
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
 
     # Compute indices of the tokens where the fact is looked up
-    lookup_idxs = [
-        find_fact_lookup_idx(
-            prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0)
-        )
-        for i, prompt in enumerate(all_prompts)
-    ]
+    # lookup_idxs = [
+    #     find_fact_lookup_idx(
+    #         prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0)
+    #     )
+    #     for i, prompt in enumerate(all_prompts)
+    # ]
+    lookup_idxs = [616, 623, 622, 623, 623, 623][:1] + [len(tok.encode(request['subject']))-1]
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -205,6 +206,7 @@ def compute_z(
         if delta.norm() > max_norm:
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
+            
 
     target = target_init + delta
     print(
