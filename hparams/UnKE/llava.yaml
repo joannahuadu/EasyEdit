@@ -26,7 +26,7 @@ mom2_update_weight: 15000
 context_template_length_params: [[5, 5]]
 
 #UnKE
-ex_data_num: 20
+ex_data_num: 10
 optim_num_step: 50
 lr: 2e-4
 

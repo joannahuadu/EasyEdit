@@ -38,14 +38,15 @@ class LLavaModel(nn.Module):
             llava_model,
             low_cpu_mem_usage=True,
             cache_dir=cache_dir,
-            torch_dtype=torch.bfloat16
+            torch_dtype=torch.bfloat16,
+            device_map=device_map
         )
         self.prompt_template = prompt_template
         vision_tower = self.llava_model.get_vision_tower()
         if not vision_tower.is_loaded:
             vision_tower.load_model(device_map=device_map)
         if device_map != 'auto':
-            vision_tower.to(device=device_map, dtype=torch.float16)
+            vision_tower.to(device=device_map, dtype=torch.bfloat16)
         self.image_processor = vision_tower.image_processor
         self.max_context_len = max_context_len
     def _device(self):

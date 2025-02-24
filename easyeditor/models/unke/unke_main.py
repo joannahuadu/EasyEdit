@@ -298,8 +298,8 @@ def execute_unke(
         ex_position_ids = ex_data_output.position_ids
         ex_cache_position = ex_position_ids[0]
         
-        input_causal_mask,input_position_ids,input_cache_position = get_causal_mask(layer_in_ks,input_causal_mask)
-        ex_causal_mask,ex_position_ids,ex_cache_position = get_causal_mask(stat_in,ex_causal_mask)
+        input_causal_mask,input_position_ids,input_cache_position = get_causal_mask(layer_in_ks,input_causal_mask.to(layer_in_ks.device))
+        ex_causal_mask,ex_position_ids,ex_cache_position = get_causal_mask(stat_in,ex_causal_mask.to(stat_in.device))
         
         # # Assuming attention_mask is of shape [batch_size, seq_length]
         # input_causal_mask = input_causal_mask.unsqueeze(1).unsqueeze(2)  # Shape becomes [batch_size, 1, 1, seq_length]

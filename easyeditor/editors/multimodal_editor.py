@@ -145,7 +145,7 @@ class MultimodalEditor:
             self.model, self.tok = self.model_name
         
         
-        self.model.to(f'cuda:{hparams.device}')
+        # self.model.to(f'cuda:{hparams.device}')
 
         self.hparams = hparams
         self.vis_root = hparams.coco_image
@@ -320,6 +320,8 @@ class MultimodalEditor:
         """
         assert len(prompts) == len(targets) == len(images), "Input lists must have the same length"
 
+        self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+        # self.hparams.device = str(self.model.llava_model.device)
         # Prepare requests
         requests = self._prepare_requests_batch(prompts, targets, images, rephrase_prompts, rephrase_images, locality_inputs, portability_inputs, **kwargs)
         
@@ -511,9 +513,9 @@ class MultimodalEditor:
         image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in image]
         image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in image_path]
         if 'llava' in self.hparams.model_name:
-            image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in image]
+            image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in image]
         else:
-            image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in image]
+            image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in image]
         
         requests = [{
             'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
@@ -578,9 +580,9 @@ class MultimodalEditor:
             rephrase_image_path = [os.path.join(self.rephrase_root, rephrase_image_) for rephrase_image_ in rephrase_image]
             rephrase_image = [Image.open(ip).convert("RGB") for ip in rephrase_image_path]
             if 'llava' in self.hparams.model_name:
-                rephrase_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) for i in rephrase_image]
+                rephrase_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") for i in rephrase_image]
             else:
-                rephrase_image = [self.vis_tok(i).to(self.hparams.device) for i in rephrase_image]
+                rephrase_image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") for i in rephrase_image]
             
             for i, request in enumerate(requests):
                 request.update(
@@ -604,9 +606,9 @@ class MultimodalEditor:
             locality_image_path = [os.path.join(self.vis_root, multimodal_locality_image_) if multimodal_locality_image_ is not None else None for multimodal_locality_image_ in multimodal_locality_image]
             locality_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in locality_image_path]
             if 'llava' in self.hparams.model_name:
-                locality_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in locality_image]
+                locality_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in locality_image]
             else:
-                locality_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in locality_image]
+                locality_image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in locality_image]
             for i, request in enumerate(requests):
                 request.update(
                     {
@@ -646,9 +648,9 @@ class MultimodalEditor:
             portability_image_path = [os.path.join(self.vis_root, portability_image_) if portability_image_ is not None else None for portability_image_ in portability_image]
             portability_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
             if 'llava' in self.hparams.model_name:
-                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in portability_image]
+                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_image]
             else:
-                portability_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in portability_image]
+                portability_image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_image]
             for i, request in enumerate(requests):
                 request.update(
                     {
@@ -662,9 +664,9 @@ class MultimodalEditor:
             portability_image_path = [os.path.join(self.vis_root, multimodal_portability_image_) if multimodal_portability_image_ is not None else None for multimodal_portability_image_ in multimodal_portability_image]
             portability_image = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
             if 'llava' in self.hparams.model_name:
-                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in portability_image]
+                portability_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_image]
             else:
-                portability_image = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in portability_image]
+                portability_image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_image]
             for i, request in enumerate(requests):
                 request.update(
                     {
@@ -719,9 +721,9 @@ class MultimodalEditor:
         image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in image]
         images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in image_path]
         if 'llava' in self.hparams.model_name:
-            images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in images]
+            images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in images]
         else:
-            images = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in images]
+            images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in images]
         
         # Create requests list
         requests = [{
@@ -751,9 +753,9 @@ class MultimodalEditor:
             rephrase_image_path = [os.path.join(self.rephrase_root, rephrase_image_) for rephrase_image_ in rephrase_image]
             rephrase_image = [Image.open(ip).convert("RGB") for ip in rephrase_image_path]
             if 'llava' in self.hparams.model_name:
-                rephrase_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) for i in rephrase_image]
+                rephrase_image = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") for i in rephrase_image]
             else:
-                rephrase_image = [self.vis_tok(i).to(self.hparams.device) for i in rephrase_image]
+                rephrase_image = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") for i in rephrase_image]
             
             for i, request in enumerate(requests):
                 request.update(
@@ -788,9 +790,9 @@ class MultimodalEditor:
                     vision_images_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in vision_images]
                     vision_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in vision_images_path]
                     if 'llava' in self.hparams.model_name:
-                        vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in vision_images]
+                        vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
                     else:
-                        vision_images = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in vision_images]
+                        vision_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
                     request.update(
                         {
                             'multimodal_locality_image': vision_images[0],
@@ -812,9 +814,9 @@ class MultimodalEditor:
                     portability_image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in portability_image]
                     portability_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
                     if 'llava' in self.hparams.model_name:
-                        portability_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in portability_images]
+                        portability_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_images]
                     else:
-                        portability_images = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in portability_images]
+                        portability_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_images]
                     request.update(
                         {
                             'portability_prompt': [self.prompt.format(item) for item in portability_prompts][0],
@@ -835,9 +837,9 @@ class MultimodalEditor:
                     vision_images_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in vision_images]
                     vision_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in vision_images_path]
                     if 'llava' in self.hparams.model_name:
-                        vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(self.hparams.device) if i is not None else None for i in vision_images]
+                        vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
                     else:
-                        vision_images = [self.vis_tok(i).to(self.hparams.device) if i is not None else None for i in vision_images]
+                        vision_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
                     request.update(
                         {
                             'multimodal_portability_prompt': [self.prompt.format(item) for item in vision_prompts][0],
