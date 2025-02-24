@@ -173,7 +173,7 @@ def execute_memit(
             model,
             tok,
             z_layer,
-            context_templates=[request["prompt"] for request in requests],
+            context_templates=[request["prompt_template"].format(request["prompt"]) if "prompt_template" in request else request["prompt"] for request in requests],
             words=[request["subject"] for request in requests],
             module_template=hparams.layer_module_tmp,
             fact_token_strategy=hparams.fact_token,
@@ -212,7 +212,7 @@ def execute_memit(
             hparams.mom2_update_weight * cov.double() + layer_ks @ layer_ks.T,
             layer_ks,
         )
-        adj_k = adj_k / adj_k.norm()
+        # adj_k = adj_k / adj_k.norm()
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         upd_matrix = resid @ adj_k.T
 

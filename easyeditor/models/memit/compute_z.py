@@ -48,7 +48,7 @@ def compute_z(
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
-        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids)
+        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids)[:-1]
         for context_types in context_templates[:1]
         for context in context_types
     ], ["{} is a"]
@@ -246,18 +246,21 @@ def get_module_input_output_at_words(
         subtoken = fact_token_strategy[len("subject_") :]
         if track == 'out' or track == 'in':
             return repr_tools.get_reprs_at_word_tokens(
-                track=track, subtoken=subtoken, **context_info, **word_repr_args,
+                track=track, subtoken=subtoken, 
                 images=[
                 request["image"]
                 for request in requests
                 for _ in range(len(context_templates))] if "image" in requests[0] else None,
+                **context_info, 
+                **word_repr_args,
             )
         l_input, l_output = repr_tools.get_reprs_at_word_tokens(
-            track="both", subtoken=subtoken, **context_info, **word_repr_args,
+            track="both", subtoken=subtoken, 
             images=[
             request["image"]
             for request in requests
             for _ in range(len(context_templates))] if "image" in requests[0] else None,
+            **context_info, **word_repr_args,
         )
     elif fact_token_strategy == "last":
         raise Exception("This is definitely bugged, fix it.")

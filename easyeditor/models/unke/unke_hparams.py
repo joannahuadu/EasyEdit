@@ -1,29 +1,13 @@
 from dataclasses import dataclass
-from typing import List, Literal, Any
+from typing import List, Literal, Optional
 
 from ...util.hparams import HyperParams
 import yaml
 
 
+
 @dataclass
 class UnKEMultimodalHyperParams(HyperParams):
-    # Multimodal
-    qformer_name_or_path: str
-    state_dict_file: str
-    
-    # Image_dir
-    coco_image: str
-    rephrase_image: str
-    
-    # Model
-    name:str
-    model_name: str
-    model_class: str
-    tokenizer_class: str
-    tokenizer_name: str
-    inner_params: List[str]
-
-    archive: Any
     # Method
     layers: List[int]
     layer_selection: Literal["all", "random"]
@@ -38,7 +22,13 @@ class UnKEMultimodalHyperParams(HyperParams):
     kl_factor: float
     mom2_adjustment: bool
     mom2_update_weight: float
+    context_template_length_params: List[List[int]]
 
+    # UnKE
+    lr: float
+    optim_num_step: int
+    ex_data_num: int
+    
     # Module templates
     rewrite_module_tmp: str
     layer_module_tmp: str
@@ -53,13 +43,33 @@ class UnKEMultimodalHyperParams(HyperParams):
     mom2_dtype: str
     alg_name: str
     device: int
+    name: str
     model_name: str
+    tokenizer_class: str
+    tokenizer_name: str
     stats_dir: str
 
+    # Trace
+    noise_level: str
+    result_dir: str
+    
+    # Image_dir
+    coco_image: str
+    rephrase_image: str  
+    exact_match: bool = False
+
+    ## Multimodal
+    qformer_checkpoint: Optional[str] = None
+    qformer_name_or_path: Optional[str] = None
+    state_dict_file: Optional[str] = None
+    pretrained_ckpt: Optional[str] = None  
+    
+    cache_dir: Optional[str] = None 
     max_length: int = 40
     batch_size: int = 1
     model_parallel: bool = False
-
+    fp16: bool = False
+    
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):
 
@@ -70,6 +80,6 @@ class UnKEMultimodalHyperParams(HyperParams):
             config = yaml.safe_load(stream)
             config = super().construct_float_from_scientific_notation(config)
 
-        assert (config and config['alg_name'] == 'UnKE') or print(f'MEMITHyperParams can not load from {hparams_name_or_path}, '
+        assert (config and config['alg_name'] == 'UnKE') or print(f'UnKEMultimodalHyperParams can not load from {hparams_name_or_path}, '
                                                 f'alg_name is {config["alg_name"]} ')
         return cls(**config)

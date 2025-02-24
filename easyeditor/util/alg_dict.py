@@ -20,6 +20,7 @@ from ..models.alphaedit import AlphaEditHyperParams, apply_AlphaEdit_to_model
 from .. models.deepedit_api import DeepEditApiHyperParams, apply_deepedit_api_to_model
 from ..models.dpo import DPOHyperParams, apply_dpo_to_model
 from ..models.rome import rome_causal_trace
+from ..models.unke import UnKEMultimodalHyperParams, apply_unke_to_model
 
 ALG_DICT = {
     'ROME': apply_rome_to_model,
@@ -50,7 +51,8 @@ ALG_MULTIMODAL_DICT = {
     'SERAC': SeracMultimodalRewriteExecutor().apply_to_model,
     'SERAC_MULTI': SeracMultimodalRewriteExecutor().apply_to_model,
     'IKE': apply_ike_to_multimodal_model,
-    'MEMIT': apply_memit_to_model
+    'MEMIT': apply_memit_to_model,
+    'UnKE':apply_unke_to_model
 }
 
 PER_ALG_DICT = {

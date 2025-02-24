@@ -47,15 +47,12 @@ def compute_z(
     if target_ids[0] == tok.bos_token_id or target_ids[0] == tok.unk_token_id:
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
-    rewriting_prompts = [
-        context.format(request["prompt"]) + tok.decode(target_ids)
-        for context_types in context_templates
-        for context in context_types
-    ]
+    rewriting_prompts = [request["prompt_template"].format(request["prompt"]) + tok.decode(target_ids[:-1]) if "prompt_template" in request else request["prompt"] + tok.decode(target_ids)[:-1]]
+
     all_prompts = rewriting_prompts
 
     input_tok = tok(
-        [prompt.format(request["subject"]) for prompt in all_prompts],
+        all_prompts[0].format(request["subject"]),
         return_tensors="pt",
         padding=True,
     ).to(f"cuda:{hparams.device}")
@@ -65,17 +62,20 @@ def compute_z(
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
+        lookup_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
+            lookup_idxs.append(ex_len - len(target_ids))
     else:
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
         )
+        lookup_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-
+            lookup_idxs.append(ex_len - len(target_ids))
     
 
     # Finalize rewrite and loss layers
@@ -94,7 +94,7 @@ def compute_z(
         raise NotImplementedError
     target_init, kl_distr_init = None, None
 
-    lookup_idxs = [ex_len - len(target_ids)]
+    # lookup_idxs = [(ex_len - len(target_ids)) for _ in range(len(all_prompts))]
     # Inserts new "delta" variable at the appropriate part of the computation
     def edit_output_fn(cur_out, cur_layer):
         nonlocal target_init

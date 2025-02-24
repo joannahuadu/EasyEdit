@@ -193,7 +193,7 @@ class VQADataset(BaseDataset):
 import json
 from torchvision import transforms
 class VQADataset_Simple(BaseDataset):
-    def __init__(self, annotation_file, image_root, image_size=256):
+    def __init__(self, prompt, annotation_file, image_root, image_size=256):
         self.image_root = image_root
         with open(annotation_file,'r',encoding='utf-8') as f:
             self.annotations = json.load(f)
@@ -201,6 +201,7 @@ class VQADataset_Simple(BaseDataset):
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
         ])
+        self.prompt = prompt
     def __len__(self):
         return len(self.annotations)
     
@@ -213,110 +214,19 @@ class VQADataset_Simple(BaseDataset):
         image = self.transform(image)
         return {
             "image":image.half(),
-            "text_input":txt
+            "text_input": self.prompt.format(txt)
         }
     @staticmethod
     def collate_fn(batch):
         images = [item["image"] for item in batch]
-        texts = [item["text"] for item in batch]
-        image_tensor = torch.stack(images.unsqueeze(0),dim=0)
+        texts = [item["text_input"] for item in batch]
+        # image_tensor = torch.stack(images.unsqueeze(0),dim=0)
         return {
-            "image":image_tensor,
+            "image":images,
             "text_input":texts
         }
     
     def __len__(self):
         return len(self.annotations)
 
-    def collate_fn(self, batch):
-        src = [b['prompt'] for b in batch]
-        trg = [" " + b['target'] for b in batch]
-        cond = [b['cond'] for b in batch]
-        rephrase = [b['rephrase_prompt'] for b in batch]
-        image = [b['image'] for b in batch]
-        image_rephrase = [b['image_rephrase'] for b in batch]
-        loc_q = [b["locality_prompt"] for b in batch]
-        loc_a = [" " + b["locality_ground_truth"] for b in batch]
-        m_loc_image = [b['multimodal_locality_image'] for b in batch]
-        m_loc_q = [b['multimodal_locality_prompt'] for b in batch]
-        m_loc_a = [" " + b['multimodal_locality_ground_truth'] for b in batch]
-        
-        # edit_inner
-        edit_inner = {}
-        edit_inner['image'] = torch.stack(image, dim=0)
-        edit_inner['text_input'] = [self.prompt.format(s) + t for s, t in zip(src, trg)]
-        edit_inner['labels'] = trg
-        if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_inner['prompts_len'] = [len(self.tok.encode(self.prompt.format(s), add_special_tokens=False)) for s in src]
-            edit_inner['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
-        else:
-            edit_inner['prompts_len'] = [len(self.tok.encode(self.prompt.format(s))) for s in src]
-            edit_inner['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
-        
-        # edit_outer
-        edit_outer = {}
-        edit_outer['image'] = torch.stack(image, dim=0)
-        edit_outer['text_input'] = [self.prompt.format(r) + t for r, t in zip(rephrase, trg)]
-        edit_outer['labels'] = trg
-        if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_outer['prompts_len'] = [len(self.tok.encode(self.prompt.format(r), add_special_tokens=False)) for r in rephrase]
-            edit_outer['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
-        else:
-            edit_outer['prompts_len'] = [len(self.tok.encode(self.prompt.format(r))) for r in rephrase]
-            edit_outer['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
-            
-        # edit_outer_image
-        edit_outer_image = {}
-        edit_outer_image['image'] = torch.stack(image_rephrase, dim=0)
-        edit_outer_image['text_input'] = [self.prompt.format(s) + t for s, t in zip(src, trg)]
-        edit_outer_image['labels'] = trg
-        if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_outer_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(s), add_special_tokens=False)) for s in src]
-            edit_outer_image['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
-        else:
-            edit_outer_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(s))) for s in src]
-            edit_outer_image['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
-        
-        # loc
-        loc = {}
-        loc['image'] = None
-        loc['text_input'] = [q + a for q, a in zip(loc_q, loc_a)]
-        loc['labels'] = loc_a
-        if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            loc['prompts_len'] = [len(self.tok.encode(q, add_special_tokens=False)) for q in loc_q]
-            loc['labels'] = self.tok(loc_a, add_special_tokens=False, return_tensors="pt",)["input_ids"]
-        else:
-            loc['prompts_len'] = [len(self.tok.encode(q)) for q in loc_q]
-            loc['labels'] = self.tok(loc_a, return_tensors="pt",)["input_ids"]
-        
-        # m_loc
-        loc_image = {}
-        loc_image['image'] = torch.stack(m_loc_image, dim=0)
-        loc_image['text_input'] = [self.prompt.format(q) + a for q, a in zip(m_loc_q, m_loc_a)]
-        loc_image['labels'] = m_loc_a
-        if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            loc_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(q), add_special_tokens=False)) for q in m_loc_q]
-            loc_image['labels'] = self.tok(m_loc_a, add_special_tokens=False, return_tensors="pt",)["input_ids"]
-        else:
-            loc_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(q))) for q in m_loc_q]
-            loc_image['labels'] = self.tok(m_loc_a, return_tensors="pt",)["input_ids"]
-
-        # cond
-        cond = self.tok(
-            cond,
-            return_tensors="pt",
-            padding=True,
-            max_length=self.max_length,
-            truncation=True,
-        ).to(self.config.device)
-        
-        batch = {
-            "edit_inner": edit_inner,
-            "edit_outer": edit_outer,
-            "edit_outer_image": edit_outer_image,
-            "loc": loc,
-            "loc_image": loc_image,
-            "cond": cond
-        }
-        return dict_to(batch, self.config.device)
-
+   
