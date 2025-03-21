@@ -48,7 +48,7 @@ def compute_z(
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
-        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids)
+        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids[:-1])
         for context_types in context_templates[:1]
         for context in context_types
     ], ["{} is a"]

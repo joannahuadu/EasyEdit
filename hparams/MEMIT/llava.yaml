@@ -4,8 +4,8 @@ name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
-device: 0
+cache_dir: /mnt/data2/workplace/data/hugging_cache
+device: 1
 
 # Methods
 alg_name: "MEMIT"
@@ -36,11 +36,11 @@ mom2_dtype: "float32"
 model_parallel: false
 fp16: false
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
+coco_image: /mnt/data2/wmq
+rephrase_image: /mnt/data2/wmq
 exact_match: True
 
 # Trace
 noise_level: s10
-result_dir: /data/lishichao/data/model_edit/results
+result_dir: /mnt/data2/wmq/results
 

@@ -1,6 +1,6 @@
 import sys
 import argparse
-sys.path.append("/home/lishichao/project/EasyEdit")
+sys.path.append("/mnt/data2/wmq/EasyEdit")
 from easyeditor import MultimodalEditor
 from easyeditor import ROMEMultimodalHyperParams
 
@@ -59,7 +59,7 @@ def edit_ROME_BLIP2_VQA():
     )
 
 def edit_ROME_LLaVA_VQA(layers = [5]):
-    hparams = ROMEMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/ROME/llava')
+    hparams = ROMEMultimodalHyperParams.from_hparams('/mnt/data2/wmq/EasyEdit/hparams/ROME/llava')
     hparams.layers = layers
     editor = MultimodalEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.edit(
@@ -100,7 +100,7 @@ def edit_ROME_MiniGPT4_VQA():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Choose which model to edit using ROME.")
-    parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4'],
+    parser.add_argument('--model', type=str, default='llava', choices=['blip2', 'llava', 'minigpt4'],
                         help="Specify the model to edit: 'gpt2', 'llama', or 'qwen'.")
 
     args = parser.parse_args()
