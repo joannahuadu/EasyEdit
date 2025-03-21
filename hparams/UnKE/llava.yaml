@@ -11,7 +11,7 @@ batch_size: 2
 # Methods
 alg_name: "UnKE"
 stats_dir: "./data/stats"
-layers: [4,6,7,8]
+layers: [1,2]
 layer_selection: "all"
 fact_token: "subject_last"
 v_num_grad_steps: 25
@@ -27,7 +27,7 @@ context_template_length_params: [[5, 5]]
 
 #UnKE
 ex_data_num: 10
-optim_num_step: 50
+optim_num_step: 50000
 lr: 2e-4
 
 rewrite_module_tmp: "llava_model.model.layers.{}.mlp.down_proj"

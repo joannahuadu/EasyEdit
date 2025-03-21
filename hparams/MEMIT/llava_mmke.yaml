@@ -10,7 +10,7 @@ device: 0,1
 # Methods
 alg_name: "MEMIT"
 stats_dir: "./data/stats"
-layers: [1,2]
+layers: [7]
 layer_selection: "all"
 fact_token: "subject_last"
 v_num_grad_steps: 25
@@ -31,14 +31,14 @@ attn_module_tmp: "llava_model.model.layers.{}.self_attn"
 ln_f_module: "llava_model.model.norm"
 lm_head_module: "llava_model.lm_head"
 mom2_dataset: "wikipedia"
-mom2_n_samples: 3000
+mom2_n_samples: 300
 mom2_dtype: "float32"
 model_parallel: false
 fp16: false
 batch_size: 2
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
+coco_image: /data/lishichao/data/model_edit/MMKE/data_image
+rephrase_image: /data/lishichao/data/model_edit/MMKE/data_image
 exact_match: True
 
 # Trace

@@ -33,7 +33,7 @@ def compute_icl_multimodal_edit_quality(
         hparams: HyperParams,
         tok: AutoTokenizer,
         # vis_tok,
-        icl_examples,
+       
         record: typing.Dict,
         device,
         pre_edit: bool = False
@@ -55,79 +55,126 @@ def compute_icl_multimodal_edit_quality(
     # First, unpack rewrite evaluation record.
     target = record["target"]
     prompt = record["prompt"]
-    image = record["image"] if record["image"].is_cuda else record["image"].to(hparams.device)
+    image = record["image"] if record["image"].is_cuda else record["image"].to(f"cuda:{hparams.device}")
     rephrase = record["rephrase_prompt"] if 'rephrase_prompt' in record.keys() else None
     rephrase_image = record["image_rephrase"] if 'image_rephrase' in record.keys() else None
     if rephrase_image is not None:
-        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(hparams.device)
+        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(f"cuda:{hparams.device}")
 
     if "locality_prompt" in record.keys():
         loc_q = record["locality_prompt"]
         loc_a = record["locality_ground_truth"]
     if "multimodal_locality_image" in record.keys():
-        m_loc_image = record["multimodal_locality_image"] if record["multimodal_locality_image"].is_cuda else record["multimodal_locality_image"].to(hparams.device)
+        m_loc_image = record["multimodal_locality_image"] if record["multimodal_locality_image"].is_cuda else record["multimodal_locality_image"].to(f"cuda:{hparams.device}")
         m_loc_q = record["multimodal_locality_prompt"]
         m_loc_a = record["multimodal_locality_ground_truth"]
 
     new_fact = f'New Fact: {prompt} {target}\nPrompt: {prompt}'
 
     if pre_edit:
-        edit_acc, _ = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+        edit_acc, _ = multimodal_lm_eval(model, model_name, hparams, tok,
                                              target, prompt, image)
     else:
-        edit_acc, _ = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+        edit_acc, _ = multimodal_lm_eval(model, model_name, hparams, tok,
                                              target, new_fact, image)
     ret = {
         f"rewrite_acc": edit_acc
     }
     if rephrase is not None:
-        rephrase_acc, _ = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+        rephrase_acc, _ = multimodal_lm_eval(model, model_name, hparams, tok,
                                                  target, f'New Fact: {prompt} {target}\nPrompt: {rephrase}', image)
         ret['rephrase_acc'] = rephrase_acc
 
     if "image_rephrase" in record.keys():
-        rephrase_image_acc, _ = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+        rephrase_image_acc, _ = multimodal_lm_eval(model, model_name, hparams, tok,
                                                        target, new_fact, rephrase_image)
         ret['rephrase_image_acc'] = rephrase_image_acc
 
     if "locality_prompt" in record.keys():
         if pre_edit:
-            _, _, locality_output = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+            _, _, locality_output = multimodal_lm_eval(model, model_name, hparams, tok,
                                                            loc_a, loc_q, None, is_loc=True)
         else:
-            _, _, locality_output = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+            _, _, locality_output = multimodal_lm_eval(model, model_name, hparams, tok,
                                                            loc_a, f'New Fact: {prompt} {target}\nPrompt: {loc_q}', None, is_loc=True)
         ret['locality_output'] = locality_output
 
     if "multimodal_locality_image" in record.keys():
         if pre_edit:
-            _, _, locality_image_output = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+            _, _, locality_image_output = multimodal_lm_eval(model, model_name, hparams, tok,
                                                                  m_loc_a, m_loc_q, m_loc_image, is_loc=True)
         else:
-            _, _, locality_image_output = icl_multimodal_lm_eval(model, model_name, hparams, tok, icl_examples,
+            _, _, locality_image_output = multimodal_lm_eval(model, model_name, hparams, tok,
                                                                  m_loc_a, f'New Fact: {prompt} {target}\nPrompt: {m_loc_q}', m_loc_image, is_loc=True)
         ret['multimodal_locality_output'] = locality_image_output
 
     return ret
 
-def icl_multimodal_lm_eval(
+                                        
+def multimodal_lm_eval(
+    model,
+    model_name,
+    hparams: HyperParams,
+    tokenizer,
+    target,
+    x,
+    image,
+    is_loc=False,
+    neighborhood=False,
+    prompt_template="{}")-> typing.Dict:
+    device = torch.device(f"cuda:{hparams.device}")
+
+    samples = prepare_multimodal_edit(hparams, tokenizer, target, [x], image, prompt_template=prompt_template)
+
+    # return compute_multimodal_edit_quality(model, samples,
+    #                                        hparams.exact_match) if not is_loc else compute_multimodal_edit_quality_demo(
+    #     model, samples)
+    return compute_multimodal_edit_quality_demo_mmke(model, samples,
+                                           tokenizer)
+    
+
+def multimodal_decode(
         model,
         model_name,
         hparams: HyperParams,
         tokenizer,
-        icl_examples,
         target,
         x,
         image,
-        is_loc=False,
-        neighborhood=False )-> typing.Dict:
-    device = torch.device(f'cuda:{hparams.device}')
-
-    samples = prepare_multimodal_edit(hparams, tokenizer, target, [''.join(icl_examples) + f'{x}'], image)
-
-    return compute_multimodal_edit_quality(model, samples,
-                                           hparams.exact_match) if not is_loc else compute_multimodal_edit_quality_demo(
-        model, samples)
+        neighborhood=False
+)-> typing.Dict:    
+    batch = prepare_multimodal_edit(hparams, tokenizer, target, [x], image) 
+    
+    with torch.no_grad():
+        if "qwen" in model.__class__.__name__.lower():
+            outputs = model(batch['inputs'].to(f"cuda:{hparams.device}"))
+        elif "owl" in model.__class__.__name__.lower():
+            input_ids, image = batch['input_ids'], batch['image']
+            # from torch.cuda.amp import autocast
+            # with autocast():
+            outputs = model(input_ids.to(f"cuda:{hparams.device}"), 
+                                        images=image.to(hparams.device, dtype=torch.float16))
+        else:
+            outputs = model(batch)
+        if isinstance(outputs, torch.Tensor):
+            logits = outputs.detach().cpu()
+        else:
+            logits = outputs.logits.detach().cpu()    
+        # targ = outputs.labels.detach().cpu()
+        targ = batch["labels"].cpu()
+    if logits.dim() == 3:
+        logits = logits[:, :-1]
+        # targ = targ[:, 1:]
+        logits = logits[:, -targ.shape[1]:]
+    else:
+        raise ValueError("logits should have 3 dimensions")
+        
+   
+    mask = targ != -100
+    targ[~mask] = 0
+    pred_ids = logits.argmax(-1).masked_fill(~mask, 0).detach().cpu()
+    predict = tokenizer.decode(pred_ids.tolist()[0], skip_special_tokens=True)
+    return predict                                          
 
 
 def prepare_multimodal_edit(hparams,
@@ -173,7 +220,8 @@ def compute_multimodal_edit_quality(model, batch, exact_match=False):
         else:
             logits = outputs.logits.detach().cpu()
             targ = outputs.labels.detach().cpu()
-
+    logits_copy = logits.clone()
+    targ_copy = targ.clone()
     if logits.dim() == 3:
         logits = logits[:, :-1]
         targ = targ[:, 1:]
@@ -193,8 +241,7 @@ def compute_multimodal_edit_quality(model, batch, exact_match=False):
         num_non_padding = mask.sum().float().item()
         acc = correct.sum() / num_non_padding
 
-    return acc, pred_ids.numpy()
-
+    return acc, logits_copy,targ_copy
 
 def compute_multimodal_edit_quality_demo(model, batch, tok):
     prompts = [batch['prompt_template'].format(prompt) for prompt in batch['text_input']]
@@ -229,6 +276,39 @@ def compute_multimodal_edit_quality_demo(model, batch, tok):
             return res, answers
         else:
             return [np.mean(np.equal(answers, labels))], answers
+def compute_multimodal_edit_quality_demo_mmke(model, batch, tok):
+    prompts = [batch['prompt_template'].format(prompt) for prompt in batch['text_input']]
+    targets = batch['answer']
+    target_ids = [tok.encode(target, return_tensors="pt", add_special_tokens=False)[0] for target in targets]
+    prompt_target = [prompt + ' ' + tok.decode(target) for prompt, target in zip(prompts, target_ids)]
+    prompt_target_tok = tok(
+        prompt_target,
+        padding=True,
+        truncation=True,
+        return_tensors="pt",
+    )
+    batch['text_input'] = prompt_target
+    batch['noise'] = True
+    with torch.no_grad():
+        outputs = model(batch)
+        if isinstance(outputs, torch.Tensor):
+            logits = outputs.detach().cpu()
+        else:
+            logits = outputs.logits.detach().cpu()
+        answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
+        labels = prompt_target_tok['input_ids'].squeeze()[1:].detach().cpu().numpy().tolist()
+        answers = answers[-len(target_ids[0]):]
+        labels = labels[-len(target_ids[0]):]
+        if isinstance(answers[0], list):
+            res = []
+            for ans,label in zip(answers,labels):
+                temp_acc = np.mean(np.equal(ans, label))
+                if np.isnan(temp_acc):
+                    continue
+                res.append(temp_acc)
+            return res, answers, batch
+        else:
+            return [np.mean(np.equal(answers, labels))], answers, batch
 
 # def compute_multimodal_edit_quality_demo(model, batch):
 #     with torch.no_grad():
@@ -287,7 +367,7 @@ def compute_multimodal_edit_results(
     target = record["target"]
     rewrite_prompts = record["prompt"]
     if record["image"] is not None:
-        image = record["image"] if record["image"].is_cuda else record["image"].to(hparams.device)
+        image = record["image"] if record["image"].is_cuda else record["image"].to(f"cuda:{hparams.device}")
     else:
         image = record["image"]
     prompt_template = record["prompt_template"] if "prompt_template" in record else "{}"
@@ -304,7 +384,7 @@ def compute_multimodal_edit_results(
         
     if "image_rephrase" in record.keys():
         rephrase_image = record["image_rephrase"]
-        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(hparams.device)
+        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(f"cuda:{hparams.device}")
         edit_image_outer = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, rephrase_image, prompt_template=prompt_template)
         ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
         ret['image_rephrase_gen'] = test_generation_quality(model, edit_image_outer)
@@ -321,7 +401,7 @@ def compute_multimodal_edit_results(
         m_loc_ground_truth = record["multimodal_locality_ground_truth"]
         m_loc_image = record["multimodal_locality_image"]
         if m_loc_image is not None:
-            m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(hparams.device)
+            m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(f"cuda:{hparams.device}")
         m_locality = prepare_multimodal_edit(hparams, tok, m_loc_ground_truth, m_loc_prompt, m_loc_image, prompt_template=prompt_template)
         ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
         ret['multimodal_locality_gen'] = test_generation_quality(model, m_locality)
@@ -331,7 +411,7 @@ def compute_multimodal_edit_results(
         portability_ground_truth = record["portability_ground_truth"]
         portability_image = record["portability_image"]
         if portability_image is not None:
-            portability_image = portability_image if portability_image.is_cuda else portability_image.to(hparams.device)
+            portability_image = portability_image if portability_image.is_cuda else portability_image.to(f"cuda:{hparams.device}")
         portability = prepare_multimodal_edit(hparams, tok, portability_ground_truth, portability_prompt, portability_image, prompt_template=prompt_template)
         # _, ret['portability_output'] = compute_multimodal_edit_quality_demo(model, portability, tok)
         ret['portability_gen'] = test_generation_quality(model, portability)
@@ -341,7 +421,7 @@ def compute_multimodal_edit_results(
         m_port_ground_truth = record["multimodal_portability_ground_truth"]
         m_port_image = record["multimodal_portability_image"]
         if m_port_image is not None:
-            m_port_image = m_port_image if m_port_image.is_cuda else m_port_image.to(hparams.device)
+            m_port_image = m_port_image if m_port_image.is_cuda else m_port_image.to(f"cuda:{hparams.device}")
         m_portability = prepare_multimodal_edit(hparams, tok, m_port_ground_truth, m_port_prompt, m_port_image, prompt_template=prompt_template)
         # _, ret['multimodal_portability_output'] = compute_multimodal_edit_quality_demo(model, m_portability, tok)
         ret['multimodal_portability_gen'] = test_generation_quality(model, m_portability)
@@ -375,7 +455,7 @@ def compute_multimodal_edit_results_demo(
 
     target = record["target"]
     rewrite_prompts = record["prompt"]
-    image = record["image"] if record["image"].is_cuda else record["image"].to(hparams.device)
+    image = record["image"] if record["image"].is_cuda else record["image"].to(f"cuda:{hparams.device}")
 
     edit_inner = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, image)
     ret['rewrite_acc'], _, logits = compute_multimodal_edit_quality_demo(model, edit_inner)
@@ -387,7 +467,7 @@ def compute_multimodal_edit_results_demo(
 
     if "image_rephrase" in record.keys():
         rephrase_image = record["image_rephrase"]
-        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(hparams.device)
+        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(f"cuda:{hparams.device}")
         edit_image_outer = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, rephrase_image)
         ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality(model, edit_image_outer)
 
@@ -401,7 +481,7 @@ def compute_multimodal_edit_results_demo(
         m_loc_prompt = record["multimodal_locality_prompt"]
         m_loc_ground_truth = record["multimodal_locality_ground_truth"]
         m_loc_image = record["multimodal_locality_image"]
-        m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(hparams.device)
+        m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(f"cuda:{hparams.device}")
         m_locality = prepare_multimodal_edit(hparams, tok, m_loc_ground_truth, m_loc_prompt, m_loc_image)
         _, ret['multimodal_locality_output'] = compute_multimodal_edit_quality(model, m_locality)
     # Form a list of lists of prefixes to test.
@@ -441,3 +521,299 @@ def compute_multimodal_edit_results_demo(
 
         return \
         torch.mean((trg_tok['input_ids'][:, :-1] == ans[:, :-1]).float(), dim=-1).detach().cpu().numpy().tolist()[0]
+def process_predict(logits, labels, tok):
+    
+    if logits.dim() == 3:
+        logits = logits[:, :-1]
+        logits = logits[:, -labels.shape[1]:]
+    
+    
+    mask = labels != -100
+    labels[~mask] = 0
+    pred_ids = logits.argmax(-1).masked_fill(~mask, 0).detach().cpu()
+    predict = tok.decode(pred_ids.tolist()[0], skip_special_tokens=True)
+    return predict
+def compute_mmke_multimodal_edit_quality(
+    pre_model,
+    model,
+    model_name,
+    hparams: HyperParams,
+    tok: AutoTokenizer,
+    record: typing.Dict,
+    device,
+) -> typing.Dict:
+    """
+    Given a rewritten model, computes generalization and specificity metrics for
+    the desired rewrite (passed in via the CounterFact dataset record). Returns a
+    dictionary containing those metrics.
+
+    :param model: Rewritten model
+    :param tok: Tokenizer
+    :param record: CounterFact dataset record
+    :param snips: ???
+    :param vec: ???
+    :return: Dictionary containing rewriting metrics
+    """
+    vis_root = hparams.coco_image
+    rephrase_root = hparams.rephrase_image
+
+    # First, unpack rewrite evaluation record.
+    target = record["target"]
+    prompt = record["prompt"]
+    prompt_template = record["prompt_template"] if "prompt_template" in record else "{}"
+    image = record['image'].to(f"cuda:{hparams.device}") if torch.is_tensor(record['image']) and not record['image'].is_cuda else record['image']
+    rephrase = record["rephrase_prompt"] if 'rephrase_prompt' in record.keys() else None
+    rephrase_image = record["image_rephrase"] if 'image_rephrase' in record.keys() else None
+    if rephrase_image is not None:
+        rephrase_image = rephrase_image.to(f"cuda:{hparams.device}") if torch.is_tensor(rephrase_image) and not rephrase_image.is_cuda else rephrase_image
+    ret = {}
+
+
+    ###############################################################################
+    knowledge_type = record["knowledge_type"]
+
+    if knowledge_type ==0 or knowledge_type ==1:
+        rel_prompt_1 = record["rel_prompt_1"]
+        rel_ground_truth_1 = record["rel_ground_truth_1"]
+        rel_prompt_2 = record["rel_prompt_2"]
+        rel_ground_truth_2 = record["rel_ground_truth_2"]
+        
+        m_rel_prompt_1 = record["m_rel_prompt_1"]
+        m_rel_ground_truth_1 = record["m_rel_ground_truth_1"]
+        m_rel_prompt_2 = record["m_rel_prompt_2"]
+        m_rel_ground_truth_2 = record["m_rel_ground_truth_2"]
+    elif knowledge_type ==2:
+        rel_prompt = record["rel_prompt"]
+        rel_ground_truth = record["rel_ground_truth"]
+       
+        m_rel_prompt = record["m_rel_prompt"]
+        m_rel_ground_truth = record["m_rel_ground_truth"]
+
+        image_rephrase_question = record["image_rephrase_question"]
+        one_hop_img = record['one_hop_img'].to(f"cuda:{hparams.device}") if torch.is_tensor(record['one_hop_img']) and not record['one_hop_img'].is_cuda else record['one_hop_img']
+    ###############################################################################
+
+    ###############################################################
+    if "locality_prompt" in record.keys():
+        loc_q = record["locality_prompt"]
+        loc_a = record["locality_ground_truth"]
+    if "multimodal_locality_image" in record.keys():
+        m_loc_image = record['multimodal_locality_image'].to(f"cuda:{hparams.device}") if torch.is_tensor(record['multimodal_locality_image']) and not record['multimodal_locality_image'].is_cuda else record['multimodal_locality_image']
+        m_loc_q = record["multimodal_locality_prompt"]
+        m_loc_a = record["multimodal_locality_ground_truth"]
+
+    
+    edit_acc, rewrite_pred, rewrite_samples = multimodal_lm_eval(model, model_name, hparams, tok,
+                                              target, prompt, image, prompt_template=prompt_template)
+        
+    ret = {
+        f"rewrite_acc": edit_acc
+    }
+
+    ret['rewrite_acc_prompt'] = record["prompt"]
+    ret['rewrite_acc_ground_truth']  = record["target"]
+    # ret['rewrite_acc_predict'] = multimodal_decode(model, model_name, hparams, tok, target, prompt, None)
+    ret['rewrite_acc_predict'] = test_generation_quality(model,rewrite_samples)
+    
+    if rephrase is not None:
+        rephrase_acc, rephrase_pred, rephrase_samples = multimodal_lm_eval(model, model_name, hparams, tok,
+                               target, rephrase, image, prompt_template=prompt_template)
+        ret['rephrase_acc'] = rephrase_acc
+
+    ret['rephrase_acc_prompt'] = rephrase
+    ret['rephrase_acc_ground_truth']  = record["target"]
+    ret['rephrase_acc_predict'] = test_generation_quality(model, rephrase_samples)
+
+        
+    if "image_rephrase" in record.keys():
+        rephrase_image_acc, rephrase_image_pred, rephrase_img_samples = multimodal_lm_eval(model, model_name, hparams, tok,
+                               target, prompt, rephrase_image)
+        ret['rephrase_image_acc'] = rephrase_image_acc
+    
+    ret['rephrase_image_acc_prompt']   = record["prompt"]
+    ret['rephrase_image_acc_ground_truth']  = record["target"]
+    ret['rephrase_image_acc_predict']  = test_generation_quality(model, rephrase_img_samples)
+    
+    ret["memory_alloc_max"] = torch.cuda.max_memory_allocated()
+    ret["memory_res_max"] = torch.cuda.max_memory_reserved()
+
+
+
+    if "locality_prompt" in record.keys():
+        locality_samples = prepare_multimodal_edit(hparams, tok, loc_a, [loc_q], None, prompt_template=prompt_template)
+        pre_text_loc_logits = pre_model(locality_samples).logits
+        post_text_loc_logits = model(locality_samples).logits
+
+        ret['loc_acc_prompt']  = record["locality_prompt"]
+        ret['loc_acc_ground_truth']  = record["locality_ground_truth"]
+        ret['loc_acc_predict'] = test_generation_quality(model, locality_samples)
+
+        pre_text_loc_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(pre_text_loc_logits.float(), dim=-1), k=1, dim=-1).indices
+        post_text_loc_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_text_loc_logits.float(), dim=-1), k=1, dim=-1).indices
+
+        locality_acc = sum(post_text_loc_logits_softmax_top_k.view(-1) == pre_text_loc_logits_softmax_top_k.view(-1))/post_text_loc_logits_softmax_top_k.view(-1).shape[0]
+
+        ret['locality_acc'] = locality_acc
+    
+    if "multimodal_locality_image" in record.keys():
+        locality_image_samples = prepare_multimodal_edit(hparams, tok, m_loc_a, [m_loc_q], m_loc_image, prompt_template=prompt_template)
+        pre_image_loc_logits = pre_model(locality_image_samples).logits
+        post_image_loc_logits = model(locality_image_samples).logits
+
+        ret['mm_loc_acc_prompt']  = record["multimodal_locality_prompt"]
+        ret['mm_loc_acc_ground_truth']  = record["multimodal_locality_ground_truth"]
+        ret['mm_loc_acc_predict'] = test_generation_quality(model, locality_image_samples)
+
+        pre_image_loc_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(pre_image_loc_logits.float(), dim=-1), k=10, dim=-1).indices
+        post_image_loc_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_image_loc_logits.float(), dim=-1), k=10, dim=-1).indices
+
+        locality_image_acc = sum(post_image_loc_logits_softmax_top_k.view(-1) == pre_image_loc_logits_softmax_top_k.view(-1))/post_image_loc_logits_softmax_top_k.view(-1).shape[0]
+
+        ret['locality_image_acc'] = locality_image_acc
+###################################################################
+
+    if knowledge_type ==0 or knowledge_type ==1:
+        if knowledge_type ==0:
+            ret['knowledge_type'] = 0
+        elif knowledge_type ==1:
+            ret['knowledge_type'] = 1
+    
+        rel_prompt_1_acc, rel_prompt_1_pred, rel_prompt_1_samples  = multimodal_lm_eval(model, model_name, hparams, tok,rel_ground_truth_1, rel_prompt_1, None, prompt_template=prompt_template)   
+        ret['rel_prompt_1_acc'] = rel_prompt_1_acc
+        
+        ret['rel_1_acc_prompt'] = record["rel_prompt_1"]
+        ret['rel_1_acc_ground_truth'] = record["rel_ground_truth_1"]
+        ret['rel_1_acc_predict'] = test_generation_quality(model, rel_prompt_1_samples)
+        
+
+        rel_prompt_2_acc, rel_prompt_2_pred, rel_prompt_2_samples = multimodal_lm_eval(model, model_name, hparams, tok,rel_ground_truth_2, rel_prompt_2, None, prompt_template=prompt_template)  
+        ret['rel_prompt_2_acc'] = rel_prompt_2_acc
+
+        ret['rel_2_acc_prompt'] = record["rel_prompt_2"]
+        ret['rel_2_acc_ground_truth']  = record["rel_ground_truth_2"]
+        ret['rel_2_acc_predict'] = test_generation_quality(model, rel_prompt_2_samples)
+
+        m_rel_prompt_1_image_acc, m_rel_prompt_1_pred, m_rel_prompt_1_samples = multimodal_lm_eval(model, model_name, hparams, tok, m_rel_ground_truth_1, m_rel_prompt_1, image, prompt_template=prompt_template)
+        ret['m_rel_prompt_1_image_acc'] = m_rel_prompt_1_image_acc
+
+        ret['m_rel_1_acc_prompt'] = record["m_rel_prompt_1"]
+        ret['m_rel_1_acc_ground_truth'] = record["m_rel_ground_truth_1"]
+        ret['m_rel_1_acc_predict']  = test_generation_quality(model,m_rel_prompt_1_samples)
+
+
+
+        m_rel_prompt_2_image_acc, m_rel_prompt_2_pred, m_rel_prompt_2_samples = multimodal_lm_eval(model, model_name, hparams, tok, m_rel_ground_truth_2, m_rel_prompt_2, image, prompt_template=prompt_template)
+        ret['m_rel_prompt_2_image_acc'] = m_rel_prompt_2_image_acc
+
+        ret['m_rel_2_acc_prompt'] = record["m_rel_prompt_2"]
+        ret['m_rel_2_acc_ground_truth']   = record["m_rel_ground_truth_2"]
+        ret['m_rel_2_acc_predict']  = test_generation_quality(model, m_rel_prompt_2_samples)
+        
+        m_rel_prompt_1_image_rephrase_acc, m_rel_prompt_1_image_rephrase_pred, m_rel_prompt_1_image_rephrase_samples = multimodal_lm_eval(model, model_name, hparams, tok, m_rel_ground_truth_1, m_rel_prompt_1, rephrase_image, prompt_template=prompt_template)
+        ret['m_rel_prompt_1_image_rephrase_acc'] = m_rel_prompt_1_image_rephrase_acc
+
+        ret['m_rel_1_image_rephrase_acc_prompt'] = record["m_rel_prompt_1"]
+        ret['m_rel_1_image_rephrase_acc_ground_truth'] = record["m_rel_ground_truth_1"]
+        ret['m_rel_1_image_rephrase_acc_predict'] =  test_generation_quality(model, m_rel_prompt_1_image_rephrase_samples)
+
+        m_rel_prompt_2_image_rephrase_acc, m_rel_prompt_2_image_rephrase_pred, m_rel_prompt_2_image_rephrase_samples = multimodal_lm_eval(model, model_name, hparams, tok, m_rel_ground_truth_2, m_rel_prompt_2, rephrase_image, prompt_template=prompt_template)
+        ret['m_rel_prompt_2_image_rephrase_acc'] = m_rel_prompt_2_image_rephrase_acc
+
+        ret['m_rel_2_image_rephrase_acc_prompt']  = record["m_rel_prompt_2"]
+        ret['m_rel_2_image_rephrase_acc_ground_truth'] = record["m_rel_ground_truth_2"]
+        ret['m_rel_2_image_rephrase_acc_predict'] = test_generation_quality(model, m_rel_prompt_2_image_rephrase_samples)
+        
+    elif knowledge_type ==2:
+        
+        ret['knowledge_type'] = 2
+        rel_prompt_acc, rel_prompt_pred, rel_prompt_samples  = multimodal_lm_eval(model, model_name, hparams, tok,rel_ground_truth, rel_prompt, None, prompt_template=prompt_template)
+        ret['rel_prompt_acc'] = rel_prompt_acc
+
+        ret['rel_acc_prompt']  = record["rel_prompt"]
+        ret['rel_acc_ground_truth'] = record["rel_ground_truth"]
+        ret['rel_acc_predict'] = test_generation_quality(model, rel_prompt_samples)
+
+        m_rel_prompt_image_acc, m_rel_prompt_image_pred, m_rel_prompt_image_samples = multimodal_lm_eval(model, model_name, hparams, tok,m_rel_ground_truth, m_rel_prompt, image, prompt_template=prompt_template)
+        ret['m_rel_prompt_image_acc'] = m_rel_prompt_image_acc
+
+        ret['m_rel_acc_prompt'] = record["m_rel_prompt"]
+        ret['m_rel_acc_ground_truth'] = record["m_rel_ground_truth"]
+        ret['m_rel_acc_predict'] = test_generation_quality(model, m_rel_prompt_image_samples)
+
+        m_rel_prompt_image_rephrase_acc, m_rel_prompt_image_rephrase_pred, m_rel_prompt_image_rephrase_samples = multimodal_lm_eval(model, model_name, hparams, tok, m_rel_ground_truth, m_rel_prompt, rephrase_image)
+        ret['m_rel_prompt_image_rephrase_acc'] = m_rel_prompt_image_rephrase_acc
+
+        ret['m_rel_image_rephrase_acc_prompt']  = record["m_rel_prompt"]
+        ret['m_rel_image_rephrase_acc_ground_truth'] = record["m_rel_ground_truth"]
+        ret['m_rel_image_rephrase_acc_predict'] = test_generation_quality(model, m_rel_prompt_image_rephrase_samples)
+
+
+    ######### portability #########
+
+
+    if "portability_prompt" in record.keys():
+        # assert len(record['portability_prompt'])==1, "Portability evaluation only has one prompt at a time"
+        port_acc = 0
+        if knowledge_type ==0 or knowledge_type ==1:
+            for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
+                port_acc_i, pred_targ_ids, port_samples = multimodal_lm_eval(model, model_name, hparams, tok, port_a, port_q, image)
+                port_acc += port_acc_i[0]
+            ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+            # ret['pred_ids'] = pred_targ_ids[0].tolist()
+            # ret['targ_ids'] = pred_targ_ids[1].tolist()
+
+            ret['port_prompt'] = record["portability_prompt"]
+            ret['port_ground_truth'] = record["portability_ground_truth"]
+            # ret['port_predict'] = tok.decode(pred_targ_ids[0][0], skip_special_tokens=True)
+
+        elif knowledge_type ==2:
+            for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
+                port_acc_i, pred_targ_ids, port_samples = multimodal_lm_eval(model, model_name, hparams, tok, port_a, port_q, one_hop_img)
+                port_acc += port_acc_i[0]
+            ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+            # ret['pred_ids'] = pred_targ_ids[0].tolist()
+            # ret['targ_ids'] = pred_targ_ids[1].tolist()
+            ret['port_prompt'] = record["portability_prompt"]
+            ret['port_ground_truth'] = record["portability_ground_truth"]
+            # ret['port_predict'] = tok.decode(pred_targ_ids[0][0], skip_special_tokens=True)
+    import json
+    import os
+    
+    def tensor_to_list(obj):
+        if isinstance(obj, torch.Tensor):
+            return obj.tolist()  
+        elif isinstance(obj, dict):
+            return {k: tensor_to_list(v) for k, v in obj.items()} 
+        elif isinstance(obj, list):
+            return [tensor_to_list(i) for i in obj]  
+        return obj  
+
+
+    ret_serializable = tensor_to_list(ret)
+    from datetime import datetime
+    hparams.results_dir = f"./results/{hparams.data_type}"
+    model_dir = os.path.join(hparams.results_dir, "MEMIT")
+    decode_path = f'{model_dir}/{hparams.model_name}.json'
+
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+
+
+    if os.path.exists(decode_path):
+        with open(decode_path, 'r') as json_file:
+            try:
+                data = json.load(json_file)  
+            except json.JSONDecodeError:
+                data = []  
+    else:
+        data = []  
+    data.append(ret_serializable)
+
+    
+    with open(decode_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)  
+        json_file.write("\n")  
+    ######### portability #########
+
+    return ret
+    

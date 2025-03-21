@@ -87,7 +87,7 @@ class LLavaModel(nn.Module):
             texts = None
         
         if 'image' in samples and samples['image'] is not None:
-            images = samples["image"]
+            images = [image.to(list(self.parameters())[-1].device) for image in samples["image"]]
         else:
             images = None
         

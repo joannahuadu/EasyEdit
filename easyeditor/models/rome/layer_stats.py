@@ -225,15 +225,16 @@ def layer_stats_multimodal(
     download=True,
     progress=tqdm,
     force_recompute=False,
-    hparams=None
+    hparams=None,
+    template=None
 ):
     """
     Function to load or compute cached stats.
     """
-    def get_VQA_ds(prompt):
+    def get_VQA_ds(prompt,template):
         annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
         image_root = '/data/lishichao/data/model_edit/'
-        raw_ds = VQADataset_Simple(prompt=prompt,annotation_file=annotation_path,image_root=image_root,image_size=336)
+        raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
         return raw_ds
     # Continue with computation of statistics
     batch_size = 1  # Examine this many dataset texts at once
@@ -256,7 +257,7 @@ def layer_stats_multimodal(
         from ...trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
         prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
     if prompt:
-        ds = get_VQA_ds(prompt) if (not filename.exists() or force_recompute) else None
+        ds = get_VQA_ds(prompt,template) if (not filename.exists() or force_recompute) else None
     else:
         assert "No prompt is defined for multimodal text inputs"
     if progress is None:

@@ -17,7 +17,7 @@ import typing
 import torch
 import transformers
 
-class VQADataset(BaseDataset):
+class CaptionDataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
         """
         vis_root (string): Root directory of images (e.g. coco/images/)
@@ -115,37 +115,37 @@ class VQADataset(BaseDataset):
         # edit_inner
         edit_inner = {}
         edit_inner['image'] = torch.stack(image, dim=0)
-        edit_inner['text_input'] = [self.prompt.format(s) + t for s, t in zip(src, trg)]
+        edit_inner['text_input'] = [s + t for s, t in zip(src, trg)]
         edit_inner['labels'] = trg
         if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_inner['prompts_len'] = [len(self.tok.encode(self.prompt.format(s), add_special_tokens=False)) for s in src]
+            edit_inner['prompts_len'] = [len(self.tok.encode(s, add_special_tokens=False)) for s in src]
             edit_inner['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
         else:
-            edit_inner['prompts_len'] = [len(self.tok.encode(self.prompt.format(s))) for s in src]
+            edit_inner['prompts_len'] = [len(self.tok.encode(s)) for s in src]
             edit_inner['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
         
         # edit_outer
         edit_outer = {}
         edit_outer['image'] = torch.stack(image, dim=0)
-        edit_outer['text_input'] = [self.prompt.format(r) + t for r, t in zip(rephrase, trg)]
+        edit_outer['text_input'] = [r + t for r, t in zip(rephrase, trg)]
         edit_outer['labels'] = trg
         if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_outer['prompts_len'] = [len(self.tok.encode(self.prompt.format(r), add_special_tokens=False)) for r in rephrase]
+            edit_outer['prompts_len'] = [len(self.tok.encode(r, add_special_tokens=False)) for r in rephrase]
             edit_outer['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
         else:
-            edit_outer['prompts_len'] = [len(self.tok.encode(self.prompt.format(r))) for r in rephrase]
+            edit_outer['prompts_len'] = [len(self.tok.encode(r)) for r in rephrase]
             edit_outer['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
             
         # edit_outer_image
         edit_outer_image = {}
         edit_outer_image['image'] = torch.stack(image_rephrase, dim=0)
-        edit_outer_image['text_input'] = [self.prompt.format(s) + t for s, t in zip(src, trg)]
+        edit_outer_image['text_input'] = [s + t for s, t in zip(src, trg)]
         edit_outer_image['labels'] = trg
         if self.config.model_name == "minigpt4" or self.config.model_name == "blip2":
-            edit_outer_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(s), add_special_tokens=False)) for s in src]
+            edit_outer_image['prompts_len'] = [len(self.tok.encode(s, add_special_tokens=False)) for s in src]
             edit_outer_image['labels'] = self.tok(trg, add_special_tokens=False, return_tensors="pt",)["input_ids"]
         else:
-            edit_outer_image['prompts_len'] = [len(self.tok.encode(self.prompt.format(s))) for s in src]
+            edit_outer_image['prompts_len'] = [len(self.tok.encode(s)) for s in src]
             edit_outer_image['labels'] = self.tok(trg, return_tensors="pt",)["input_ids"]
         
         # loc
@@ -190,44 +190,3 @@ class VQADataset(BaseDataset):
             "cond": cond
         }
         return dict_to(batch, self.config.device)
-import json
-from torchvision import transforms
-class VQADataset_Simple(BaseDataset):
-    def __init__(self, prompt, template, annotation_file, image_root, image_size=256):
-        self.image_root = image_root
-        with open(annotation_file,'r',encoding='utf-8') as f:
-            self.annotations = json.load(f)
-        self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
-            transforms.ToTensor(),
-        ])
-        self.prompt = prompt
-        self.template = template
-    def __len__(self):
-        return len(self.annotations)
-    
-    def __getitem__(self, idx):
-        ann = self.annotations[idx]
-        img_name = ann["image"]
-        txt = ann["src"]
-        img_path = os.path.join(self.image_root, img_name)
-        image = Image.open(img_path).convert("RGB")
-        image = self.transform(image)
-        return {
-            "image":image.half(),
-            "text_input": self.template.format(self.prompt.format(txt)) if self.template else self.prompt.format(txt)
-        }
-    @staticmethod
-    def collate_fn(batch):
-        images = [item["image"] for item in batch]
-        texts = [item["text_input"] for item in batch]
-        # image_tensor = torch.stack(images.unsqueeze(0),dim=0)
-        return {
-            "image":images,
-            "text_input":texts
-        }
-    
-    def __len__(self):
-        return len(self.annotations)
-
-   

@@ -52,7 +52,8 @@ def compute_z(
         for context_types in context_templates[:1]
         for context in context_types
     ], ["{} is a"]
-    all_prompts = rewriting_prompts
+    all_prompts = rewriting_prompts + kl_prompts
+
     input_tok = tok(
         [prompt.format(request["subject"]) for prompt in all_prompts],
         return_tensors="pt",
@@ -63,21 +64,18 @@ def compute_z(
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
-        lookup_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
     else:
-        lookup_idxs = []
+        # Compute rewriting targets
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
         )
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
-    
+
     # Compute indices of the tokens where the fact is looked up
     # lookup_idxs = [
     #     find_fact_lookup_idx(
@@ -85,7 +83,7 @@ def compute_z(
     #     )
     #     for i, prompt in enumerate(all_prompts)
     # ]
-    #lookup_idxs = [616, 623, 622, 623, 623, 623][:1] + [len(tok.encode(request['subject']))-1]
+    lookup_idxs = [616, 623, 622, 623, 623, 623][:1] + [len(tok.encode(request['subject']))-1]
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -144,29 +142,23 @@ def compute_z(
             retain_output=True,
             edit_output=edit_output_fn,
         ) as tr:
-            # if "image" in request:
-            #     image = request["image"]
-            #     sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
-            #     logits = model(sample).logits
-            
             if "image" in request:
                 image = request["image"]
                 sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
                 logits = model(sample).logits
-            
             else:
                 logits = model(**input_tok).logits
             # Compute distribution for KL divergence
-            # kl_logits = torch.stack(
-            #     [
-            #         logits[i - len(kl_prompts), idx, :]
-            #         for i, idx in enumerate(lookup_idxs[-len(kl_prompts) :])
-            #     ],
-            #     dim=0,
-            # )
-            # kl_log_probs = torch.nn.functional.log_softmax(kl_logits, dim=1)
-            # if kl_distr_init is None:
-            #     kl_distr_init = kl_log_probs.detach().clone()
+            kl_logits = torch.stack(
+                [
+                    logits[i - len(kl_prompts), idx, :]
+                    for i, idx in enumerate(lookup_idxs[-len(kl_prompts) :])
+                ],
+                dim=0,
+            )
+            kl_log_probs = torch.nn.functional.log_softmax(kl_logits, dim=1)
+            if kl_distr_init is None:
+                kl_distr_init = kl_log_probs.detach().clone()
 
         # Compute loss on rewriting targets
 
@@ -186,16 +178,16 @@ def compute_z(
         # Aggregate total losses
         nll_loss_each = -(loss * mask.to(loss.device)).sum(1) / target_ids.size(0)
         nll_loss = nll_loss_each.mean()
-        # kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
-        #     kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"
-        # )
+        kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
+            kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"
+        )
         weight_decay = hparams.v_weight_decay * (
             torch.norm(delta) / torch.norm(target_init) ** 2
         )
         # weight_decay = hparams.v_weight_decay * torch.norm(delta) ** 2
-        loss = nll_loss + weight_decay.to(nll_loss.device)
+        loss = nll_loss + kl_loss.to(nll_loss.device) + weight_decay.to(nll_loss.device)
         print(
-            f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
+            f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
             f"avg prob of [{request['target_new']}] "
             f"{torch.exp(-nll_loss_each).mean().item()}"
         )

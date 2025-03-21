@@ -189,6 +189,8 @@ def execute_memit(
         # Load covariance matrix
         force_recompute = True
         # force_recompute = layer != hparams.layers[0]
+        if hparams.model_name == 'llava':
+            template = request["prompt_template"] if "prompt_template" in request else None
         cov = get_cov(
             model,
             tok,
@@ -199,7 +201,8 @@ def execute_memit(
             else hparams.mom2_n_samples // 10,
             hparams.mom2_dtype,
             force_recompute=force_recompute,
-            hparams=hparams
+            hparams=hparams,
+            template=template
         )
 
         # Compute update in double precision
@@ -258,6 +261,7 @@ def get_cov(
     inv: bool = False,
     force_recompute: bool = False,
     hparams=None,
+    template: str=None
 ) -> torch.Tensor:
     """
     Retrieves covariance statistics, then computes the algebraic inverse.
@@ -281,6 +285,7 @@ def get_cov(
             precision=mom2_dtype,
             hparams=hparams,
             force_recompute=force_recompute,
+            template=template
         )
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 

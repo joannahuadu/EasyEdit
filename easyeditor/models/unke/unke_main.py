@@ -48,10 +48,10 @@ def get_context_templates(model, tok, multimodal_generation=False):
 
     return CONTEXT_TEMPLATES_CACHE
 
-def get_VQA_ds(prompt):
+def get_VQA_ds(prompt,template):
     annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
     image_root = '/data/lishichao/data/model_edit/'
-    raw_ds = VQADataset_Simple(prompt=prompt,annotation_file=annotation_path,image_root=image_root,image_size=336)
+    raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
     return raw_ds
 
 def get_optimizer_params(model, encoder_lr, weight_decay=0.01):
@@ -92,12 +92,13 @@ def apply_unke_to_model(
     if hparams.model_name == 'llava':
         from ...trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
         prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
+        template = request["prompt_template"] if "prompt_template" in request else None
     if prompt:
-        ds = get_VQA_ds(prompt) 
+        ds = get_VQA_ds(prompt,template) 
     else:
         assert "No prompt is defined for multimodal text inputs"
     # Retrieve the external dataset
-    ds = get_VQA_ds(prompt=prompt)
+    ds = get_VQA_ds(prompt=prompt,template=template)
     # Create the DataLoader
     loader = DataLoader(
         ds,
@@ -123,8 +124,6 @@ def execute_unke(
     Executes the UnKE update algorithm for the specified update at the specified layer
     Invariant: model at beginning of function == model at end of function
     """
-
-    deltas = {}
 
     # Update target and print info
     requests = deepcopy(requests)
@@ -265,10 +264,11 @@ def execute_unke(
                 clone=True,
             ) as tr:
                 if "image" in requests[0]:
+                    
                     ex_data_output = model(ex_data_batch)
                 else:
                     """wait to apply unke for LLM"""
-                    assert 1==1
+                    assert 1==2
                 stat_in = tr.input
                 stat_out = tr.output
         stat_out = stat_out[0] if type(stat_out) is tuple else stat_out
@@ -312,8 +312,6 @@ def execute_unke(
         for step in range(hparams.optim_num_step):
             #scheduler.step()
             optimizer.zero_grad()
-
-            
             # ex_random_tensor = torch.randn(stat_out.shape, device=layer_out_ks.device, dtype=torch.bfloat16)
             # in_random_tensor = torch.randn(layer_out_ks.shape, device=layer_out_ks.device,dtype=torch.bfloat16)
             # loss = criterion(_layer(stat_in,attention_mask=ex_causal_mask,position_ids=ex_position_ids,cache_position = ex_cache_position)[0], ex_random_tensor)+ criterion(_layer(layer_in_ks,attention_mask=input_causal_mask,position_ids=input_position_ids,cache_position=input_cache_position)[0], in_random_tensor)
@@ -323,9 +321,9 @@ def execute_unke(
             loss.backward(retain_graph=True)
             # loss.backward()
             optimizer.step()    
-            for param in model.parameters():
-                if param.grad is not None:
-                    print(param.grad.abs().mean())  # 检查每个参数的梯度
+            # for param in model.parameters():
+            #     if param.grad is not None:
+            #         print(param.grad.abs().mean())  # 检查每个参数的梯度
             
             # print('Step [{}/{}], Loss: {:.4f}, Layer:{}'.format(step+1, config.optim_num_step, loss.item(),layer))
             # if loss.item() < 5e-5:
