@@ -1,7 +1,7 @@
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -15,13 +15,18 @@ from ...util.globals import *
 
 # from .compute_ks import compute_ks
 from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx, get_model_config
-from .unke_hparams import UnKEMultimodalHyperParams as UnKEHyperParams
+from .unke_hparams import UnKEMultimodalHyperParams
+
+from easyeditor import VQADataset_Simple
+from torch.utils.data import DataLoader
+import torch.nn as nn
+import torch.optim as optim
 
 # Cache variable(s)
 CONTEXT_TEMPLATES_CACHE = None
 COV_CACHE = {}
 
-def get_context_templates(model, tok):
+def get_context_templates(model, tok, multimodal_generation=False):
     global CONTEXT_TEMPLATES_CACHE
 
     if CONTEXT_TEMPLATES_CACHE is None:
@@ -34,6 +39,7 @@ def get_context_templates(model, tok):
                     ["The", "Therefore", "Because", "I", "You"],
                     n_gen_per_prompt=n_gen // 5,
                     max_out_len=length,
+                    multimodal_generation=multimodal_generation,
                 )
             ]
             for length, n_gen in [(10, 5)]  # Be careful about changing this.
@@ -41,11 +47,28 @@ def get_context_templates(model, tok):
         print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
 
     return CONTEXT_TEMPLATES_CACHE
+
+def get_VQA_ds(prompt,template):
+    annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
+    image_root = '/data/lishichao/data/model_edit/'
+    raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
+    return raw_ds
+
+def get_optimizer_params(model, encoder_lr, weight_decay=0.01):
+        param_optimizer = list(model.named_parameters())
+        no_decay = ["input_layernorm.weight", "post_attention_layernorm.weight"]
+        optimizer_parameters = [
+            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], # and 'mlp' in n
+            'lr': encoder_lr, 'weight_decay': weight_decay},
+            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            'lr': encoder_lr, 'weight_decay': 0.0},
+        ]
+        return optimizer_parameters
 def apply_unke_to_model(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     requests: List[Dict],
-    hparams: UnKEHyperParams,
+    hparams: UnKEMultimodalHyperParams,
     copy=False,
     return_orig_weights=False,
     cache_template: Optional[str] = None,
@@ -65,38 +88,42 @@ def apply_unke_to_model(
             request.update({"target_new": request["target"]})
     if copy:
         model = deepcopy(model)
-
-    deltas = execute_unke(model, tok, requests, hparams, cache_template=cache_template)
-
-    with torch.no_grad():
-        for w_name, (key_mat, val_mat) in deltas.items():
-            key_mat, val_mat = key_mat.to(f"cuda:{hparams.device}"), val_mat.to(f"cuda:{hparams.device}")
-            upd_matrix = key_mat @ val_mat.T
-            w = nethook.get_parameter(model, w_name)
-            upd_matrix = upd_matrix_match_shape(upd_matrix, w.shape)
-
-            if return_orig_weights and w_name not in weights_copy:
-                weights_copy[w_name] = w.detach().clone()
-            w[...] += upd_matrix.float()
-
-    print(f"New weights successfully inserted into {list(deltas.keys())}")
+    # external dataset, prompt 
+    if hparams.model_name == 'llava':
+        from ...trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
+        prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
+        template = request["prompt_template"] if "prompt_template" in request else None
+    if prompt:
+        ds = get_VQA_ds(prompt,template) 
+    else:
+        assert "No prompt is defined for multimodal text inputs"
+    # Retrieve the external dataset
+    ds = get_VQA_ds(prompt=prompt,template=template)
+    # Create the DataLoader
+    loader = DataLoader(
+        ds,
+        batch_size=hparams.ex_data_num, 
+        shuffle=True, 
+        num_workers=4, 
+        collate_fn=ds.collate_fn, 
+    )
+    
+    weights_copy = execute_unke(model, tok, requests, hparams, cache_template=cache_template, ex_data_loader=loader)
 
     return model, weights_copy
-
 
 def execute_unke(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     requests: List[Dict],
-    hparams: UnKEHyperParams,
+    hparams: UnKEMultimodalHyperParams,
     cache_template: Optional[str] = None,
+    ex_data_loader: Optional[DataLoader] = None
 ) -> Dict[str, Tuple[torch.Tensor]]:
     """
     Executes the UnKE update algorithm for the specified update at the specified layer
     Invariant: model at beginning of function == model at end of function
     """
-
-    deltas = {}
 
     # Update target and print info
     requests = deepcopy(requests)
@@ -178,12 +205,20 @@ def execute_unke(
                     },
                 )
                 print(f"Cached k/v pair at {cache_fname}")
-    zs = torch.stack(z_list, dim=1)
+    zs = torch.stack(z_list, dim=0)
+    
+    # define target_ids,all_prompts_list, did not add target_ids 
+    all_prompts_list = []
+    for request in requests:
+        target_ids = tok.encode(request["target_new"], return_tensors="pt", add_special_tokens=False).to(f"cuda:{hparams.device}")[0]
+        all_prompts = request["prompt_template"].format(request["prompt"]) if "prompt_template" in request else request["prompt"]
+        all_prompts_list.append(all_prompts)
+    
     if "image" in requests[0]:
         images = [request["image"] for request in requests]
-        text_inputs = [request["prompt"].format(request["subject"]) for request in requests]
+        text_inputs = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
     else:
-        batch_question = [request['question'] for request in requests]
+        batch_question = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
     # Insert
     for i, layer in enumerate(hparams.layers):
         print(f"\n\nLAYER {layer}\n")
@@ -201,7 +236,7 @@ def execute_unke(
             ) as tr:
                 if "image" in requests[0]:
                     samples = {"noise": True, "text_input": text_inputs, "image": images if images is not None else None}
-                    _ = model(samples)
+                    edit_output = model(samples)
                 else:
                     _ = model(**contexts_tok)
                 layer_in_ks = tr.input #(bs:seq:h_dim)
@@ -209,145 +244,108 @@ def execute_unke(
                 
         layer_out_ks = layer_out_ks[0] if type(layer_out_ks) is tuple else layer_out_ks
         if "image" in requests[0]:
-            cur_zs, idxs = compute_ks(model, tok, hparams, z_layer, batch_input=samples)
+            cur_zs, idxs = compute_ks(model, tok, samples, hparams, z_layer)
         else:
-            cur_zs, idxs = compute_ks(model, tok, hparams, z_layer, batch_input=batch_question)
+            cur_zs, idxs = compute_ks(model, tok, batch_question, hparams, z_layer)
         
         targets = zs - cur_zs
         print("z error", torch.linalg.norm(targets, dim=0).mean())
 
-        repeat_factor = (layer_ks.size(1) // targets.size(1))
-        targets = targets.repeat_interleave(repeat_factor, dim=1)
-
-        # Load covariance matrix
-        force_recompute = True
-        # force_recompute = layer != hparams.layers[0]
-        cov = get_cov(
-            model,
-            tok,
-            hparams.rewrite_module_tmp.format(layer),
-            hparams.mom2_dataset,
-            hparams.mom2_n_samples
-            if not force_recompute
-            else hparams.mom2_n_samples // 10,
-            hparams.mom2_dtype,
-            force_recompute=force_recompute,
-            hparams=hparams
-        )
-
-        # Compute update in double precision
-        layer_ks, targets = (
-            layer_ks.double(),
-            targets.double(),
-        )
-
-        adj_k = torch.linalg.solve(
-            hparams.mom2_update_weight * cov.double() + layer_ks @ layer_ks.T,
-            layer_ks,
-        )
-        resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
-        upd_matrix = resid @ adj_k.T
-
-        # Adjust update matrix shape
-        weight_name = f"{hparams.rewrite_module_tmp.format(layer)}.weight"
-        upd_matrix = upd_matrix_match_shape(upd_matrix, weights[weight_name].shape)
-
-        print("orig norm", torch.linalg.norm(weights[weight_name]))
-        print("upd norm", torch.linalg.norm(upd_matrix))
-
-        # Update model weights and record desired changes in `delta` variable
+        data_iter = iter(ex_data_loader)  
+        ex_data_batch = next(data_iter)  
+        
         with torch.no_grad():
-            weights[weight_name][...] = weights_copy[weight_name] + upd_matrix.float()
-            deltas[weight_name] = (
-                adj_k.detach().cpu(),
-                resid.detach().cpu(),
-            )
+            with nethook.Trace(
+                module=model,
+                layer=hparams.layer_module_tmp.format(layer),
+                retain_input=True,
+                retain_output=True,
+                detach=True,
+                clone=True,
+            ) as tr:
+                if "image" in requests[0]:
+                    
+                    ex_data_output = model(ex_data_batch)
+                else:
+                    """wait to apply unke for LLM"""
+                    assert 1==2
+                stat_in = tr.input
+                stat_out = tr.output
+        stat_out = stat_out[0] if type(stat_out) is tuple else stat_out
+        
+        resid = targets / (len(hparams.layers) - i)  
+        
+        criterion = nn.MSELoss()
+        
+        _layer = nethook.get_module(model, hparams.layer_module_tmp.format(layer))
+        
+        for n,m in _layer.named_parameters():
+            
+            m.requires_grad=True
+            
+        params = get_optimizer_params(_layer,hparams.lr)
+    
+        optimizer = optim.AdamW(params,lr=hparams.lr,eps=1e-8,betas = (0.9,0.999))
+        #optimizer = optim.SGD(params, lr=hparams.lr, momentum=0.9, weight_decay=0.01)
+        
+        for i in range(len(idxs)):
+            layer_out_ks[i,idxs[i]] += resid[i]
+        
+        input_causal_mask = edit_output.attention_mask
+        input_position_ids = edit_output.position_ids
+        input_cache_position = input_position_ids[0]
+        ex_causal_mask = ex_data_output.attention_mask
+        ex_position_ids = ex_data_output.position_ids
+        ex_cache_position = ex_position_ids[0]
+        
+        input_causal_mask,input_position_ids,input_cache_position = get_causal_mask(layer_in_ks,input_causal_mask.to(layer_in_ks.device))
+        ex_causal_mask,ex_position_ids,ex_cache_position = get_causal_mask(stat_in,ex_causal_mask.to(stat_in.device))
+        
+        # # Assuming attention_mask is of shape [batch_size, seq_length]
+        # input_causal_mask = input_causal_mask.unsqueeze(1).unsqueeze(2)  # Shape becomes [batch_size, 1, 1, seq_length]
+        # # Now, repeat the mask to match the self-attention shape
+        # input_causal_mask = input_causal_mask.expand(-1, model.llava_model.config.num_attention_heads, input_causal_mask.shape[-1], input_causal_mask.shape[-1])  # num_heads is typically the number of attention heads in the model
+        
+        # ex_causal_mask = ex_causal_mask.unsqueeze(1).unsqueeze(2) 
+        # ex_causal_mask = ex_causal_mask.expand(-1, model.llava_model.config.num_attention_heads, ex_causal_mask.shape[-1], ex_causal_mask.shape[-1])
+        
+        for step in range(hparams.optim_num_step):
+            #scheduler.step()
+            optimizer.zero_grad()
+            # ex_random_tensor = torch.randn(stat_out.shape, device=layer_out_ks.device, dtype=torch.bfloat16)
+            # in_random_tensor = torch.randn(layer_out_ks.shape, device=layer_out_ks.device,dtype=torch.bfloat16)
+            # loss = criterion(_layer(stat_in,attention_mask=ex_causal_mask,position_ids=ex_position_ids,cache_position = ex_cache_position)[0], ex_random_tensor)+ criterion(_layer(layer_in_ks,attention_mask=input_causal_mask,position_ids=input_position_ids,cache_position=input_cache_position)[0], in_random_tensor)
+            loss = criterion(_layer(stat_in,attention_mask=ex_causal_mask,position_ids=ex_position_ids,cache_position = ex_cache_position)[0], stat_out)+ criterion(_layer(layer_in_ks,attention_mask=input_causal_mask,position_ids=input_position_ids,cache_position=input_cache_position)[0], layer_out_ks)
+            #loss = torch.sum(_layer(layer_in_ks,attention_mask=input_causal_mask,position_ids=input_position_ids,cache_position=input_cache_position)[0] - layer_out_ks)
+            # loss = loss*10000
+            loss.backward(retain_graph=True)
+            # loss.backward()
+            optimizer.step()    
+            # for param in model.parameters():
+            #     if param.grad is not None:
+            #         print(param.grad.abs().mean())  # 检查每个参数的梯度
+            
+            # print('Step [{}/{}], Loss: {:.4f}, Layer:{}'.format(step+1, config.optim_num_step, loss.item(),layer))
+            # if loss.item() < 5e-5:
+            #     break
 
-        # Clear GPU memory
-        cov.cpu()
-        for x in [layer_ks, cur_zs, targets]:
+        for x in [layer_in_ks, layer_out_ks,cur_zs, targets,stat_in,stat_out]:
             x.cpu()
             del x
         torch.cuda.empty_cache()
-
-    # Restore state of original model
-    with torch.no_grad():
-        for k, v in weights.items():
-            v[...] = weights_copy[k]
-
-    print(f"Deltas successfully computed for {list(weights.keys())}")
-
-    return deltas
-
-
-def get_cov(
-    model: AutoModelForCausalLM,
-    tok: AutoTokenizer,
-    layer_name: str,
-    mom2_dataset: str,
-    mom2_n_samples: str,
-    mom2_dtype: str,
-    inv: bool = False,
-    force_recompute: bool = False,
-    hparams=None,
-) -> torch.Tensor:
-    """
-    Retrieves covariance statistics, then computes the algebraic inverse.
-    Caches result for future use.
-    """
-
-    model_name = model.config._name_or_path.replace("/", "_")
-    key = (model_name, layer_name)
-
-    print(f"Retrieving covariance statistics for {model_name} @ {layer_name}.")
-    if key not in COV_CACHE or force_recompute:
-        stat = layer_stats(
-            model,
-            tok,
-            layer_name,
-            hparams.stats_dir,
-            mom2_dataset,
-            to_collect=["mom2"],
-            sample_size=mom2_n_samples,
-            precision=mom2_dtype,
-            hparams=hparams,
-            force_recompute=force_recompute,
-        )
-        COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
-
-    return (
-        torch.inverse(COV_CACHE[key].to(f"cuda:{hparams.device}")) if inv else COV_CACHE[key].to(f"cuda:{hparams.device}")
-    )
-
-
-def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Tensor:
-    """
-    GPT-2 and GPT-J have transposed weight representations.
-    Returns a matrix that matches the desired shape, else raises a ValueError
-    """
-
-    if matrix.shape == shape:
-        return matrix
-    elif matrix.T.shape == shape:
-        return matrix.T
-    else:
-        raise ValueError(
-            "Update matrix computed by UnKE does not match original weight shape. "
-            "Check for bugs in the code?"
-        )
-
-
-
+        
+    return weights_copy
 
 def compute_ks(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
-    batch_data: list,
-    hparams: UnKEHyperParams,
+    batch_data: Union[Dict, List],
+    hparams: UnKEMultimodalHyperParams,
     layer: int,
 ):
-    input_ids = tok(batch_data, padding=True,return_tensors="pt").to(f"cuda:{hparams.device}")
-    idxs = [i.sum()-1 for i in input_ids['attention_mask']]
+    if isinstance(batch_data, list):
+        input_ids = tok(batch_data, padding=True,return_tensors="pt").to(f"cuda:{hparams.device}")
+        idxs = [i.sum()-1 for i in input_ids['attention_mask']]
 
     with torch.no_grad():
         with nethook.Trace(
@@ -358,7 +356,11 @@ def compute_ks(
             detach=True,
             clone=True,
             ) as tr:
-                _ = model(**input_ids)
+                if isinstance(batch_data, dict):
+                    output = model(batch_data)
+                    idxs = [int(i.sum())-1 for i in output.attention_mask]
+                else:
+                    _ = model(**input_ids)
                 #layer_in_ks = tr.input #(bs:seq:h_dim)
                 zs_out = tr.output#(bs:seq:h_dim)
     zs_out = zs_out[0] if type(zs_out) is tuple else zs_out
@@ -369,3 +371,40 @@ def compute_ks(
 
 
     return zs_out,idxs
+
+def get_causal_mask(input_tensor,attention_mask):
+    dtype, device = input_tensor.dtype, input_tensor.device
+    min_dtype = torch.finfo(dtype).min
+    sequence_length = input_tensor.shape[1]
+    target_length = sequence_length
+
+    causal_mask = torch.full((sequence_length, target_length), fill_value=min_dtype, dtype=dtype, device=device)
+    if sequence_length != 1:
+        causal_mask = torch.triu(causal_mask, diagonal=1)
+
+    cache_position = torch.arange(0, 0 + input_tensor.shape[1], device=device)
+    position_ids = cache_position.unsqueeze(0)
+    causal_mask *= torch.arange(target_length, device=device) > cache_position.reshape(-1, 1)
+    causal_mask = causal_mask[None, None, :, :].expand(input_tensor.shape[0], 1, -1, -1)
+    causal_mask = causal_mask.clone()  # copy to contiguous memory for in-place edit
+
+    if attention_mask.dim() == 2:
+        mask_length = attention_mask.shape[-1]
+        padding_mask = causal_mask[..., :mask_length].eq(0.0) * attention_mask[:, None, None, :].eq(0.0)
+        causal_mask[..., :mask_length] = causal_mask[..., :mask_length].masked_fill(padding_mask, min_dtype)
+    elif attention_mask.dim() == 4:
+        # backwards compatibility: we allow passing a 4D attention mask shorter than the input length with
+        # cache. In that case, the 4D attention mask attends to the newest tokens only.
+        if attention_mask.shape[-2] < cache_position[0] + sequence_length:
+            offset = cache_position[0]
+        else:
+            offset = 0
+        mask_shape = attention_mask.shape
+        mask_slice = (attention_mask.eq(0.0)).to(dtype=dtype) * min_dtype
+        causal_mask[
+            : mask_shape[0], : mask_shape[1], offset : mask_shape[2] + offset, : mask_shape[3]
+        ] = mask_slice
+
+    #causal_mask = AttentionMaskConverter._unmask_unattended(causal_mask, min_dtype)
+    causal_mask.mul(~torch.all(causal_mask == min_dtype, dim=-1, keepdim=True))
+    return causal_mask,position_ids,cache_position

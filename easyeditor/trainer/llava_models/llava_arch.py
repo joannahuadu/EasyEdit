@@ -139,7 +139,7 @@ class LlavaMetaForCausalLM(ABC):
 
     def encode_images(self, images):
         image_features = self.get_model().get_vision_tower()(images)
-        image_features = self.get_model().mm_projector(image_features)
+        image_features = self.get_model().mm_projector(image_features.bfloat16())
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
@@ -233,7 +233,7 @@ class LlavaMetaForCausalLM(ABC):
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
             if num_images == 0:
                 cur_image_features = image_features[cur_image_idx]
-                cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids)
+                cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids).to(cur_image_features.device)
                 cur_input_embeds = torch.cat([cur_input_embeds_1, cur_image_features[0:0]], dim=0)
                 new_input_embeds.append(cur_input_embeds)
                 new_labels.append(labels[batch_idx])
@@ -287,6 +287,7 @@ class LlavaMetaForCausalLM(ABC):
 
         for i, (cur_new_embed, cur_new_labels) in enumerate(zip(new_input_embeds, new_labels)):
             cur_len = cur_new_embed.shape[0]
+            cur_new_embed = cur_new_embed.to(new_input_embeds[0].device)
             if getattr(self.config, 'tokenizer_padding_side', 'right') == "left":
                 new_input_embeds_padded.append(torch.cat((
                     torch.zeros((max_len - cur_len, cur_new_embed.shape[1]), dtype=cur_new_embed.dtype, device=cur_new_embed.device),

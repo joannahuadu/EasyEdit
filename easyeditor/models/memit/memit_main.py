@@ -173,7 +173,7 @@ def execute_memit(
             model,
             tok,
             z_layer,
-            context_templates=[request["prompt"] for request in requests],
+            context_templates=[request["prompt_template"].format(request["prompt"]) if "prompt_template" in request else request["prompt"] for request in requests],
             words=[request["subject"] for request in requests],
             module_template=hparams.layer_module_tmp,
             fact_token_strategy=hparams.fact_token,
@@ -189,6 +189,8 @@ def execute_memit(
         # Load covariance matrix
         force_recompute = True
         # force_recompute = layer != hparams.layers[0]
+        if hparams.model_name == 'llava':
+            template = request["prompt_template"] if "prompt_template" in request else None
         cov = get_cov(
             model,
             tok,
@@ -199,7 +201,8 @@ def execute_memit(
             else hparams.mom2_n_samples // 10,
             hparams.mom2_dtype,
             force_recompute=force_recompute,
-            hparams=hparams
+            hparams=hparams,
+            template=template
         )
 
         # Compute update in double precision
@@ -212,7 +215,7 @@ def execute_memit(
             hparams.mom2_update_weight * cov.double() + layer_ks @ layer_ks.T,
             layer_ks,
         )
-        adj_k = adj_k / adj_k.norm()
+        # adj_k = adj_k / adj_k.norm()
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         upd_matrix = resid @ adj_k.T
 
@@ -258,6 +261,7 @@ def get_cov(
     inv: bool = False,
     force_recompute: bool = False,
     hparams=None,
+    template: str=None
 ) -> torch.Tensor:
     """
     Retrieves covariance statistics, then computes the algebraic inverse.
@@ -281,6 +285,7 @@ def get_cov(
             precision=mom2_dtype,
             hparams=hparams,
             force_recompute=force_recompute,
+            template=template
         )
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 

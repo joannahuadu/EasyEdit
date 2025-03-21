@@ -16,6 +16,9 @@ class LLavaOutput(ModelOutput):
     input_tokens: Optional[torch.FloatTensor] = None
     text_input_range: List[tuple] = None
     subject_range: List[tuple] = None
+    attention_mask: Optional[torch.FloatTensor] = None
+    position_ids: Optional[torch.FloatTensor] = None
+    
     
     
 class LLavaModel(nn.Module):
@@ -35,14 +38,15 @@ class LLavaModel(nn.Module):
             llava_model,
             low_cpu_mem_usage=True,
             cache_dir=cache_dir,
-            torch_dtype=torch.float16
+            torch_dtype=torch.bfloat16,
+            device_map=device_map
         )
         self.prompt_template = prompt_template
         vision_tower = self.llava_model.get_vision_tower()
         if not vision_tower.is_loaded:
             vision_tower.load_model(device_map=device_map)
         if device_map != 'auto':
-            vision_tower.to(device=device_map, dtype=torch.float16)
+            vision_tower.to(device=device_map, dtype=torch.bfloat16)
         self.image_processor = vision_tower.image_processor
         self.max_context_len = max_context_len
     def _device(self):
@@ -83,7 +87,7 @@ class LLavaModel(nn.Module):
             texts = None
         
         if 'image' in samples and samples['image'] is not None:
-            images = samples["image"]
+            images = [image.to(list(self.parameters())[-1].device) for image in samples["image"]]
         else:
             images = None
         
@@ -97,9 +101,15 @@ class LLavaModel(nn.Module):
         max_length = max(id_lens) if max(id_lens) < self.max_context_len else self.max_context_len
         wrapped_input_ids = pad_ids.expand(len(id_lens), max_length).clone()
         
+        # Creating attention_mask based on id_lens
+        attention_mask = torch.zeros(len(id_lens), max_length, device=pad_ids.device)
+        position_ids = torch.zeros(len(id_lens), max_length, device=pad_ids.device)
         for i, input_id in enumerate(input_ids):
             length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
             wrapped_input_ids[i, :length] = input_id[:length]
+            attention_mask[i, :length] = 1 
+            position_ids[i, :length] = torch.arange(length, device=pad_ids.device)
+        
         input_ids = wrapped_input_ids
         
         if 'trace' in samples and samples['trace']:
@@ -138,8 +148,8 @@ class LLavaModel(nn.Module):
                     labels
                 ) = self.llava_model.prepare_inputs_labels_for_multimodal(
                     input_ids=input_ids,
-                    position_ids=None,
-                    attention_mask=None,
+                    position_ids=position_ids,
+                    attention_mask=attention_mask,
                     past_key_values=None,
                     labels=None,
                     images=images)
@@ -162,7 +172,9 @@ class LLavaModel(nn.Module):
             logits=outputs.logits,
             input_tokens=input_tokens,
             text_input_range=text_input_range,
-            subject_range=subject_range
+            subject_range=subject_range,
+            attention_mask=attention_mask,
+            position_ids=position_ids
         )
     
     def generate(
