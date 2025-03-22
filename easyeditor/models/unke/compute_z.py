@@ -47,7 +47,7 @@ def compute_z(
     if target_ids[0] == tok.bos_token_id or target_ids[0] == tok.unk_token_id:
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
-    rewriting_prompts = [request["prompt_template"].format(request["prompt"]) + tok.decode(target_ids[:-1]) if "prompt_template" in request else request["prompt"] + tok.decode(target_ids)[:-1]]
+    rewriting_prompts = [request["prompt_template"].format(request["prompt"]) + tok.decode(target_ids[:-1]) if "prompt_template" in request else request["prompt"] + tok.decode(target_ids[:-1])]
 
     all_prompts = rewriting_prompts
 
@@ -66,7 +66,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
     else:
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
@@ -75,7 +75,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
     
 
     # Finalize rewrite and loss layers
