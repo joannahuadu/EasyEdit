@@ -87,7 +87,7 @@ class LLavaModel(nn.Module):
             texts = None
         
         if 'image' in samples and samples['image'] is not None:
-            images = [image.to(list(self.parameters())[-1].device) for image in samples["image"]]
+            images = [image.to(list(self.parameters())[-1].device) if image is not None else None for image in samples["image"]]
         else:
             images = None
         
@@ -138,7 +138,7 @@ class LLavaModel(nn.Module):
                 subject_ids=subject_ids,
                 text_input_ids=text_input_ids)
         else:
-            if images is not None:
+            if images is not None and images[0] is not None:
                 (
                     input_ids,
                     position_ids,
@@ -155,7 +155,7 @@ class LLavaModel(nn.Module):
                     images=images)
             else:
                 inputs_embeds = self.llava_model.model.embed_tokens(input_ids)
-                input_ids = attention_mask = position_ids = past_key_values = labels = None
+                input_ids = past_key_values = labels = None
         
         outputs = self.llava_model(
                 input_ids=input_ids,

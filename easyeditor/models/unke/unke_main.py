@@ -215,7 +215,7 @@ def execute_unke(
         all_prompts_list.append(all_prompts)
     
     if "image" in requests[0]:
-        images = [request["image"] for request in requests]
+        images = [request["image"] for request in requests] 
         text_inputs = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
     else:
         batch_question = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
@@ -238,7 +238,7 @@ def execute_unke(
                     samples = {"noise": True, "text_input": text_inputs, "image": images if images is not None else None}
                     edit_output = model(samples)
                 else:
-                    _ = model(**contexts_tok)
+                    edit_output = model(**contexts_tok)
                 layer_in_ks = tr.input #(bs:seq:h_dim)
                 layer_out_ks = tr.output#(bs:seq:h_dim)
                 
