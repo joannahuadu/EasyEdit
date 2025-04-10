@@ -23,6 +23,7 @@ class UnKEMultimodalHyperParams(HyperParams):
     mom2_adjustment: bool
     mom2_update_weight: float
     context_template_length_params: List[List[int]]
+    multi_tokens: bool
 
     # UnKE
     lr: float

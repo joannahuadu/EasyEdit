@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Literal, Optional
+from typing import List, Literal
 
 from ...util.hparams import HyperParams
 import yaml
@@ -68,7 +68,6 @@ class AlphaMultimodalHyperParams(HyperParams):
     fact_token: Literal[
         "last", "subject_first", "subject_last", "subject_first_after_last"
     ]
-    specific_subject: bool
     v_num_grad_steps: int
     v_lr: float
     v_loss_layer: int
@@ -77,6 +76,7 @@ class AlphaMultimodalHyperParams(HyperParams):
     kl_factor: float
     mom2_adjustment: bool
     mom2_update_weight: float
+    context_template_length_params: List[List[int]]
 
     # Module templates
     rewrite_module_tmp: str
@@ -91,14 +91,9 @@ class AlphaMultimodalHyperParams(HyperParams):
     mom2_n_samples: int
     mom2_dtype: str
     alg_name: str
-    nullspace_threshold: float
-    L2: float
     device: int
     name: str
     model_name: str
-    stats_dir: str
-    P_loc: str
-    
     tokenizer_class: str
     tokenizer_name: str
     stats_dir: str
@@ -113,6 +108,8 @@ class AlphaMultimodalHyperParams(HyperParams):
     exact_match: bool = False
 
     ## Multimodal
+    qformer_checkpoint: Optional[str] = None
+    qformer_name_or_path: Optional[str] = None
     state_dict_file: Optional[str] = None
     pretrained_ckpt: Optional[str] = None  
     
@@ -132,6 +129,6 @@ class AlphaMultimodalHyperParams(HyperParams):
             config = yaml.safe_load(stream)
             config = super().construct_float_from_scientific_notation(config)
 
-        assert (config and config['alg_name'] == 'AlphaEdit') or print(f'AlphaMultimodalHyperParams can not load from {hparams_name_or_path}, '
+        assert (config and config['alg_name'] == 'MEMIT') or print(f'MEMITHyperParams can not load from {hparams_name_or_path}, '
                                                 f'alg_name is {config["alg_name"]} ')
         return cls(**config)

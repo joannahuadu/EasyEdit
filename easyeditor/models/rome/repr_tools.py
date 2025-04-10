@@ -50,6 +50,7 @@ def get_words_idxs_in_templates(
     template, computes the post-tokenization index of their last tokens.
     """
 
+    context_templates = [ ' '.join(tmp.split()[:-1]) + ' {}' if tmp.count("{}") == 0 else tmp for tmp in context_templates]
     assert all(
         tmp.count("{}") == 1 for tmp in context_templates
     ), "We currently do not support multiple fill-ins for context"

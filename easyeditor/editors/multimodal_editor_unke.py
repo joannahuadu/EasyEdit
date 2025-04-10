@@ -473,7 +473,7 @@ class MultimodalEditor_UnKE:
             start = time()
 
             # Apply the editing algorithm to the batch of requests
-            if self.alg_name == 'MEMIT' or self.alg_name == 'UnKE':
+            if self.alg_name in ['MEMIT','UnKE','AlphaEdit']:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
                     self.tok,

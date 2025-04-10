@@ -52,7 +52,8 @@ ALG_MULTIMODAL_DICT = {
     'SERAC_MULTI': SeracMultimodalRewriteExecutor().apply_to_model,
     'IKE': apply_ike_to_multimodal_model,
     'MEMIT': apply_memit_to_model,
-    'UnKE':apply_unke_to_model
+    'UnKE':apply_unke_to_model,
+    'AlphaEdit':apply_AlphaEdit_to_model
 }
 
 PER_ALG_DICT = {

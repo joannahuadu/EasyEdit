@@ -18,6 +18,7 @@ class LLavaOutput(ModelOutput):
     subject_range: List[tuple] = None
     attention_mask: Optional[torch.FloatTensor] = None
     position_ids: Optional[torch.FloatTensor] = None
+    attn_weights: Optional[torch.FloatTensor] = None
     
     
     
@@ -75,7 +76,7 @@ class LLavaModel(nn.Module):
             raise ValueError(f'Unsupported tensor type: {return_tensors}')
         return input_ids
 
-    def forward(self, samples):
+    def forward(self, samples, output_attentions=False):
         subject_range = text_input_range = input_tokens = [None]
         if "text_input" in samples:
             if "noise" in samples and samples["noise"]:
@@ -165,7 +166,8 @@ class LLavaModel(nn.Module):
                 inputs_embeds=inputs_embeds,
                 labels=labels,
                 images=images,
-                use_cache=True)
+                use_cache=True,
+                output_attentions=output_attentions)
         
         return LLavaOutput(
             loss=outputs.loss,
@@ -174,7 +176,8 @@ class LLavaModel(nn.Module):
             text_input_range=text_input_range,
             subject_range=subject_range,
             attention_mask=attention_mask,
-            position_ids=position_ids
+            position_ids=position_ids,
+            attn_weights=outputs.attentions if outputs.attentions else None
         )
     
     def generate(

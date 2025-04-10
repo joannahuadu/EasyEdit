@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -7,8 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from ..rome import repr_tools
 from ...util import nethook
 
-from .memit_hparams import MEMITHyperParams
-
+from .unke_hparams import UnKEMultimodalHyperParams as UnKEHyperParams
 def get_model_config(model, attribute_name):
         for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
             sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
@@ -20,7 +19,7 @@ def compute_z(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
     request: Dict,
-    hparams: MEMITHyperParams,
+    hparams: UnKEHyperParams,
     layer: int,
     context_templates: List[str],
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -48,24 +47,22 @@ def compute_z(
     if target_ids[0] == tok.bos_token_id or target_ids[0] == tok.unk_token_id:
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
-    rewriting_prompts, kl_prompts = [
-        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids[:-1])
-        for context_types in context_templates[:1]
-        for context in context_types
-    ], ["{} is a"]
+    rewriting_prompts = [request["prompt_template"].format(request["prompt"]) + tok.decode(target_ids[:-1]) if "prompt_template" in request else request["prompt"] + tok.decode(target_ids[:-1])]
+
     all_prompts = rewriting_prompts
+
     input_tok = tok(
-        [prompt.format(request["subject"]) for prompt in all_prompts],
+        all_prompts[0].format(request["subject"]),
         return_tensors="pt",
         padding=True,
     ).to(f"cuda:{hparams.device}")
-    
-    
+
+    # Compute rewriting targets
     if "image_toks" in request and request['image'] is not None:
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
-        lookup_idxs = [] 
+        lookup_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
@@ -74,20 +71,12 @@ def compute_z(
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
         )
-        lookup_idxs = [] 
+        lookup_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
             lookup_idxs.append(ex_len - len(target_ids) + 1)
     
-    # Compute indices of the tokens where the fact is looked up
-    # lookup_idxs = [
-    #     find_fact_lookup_idx(
-    #         prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0)
-    #     )
-    #     for i, prompt in enumerate(all_prompts)
-    # ]
-    #lookup_idxs = [616, 623, 622, 623, 623, 623][:1] + [len(tok.encode(request['subject']))-1]
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -97,7 +86,6 @@ def compute_z(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
-
     if get_model_config(model,'n_embd'):
         delta = torch.zeros((get_model_config(model, 'n_embd'),), requires_grad=True, device=f"cuda:{hparams.device}")
     elif get_model_config(model, 'hidden_size'):
@@ -106,6 +94,7 @@ def compute_z(
         raise NotImplementedError
     target_init, kl_distr_init = None, None
 
+    # lookup_idxs = [(ex_len - len(target_ids)) for _ in range(len(all_prompts))]
     # Inserts new "delta" variable at the appropriate part of the computation
     def edit_output_fn(cur_out, cur_layer):
         nonlocal target_init
@@ -120,7 +109,7 @@ def compute_z(
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
 
-                if len(lookup_idxs) != len(cur_out[0]):
+                if len(lookup_idxs)!=len(cur_out[0]):
                     cur_out[0][idx, i, :] += delta
                 else:
                     cur_out[0][i, idx, :] += delta
@@ -146,16 +135,12 @@ def compute_z(
             retain_output=True,
             edit_output=edit_output_fn,
         ) as tr:
-            # if "image" in request:
-            #     image = request["image"]
-            #     sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
-            #     logits = model(sample).logits
-            
             if "image" in request:
                 image = request["image"]
                 sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
-                logits = model(sample).logits
-            
+                edit_output = model(sample,output_attentions=True)
+                logits = edit_output.logits
+                output_attentions = [attn for attn in edit_output.attn_weights[0] if attn is not None]
             else:
                 logits = model(**input_tok).logits
             # Compute distribution for KL divergence
@@ -175,7 +160,7 @@ def compute_z(
         output = tr[hparams.layer_module_tmp.format(loss_layer)].output[0]
         if output.shape[1]!=rewriting_targets.shape[1]:
             output=torch.transpose(output, 0, 1)
-        full_repr = output[:len(rewriting_prompts)]
+        full_repr = output
 
         log_probs = torch.log_softmax(ln_f(full_repr) @ lm_w.to(full_repr.device) + lm_b.to(full_repr.device), dim=2)
         loss = torch.gather(
@@ -216,7 +201,6 @@ def compute_z(
         if delta.norm() > max_norm:
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
-            
 
     target = target_init + delta
     print(
@@ -256,21 +240,18 @@ def get_module_input_output_at_words(
         subtoken = fact_token_strategy[len("subject_") :]
         if track == 'out' or track == 'in':
             return repr_tools.get_reprs_at_word_tokens(
-                track=track, subtoken=subtoken, 
+                track=track, subtoken=subtoken, **context_info, **word_repr_args,
                 images=[
                 request["image"]
                 for request in requests
                 for _ in range(len(context_templates))] if "image" in requests[0] else None,
-                **context_info, 
-                **word_repr_args,
             )
         l_input, l_output = repr_tools.get_reprs_at_word_tokens(
-            track="both", subtoken=subtoken, 
+            track="both", subtoken=subtoken, **context_info, **word_repr_args,
             images=[
             request["image"]
             for request in requests
             for _ in range(len(context_templates))] if "image" in requests[0] else None,
-            **context_info, **word_repr_args,
         )
     elif fact_token_strategy == "last":
         raise Exception("This is definitely bugged, fix it.")

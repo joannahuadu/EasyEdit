@@ -13,7 +13,7 @@ from ...util import nethook
 from ...util.generate import generate_fast
 from ...util.globals import *
 
-from .compute_ks import compute_ks
+# from .compute_ks import compute_ks
 from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx, get_model_config
 from .memit_hparams import MEMITHyperParams, MEMITMultimodalHyperParams
 
@@ -87,13 +87,10 @@ def execute_memit(
             requests[i]["target_new"] = " " + request["target_new"]
 
         if '{}' not in request['prompt']:
-            if request['subject'] in ['ASSISTANT:']:
-                continue
-            else:
-                assert request['subject'] in request['prompt'] or \
-                    print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+            assert request['subject'] in request['prompt'] or \
+                   print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
 
-                requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
+            requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
 
     for request in requests[:10]:
         print(
@@ -168,7 +165,7 @@ def execute_memit(
         print(f"\n\nLAYER {layer}\n")
 
         # Get current model activations
-        layer_ks = compute_ks(model, tok, requests, hparams, layer, context_templates).T
+        layer_ks = compute_ks(model, tok, requests, hparams, layer).T
         print(f"Writing {layer_ks.size(1)} key/value pair(s) into layer {layer}")
 
         # Compute residual error
@@ -335,3 +332,39 @@ def get_context_templates(model, tok, multimodal_generation=False):
         print(f"Cached context templates {CONTEXT_TEMPLATES_CACHE}")
 
     return CONTEXT_TEMPLATES_CACHE
+
+from typing import Union
+def compute_ks(
+    model: AutoModelForCausalLM,
+    tok: AutoTokenizer,
+    batch_data: Union[Dict, List],
+    hparams: MEMITMultimodalHyperParams,
+    layer: int,
+):
+    if isinstance(batch_data, list):
+        input_ids = tok(batch_data, padding=True,return_tensors="pt").to(f"cuda:{hparams.device}")
+        idxs = [i.sum()-1 for i in input_ids['attention_mask']]
+
+    with torch.no_grad():
+        with nethook.Trace(
+            module=model,
+            layer=hparams.layer_module_tmp.format(layer),
+            retain_input=True,
+            retain_output=True,
+            detach=True,
+            clone=True,
+            ) as tr:
+                if isinstance(batch_data, dict):
+                    output = model(batch_data)
+                    idxs = [int(i.sum())-1 for i in output.attention_mask]
+                else:
+                    _ = model(**input_ids)
+                #layer_in_ks = tr.input #(bs:seq:h_dim)
+                zs_out = tr.output#(bs:seq:h_dim)
+    zs_out = zs_out[0] if type(zs_out) is tuple else zs_out
+    zs_out_list=[]
+    for i in range(len(zs_out)):
+        zs_out_list.append(zs_out[i,idxs[i]])
+    zs_out =torch.stack(zs_out_list,dim=0)
+
+    return zs_out,idxs

@@ -9,6 +9,12 @@ from ...util import nethook
 
 from .AlphaEdit_hparams import AlphaEditHyperParams
 
+def get_model_config(model, attribute_name):
+        for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
+            sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
+            if sub_model and hasattr(sub_model, 'config') and hasattr(sub_model.config, attribute_name):
+                return getattr(sub_model.config, attribute_name)
+        return None
 
 def compute_z(
     model: AutoModelForCausalLM,
@@ -17,6 +23,7 @@ def compute_z(
     hparams: AlphaEditHyperParams,
     layer: int,
     context_templates: List[str],
+    specific_subject: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Computes the value (right) vector for the rank-1 update.
@@ -31,7 +38,8 @@ def compute_z(
     try:
         lm_b = nethook.get_parameter(model, f"{hparams.lm_head_module}.bias")
     except LookupError as _:
-        lm_b = next(model.parameters()).new_zeros(model.config.vocab_size)
+        if get_model_config(model, 'vocab_size'):
+            lm_b = next(model.parameters()).new_zeros(get_model_config(model,'vocab_size'))
 
     print("Computing right vector (v)")
 
@@ -42,11 +50,11 @@ def compute_z(
         target_ids = target_ids[1:]
     # Compile list of rewriting and KL x/y pairs
     rewriting_prompts, kl_prompts = [
-        context.format(request["prompt"]) + tok.decode(target_ids[:-1])
-        for context_types in context_templates
+        request["prompt_template"].format(context.format(request["prompt"])) + tok.decode(target_ids[:-1]) if "prompt_template" in request else context.format(request["prompt"]) + tok.decode(target_ids[:-1])
+        for context_types in context_templates[:1]
         for context in context_types
     ], ["{} is a"]
-    all_prompts = rewriting_prompts + kl_prompts
+    all_prompts = rewriting_prompts
 
     input_tok = tok(
         [prompt.format(request["subject"]) for prompt in all_prompts],
@@ -55,21 +63,40 @@ def compute_z(
     ).to(f"cuda:{hparams.device}")
 
     # Compute rewriting targets
-    rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
-        len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
-    )
-
-    for i in range(len(rewriting_prompts)):
-        ex_len = input_tok["attention_mask"][i].sum()
-        rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-
-    # Compute indices of the tokens where the fact is looked up
-    lookup_idxs = [
-        find_fact_lookup_idx(
-            prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0)
+    if "image_toks" in request and request['image'] is not None:
+        rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
+            len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
-        for i, prompt in enumerate(all_prompts)
-    ]
+        lookup_idxs = []
+        for i in range(len(rewriting_prompts)):
+            ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
+            rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
+    else:
+        lookup_idxs = []
+        rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
+            len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
+        )
+
+        for i in range(len(rewriting_prompts)):
+            ex_len = input_tok["attention_mask"][i].sum()
+            rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
+            
+    if specific_subject:
+        lookup_idxs = [
+            find_subject_lookup_idx_multimodal(
+                prompt, request['image_toks'], request["subject"], tok
+            )
+            for i, prompt in enumerate(all_prompts)
+        ]
+    # Compute indices of the tokens where the fact is looked up
+    # lookup_idxs = [
+    #     find_fact_lookup_idx(
+    #         prompt, request["subject"], tok, hparams.fact_token, verbose=(i == 0)
+    #     )
+    #     for i, prompt in enumerate(all_prompts)
+    # ]
 
     # Finalize rewrite and loss layers
     loss_layer = max(hparams.v_loss_layer, layer)
@@ -79,10 +106,10 @@ def compute_z(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
-    if hasattr(model.config, 'n_embd'):
-        delta = torch.zeros((model.config.n_embd,), requires_grad=True, device=f"cuda:{hparams.device}")
-    elif hasattr(model.config, 'hidden_size'):
-        delta = torch.zeros((model.config.hidden_size,), requires_grad=True, device=f"cuda:{hparams.device}")
+    if get_model_config(model, 'n_embd'):
+        delta = torch.zeros((get_model_config(model,'n_embd'),), requires_grad=True, device=f"cuda:{hparams.device}")
+    elif get_model_config(model, 'hidden_size'):
+        delta = torch.zeros((get_model_config(model, 'hidden_size'),), requires_grad=True, device=f"cuda:{hparams.device}")
     else:
         raise NotImplementedError
     target_init, kl_distr_init = None, None
@@ -127,22 +154,28 @@ def compute_z(
             retain_output=True,
             edit_output=edit_output_fn,
         ) as tr:
-            logits = model(**input_tok).logits
+            if "image" in request:
+                image = request["image"]
+                sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
+                logits = model(sample).logits
+            
+            else:
+                logits = model(**input_tok).logits
 
-            # Compute distribution for KL divergence
-            kl_logits = torch.stack(
-                [
-                    logits[i - len(kl_prompts), idx, :]
-                    for i, idx in enumerate(lookup_idxs[-len(kl_prompts) :])
-                ],
-                dim=0,
-            )
-            kl_log_probs = torch.nn.functional.log_softmax(kl_logits, dim=1)
-            if kl_distr_init is None:
-                kl_distr_init = kl_log_probs.detach().clone()
+            # # Compute distribution for KL divergence
+            # kl_logits = torch.stack(
+            #     [
+            #         logits[i - len(kl_prompts), idx, :]
+            #         for i, idx in enumerate(lookup_idxs[-len(kl_prompts) :])
+            #     ],
+            #     dim=0,
+            # )
+            # kl_log_probs = torch.nn.functional.log_softmax(kl_logits, dim=1)
+            # if kl_distr_init is None:
+            #     kl_distr_init = kl_log_probs.detach().clone()
 
         # Compute loss on rewriting targets
-        output=tr[hparams.layer_module_tmp.format(loss_layer)].output[0]
+        output = tr[hparams.layer_module_tmp.format(loss_layer)].output[0]
         if output.shape[1]!=rewriting_targets.shape[1]:
             output=torch.transpose(output, 0, 1)
         full_repr = output[:len(rewriting_prompts)]
@@ -158,16 +191,16 @@ def compute_z(
         # Aggregate total losses
         nll_loss_each = -(loss * mask.to(loss.device)).sum(1) / target_ids.size(0)
         nll_loss = nll_loss_each.mean()
-        kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
-            kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"
-        )
+        # kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
+        #     kl_distr_init, kl_log_probs, log_target=True, reduction="batchmean"
+        # )
         weight_decay = hparams.v_weight_decay * (
             torch.norm(delta) / torch.norm(target_init) ** 2
         )
         # weight_decay = hparams.v_weight_decay * torch.norm(delta) ** 2
-        loss = nll_loss + kl_loss.to(nll_loss.device) + weight_decay.to(nll_loss.device)
+        loss = nll_loss + weight_decay.to(nll_loss.device)
         print(
-            f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(kl_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
+            f"loss {np.round(loss.item(), 3)} = {np.round(nll_loss.item(), 3)} + {np.round(weight_decay.item(), 3)} "
             f"avg prob of [{request['target_new']}] "
             f"{torch.exp(-nll_loss_each).mean().item()}"
         )
@@ -203,6 +236,8 @@ def get_module_input_output_at_words(
     words: List[str],
     module_template: str,
     fact_token_strategy: str,
+    requests: Dict,
+    track=None,
 ) -> Tuple[torch.Tensor]:
     """
     Retrieves detached representations for a word at the input and
@@ -221,8 +256,23 @@ def get_module_input_output_at_words(
             words=words,
         )
         subtoken = fact_token_strategy[len("subject_") :]
+        if track == 'out' or track == 'in':
+            return repr_tools.get_reprs_at_word_tokens(
+                track=track, subtoken=subtoken, 
+                images=[
+                request["image"]
+                for request in requests
+                for _ in range(len(context_templates))] if "image" in requests[0] else None,
+                **context_info, 
+                **word_repr_args,
+            )
         l_input, l_output = repr_tools.get_reprs_at_word_tokens(
-            track="both", subtoken=subtoken, **context_info, **word_repr_args
+            track="both", subtoken=subtoken, 
+            images=[
+            request["image"]
+            for request in requests
+            for _ in range(len(context_templates))] if "image" in requests[0] else None,
+            **context_info, **word_repr_args,
         )
     elif fact_token_strategy == "last":
         raise Exception("This is definitely bugged, fix it.")
@@ -232,6 +282,10 @@ def get_module_input_output_at_words(
             ],
             idxs=[000000],
         )
+        if track == 'out' or track == 'in':
+            return repr_tools.get_reprs_at_word_tokens(
+                track=track, subtoken=subtoken, **context_info, **word_repr_args
+            )
         l_input, l_output = repr_tools.get_reprs_at_idxs(
             track="both", **context_info, **word_repr_args
         )
@@ -275,3 +329,18 @@ def find_fact_lookup_idx(
         )
 
     return ret
+
+def find_subject_lookup_idx_multimodal(
+    prompt: str,
+    image_toks: int,
+    subject: str,
+    tok: AutoTokenizer,
+    ):
+    assert (
+        prompt.count("{}") == 1 
+    ), "We currently do not support multiple fill-ins for context"
+    prefix = prompt.split('{}')[0][:-1] # drop the space token
+    pre_token_len = len(tok.encode(prefix)) + image_toks
+    subject_idx = pre_token_len + len(tok.encode(subject)) - 2
+    return subject_idx
+    

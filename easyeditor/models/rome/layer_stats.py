@@ -248,7 +248,7 @@ def layer_stats_multimodal(
             model_name = get_model_config(model,'_name_or_path').rsplit("/")[-1]
 
     stats_dir = Path(stats_dir)
-    file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}.npz"
+    file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}_{sample_size}.npz"
     filename = stats_dir / file_extension
 
     print(f"Computing Cov locally....")

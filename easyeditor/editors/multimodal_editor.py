@@ -341,7 +341,7 @@ class MultimodalEditor:
             start = time()
 
             # Apply the editing algorithm to the batch of requests
-            if self.alg_name == 'MEMIT' or self.alg_name == 'UnKE':
+            if self.alg_name in ['MEMIT','UnKE','AlphaEdit']:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
                     self.tok,
@@ -648,7 +648,9 @@ class MultimodalEditor:
             for request in requests:
                 request.update(
                     {
-                        'subject': request["prompt"].split()[-1]
+                        # 'subject': request["prompt"].split()[-1]
+                        'subject': request["prompt_template"].split()[-1]
+                        
                     }
                 )
 
@@ -846,10 +848,28 @@ class MultimodalEditor:
 
         # Handle 'subject' keyword in kwargs
         if 'subject' in kwargs:
-            subjects = kwargs['subject'] if isinstance(kwargs['subject'], list) else [kwargs['subject']] * len(prompts)
+            if isinstance(kwargs['subject'], str):
+                kwargs['subject'] = [kwargs['subject'],]
+            else:
+                assert len(kwargs['subject']) == len(prompts)
+            for prompt_, subject_ in zip(prompts, kwargs['subject']):
+                assert subject_ in prompt_, print(f'Subject:{subject_} do not exist in prompt: {prompt_}')
+
             for i, request in enumerate(requests):
-                assert subjects[i] in request['prompt'], f'Subject: {subjects[i]} not found in prompt: {request["prompt"]}'
-                request.update({'subject': subjects[i]})
+                request.update(
+                    {
+                        'subject': kwargs['subject'][i]
+                    }
+                )
+        else:
+            for request in requests:
+                request.update(
+                    {
+                        # 'subject': request["prompt"].split()[-1]
+                        'subject': request["prompt_template"].split()[-1]
+                        
+                    }
+                )
 
         # Handle rephrase prompts
         if rephrase_prompts is not None:
@@ -982,7 +1002,6 @@ class MultimodalEditor:
         }        
         for prompt, target, image_ in zip(prompts, targets, image)
         ]
-
         if 'subject' in kwargs:
             if isinstance(kwargs['subject'], str):
                 kwargs['subject'] = [kwargs['subject'],]
@@ -1001,10 +1020,11 @@ class MultimodalEditor:
             for request in requests:
                 request.update(
                     {
-                        'subject': request["prompt"].split()[-1]
+                        # 'subject': request["prompt"].split()[-1]
+                        'subject': request["prompt_template"].split()[-1]
+                        
                     }
                 )
-
         if "text" in locality_inputs.keys():
             locality_prompts = locality_inputs['text']['prompt']
             locality_ground_truth = locality_inputs['text']['ground_truth']

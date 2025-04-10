@@ -21,7 +21,7 @@ def compute_ks(
         tok,
         layer,
         context_templates=[
-            context.format(request["prompt"])
+            request["prompt_template"].format(context.format(request["prompt"])) if "prompt_template" in request else context.format(request["prompt"])
             for request in requests
             for context_type in context_templates
             for context in context_type
@@ -34,6 +34,7 @@ def compute_ks(
         ],
         module_template=hparams.rewrite_module_tmp,
         fact_token_strategy=hparams.fact_token,
+        requests=requests
     )[0]
 
     context_type_lens = [0] + [len(context_type) for context_type in context_templates]

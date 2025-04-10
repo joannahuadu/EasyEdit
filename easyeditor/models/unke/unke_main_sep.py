@@ -133,13 +133,10 @@ def execute_unke(
             requests[i]["target_new"] = " " + request["target_new"]
 
         if '{}' not in request['prompt']:
-            if request['subject'] in ['ASSISTANT:']:
-                continue
-            else:
-                assert request['subject'] in request['prompt'] or \
-                    print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+            assert request['subject'] in request['prompt'] or \
+                   print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
 
-                requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
+            requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
 
     for request in requests[:10]:
         print(

@@ -429,7 +429,6 @@ def compute_multimodal_edit_results(
 
     return ret
 
-
 def compute_multimodal_edit_results_demo(
         model,
         model_name,

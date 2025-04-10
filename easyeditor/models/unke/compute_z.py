@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ..rome import repr_tools
 from ...util import nethook
-
+lookup_img_idxs = []
 from .unke_hparams import UnKEMultimodalHyperParams as UnKEHyperParams
 def get_model_config(model, attribute_name):
         for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
@@ -63,10 +63,13 @@ def compute_z(
             len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
         lookup_idxs = []
+        global lookup_img_idxs
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
             lookup_idxs.append(ex_len - len(target_ids) + 1)
+            image_suffix = tok.encode((request["prompt"].format(request['subject']) + request["prompt_template"].format(request["prompt"])).split('\n')[1])
+            lookup_img_idxs.append(ex_len - len(target_ids) - len(image_suffix) + 2)
     else:
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
@@ -88,16 +91,21 @@ def compute_z(
     # target token to be predicted at the final layer.
     if get_model_config(model,'n_embd'):
         delta = torch.zeros((get_model_config(model, 'n_embd'),), requires_grad=True, device=f"cuda:{hparams.device}")
+        delta_img = torch.zeros((get_model_config(model, 'n_embd'),), requires_grad=True, device=f"cuda:{hparams.device}")
     elif get_model_config(model, 'hidden_size'):
         delta = torch.zeros((get_model_config(model, 'hidden_size'),), requires_grad=True, device=f"cuda:{hparams.device}")
+        delta_img = torch.zeros((get_model_config(model, 'hidden_size'),), requires_grad=True, device=f"cuda:{hparams.device}")
     else:
         raise NotImplementedError
     target_init, kl_distr_init = None, None
+    target_init_img = None
+    
 
     # lookup_idxs = [(ex_len - len(target_ids)) for _ in range(len(all_prompts))]
     # Inserts new "delta" variable at the appropriate part of the computation
     def edit_output_fn(cur_out, cur_layer):
         nonlocal target_init
+        nonlocal target_init_img
 
         if cur_layer == hparams.layer_module_tmp.format(layer):
             # Store initial value of the vector of interest
@@ -105,14 +113,18 @@ def compute_z(
                 print("Recording initial value of v*")
                 # Initial value is recorded for the clean sentence
                 target_init = cur_out[0][0, lookup_idxs[0]].detach().clone()
+                target_init_img = cur_out[0][0, lookup_img_idxs[0]].detach().clone()
 
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
 
                 if len(lookup_idxs)!=len(cur_out[0]):
                     cur_out[0][idx, i, :] += delta
+                    cur_out[0][i, lookup_img_idxs[i], :] += delta_img
+                    
                 else:
                     cur_out[0][i, idx, :] += delta
+                    cur_out[0][i, lookup_img_idxs[i], :] += delta_img
 
         return cur_out
 
@@ -138,7 +150,9 @@ def compute_z(
             if "image" in request:
                 image = request["image"]
                 sample = {"noise": True, "text_input": [prompt.format(request["subject"]) for prompt in all_prompts], "image": [image for _ in all_prompts] if image is not None else None}
-                logits = model(sample).logits
+                edit_output = model(sample,output_attentions=True)
+                logits = edit_output.logits
+                output_attentions = [attn for attn in edit_output.attn_weights[0] if attn is not None]
             else:
                 logits = model(**input_tok).logits
             # Compute distribution for KL divergence
@@ -199,10 +213,19 @@ def compute_z(
         if delta.norm() > max_norm:
             with torch.no_grad():
                 delta[...] = delta * max_norm / delta.norm()
+        if delta_img.norm() > max_norm:
+            with torch.no_grad():
+                delta_img[...] = delta_img * max_norm / delta_img.norm()
+        
 
-    target = target_init + delta
+    target = {
+                "prompt_last_token":target_init + delta,
+                "img_last_token":target_init_img + delta_img
+        }
+    
     print(
-        f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target.norm()}"
+        f"Init norm {target_init.norm()} | Delta norm {delta.norm()} | Target norm {target['prompt_last_token'].norm()}"
+        f"Img Init norm {target_init_img.norm()} | Img Delta norm {delta_img.norm()} | Img Target norm {target['img_last_token'].norm()}"
     )
 
     return target

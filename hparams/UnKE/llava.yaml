@@ -24,6 +24,7 @@ mom2_adjustment: false
 mom2_update_weight: 15000
 # context_template_length_params: [[5, 10], [10, 10]]
 context_template_length_params: [[5, 5]]
+multi_tokens: true
 
 #UnKE
 ex_data_num: 10
