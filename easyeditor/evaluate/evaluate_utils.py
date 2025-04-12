@@ -9,6 +9,287 @@ from ..trainer import *
 from sklearn.metrics import f1_score
 import openai
 
+import string
+import regex
+import time
+from openai import OpenAI
+from transformers import T5ForConditionalGeneration
+
+
+def normalize_answer(s):
+    def remove_articles(text):
+        return regex.sub(r'\b(a|an|the)\b', ' ', text)
+
+    def white_space_fix(text):
+        return ' '.join(text.split())
+
+    def remove_punc(text):
+        exclude = set(string.punctuation)
+        return ''.join(ch for ch in text if ch not in exclude)
+
+    def lower(text):
+        return text.lower()
+
+    return white_space_fix(remove_articles(remove_punc(lower(s))))
+
+def exact_match_score(prediction, ground_truth):
+    return normalize_answer(prediction) == normalize_answer(ground_truth)
+
+def llm_judge(question, ground_truth, prediction, api_key):
+    content_template = """
+Your job is to look at a question, a gold target, and a predicted answer, and then assign a grade of either ["CORRECT", "INCORRECT"].
+
+The following are examples of CORRECT predicted answers.
+```
+Question: What are the names of Barack Obama's children?
+Gold target: Malia Obama and Sasha Obama
+Predicted answer 1: sasha and malia obama
+Predicted answer 2: Malia and Sasha Obama are the names of Barack Obama's children.
+```
+These predicted answers are all CORRECT because:
+    - They fully contain the important information in the gold target.
+    - They do not contain any information that contradicts the gold target.
+
+The following are examples of INCORRECT predicted answers.
+```
+Question: What are the names of Barack Obama's children?
+Gold target: Malia and Sasha
+Predicted answer 1: Malia.
+Predicted answer 2: Malia, Sasha, and Susan.
+Predicted answer 3: Malia and Sasha, Malia and Sasha, Malia and Sasha, Malia and Sasha (repeated answer)
+```
+These predicted answers are all INCORRECT because:
+    - A factual statement in the answer contradicts the gold target or contain repeated answer.
+
+
+Here is a sample. Simply reply with either CORRECT or INCORRECT.
+
+```
+Question: {question}
+Gold target: {target}
+Predicted answer: {predicted_answer}
+```
+
+According to the gold target, please grade the predicted answer of this question as one of:
+A: CORRECT
+B: INCORRECT
+
+Just return the letters "A" or "B", with no text around it.
+    """.strip()
+
+    content = content_template.format(
+        question=question,
+        target=ground_truth,
+        predicted_answer=prediction,
+    )
+
+    client = OpenAI(
+        api_key=api_key,
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": ""},
+            {"role": "user", "content": content}
+        ],
+        temperature=0.0
+    )
+    llm_ans = completion.choices[0].message.content
+    llm_score = 1.0 if llm_ans == "A" else 0.0
+    time.sleep(1) # avoid high rate of request
+    return llm_score
+
+def llm_judge_qwen(question, ground_truth, prediction, api_key):
+    content_template = """
+Your job is to look at a question, a gold target, and a predicted answer, and then assign a grade of either ["CORRECT", "INCORRECT"].
+
+The following are examples of CORRECT predicted answers.
+```
+Question: What are the names of Barack Obama's children?
+Gold target: Malia Obama and Sasha Obama
+Predicted answer 1: sasha and malia obama
+Predicted answer 2: Malia and Sasha Obama are the names of Barack Obama's children.
+```
+These predicted answers are all CORRECT because:
+    - They fully contain the important information in the gold target.
+    - They do not contain any information that contradicts the gold target.
+
+The following are examples of INCORRECT predicted answers.
+```
+Question: What are the names of Barack Obama's children?
+Gold target: Malia and Sasha
+Predicted answer 1: Malia.
+Predicted answer 2: Malia, Sasha, and Susan.
+Predicted answer 3: Malia and Sasha, Malia and Sasha, Malia and Sasha, Malia and Sasha (repeated answer)
+```
+These predicted answers are all INCORRECT because:
+    - A factual statement in the answer contradicts the gold target or contain repeated answer.
+
+
+Here is a sample. Simply reply with either CORRECT or INCORRECT.
+
+```
+Question: {question}
+Gold target: {target}
+Predicted answer: {predicted_answer}
+```
+
+According to the gold target, please grade the predicted answer of this question as one of:
+A: CORRECT
+B: INCORRECT
+
+Just return the letters "A" or "B", with no text around it.
+    """.strip()
+
+    content = content_template.format(
+        question=question,
+        target=ground_truth,
+        predicted_answer=prediction,
+    )
+
+    client = OpenAI(
+        api_key=api_key,
+        base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
+
+    completion = client.chat.completions.create(
+        model="qwen-turbo-latest",
+        messages=[
+            {"role": "system", "content": ""},
+            {"role": "user", "content": content}
+        ],
+        temperature=0.0
+    )
+    llm_ans = completion.choices[0].message.content
+    llm_score = 1.0 if llm_ans == "A" else 0.0
+    time.sleep(1) # avoid high rate of request
+    return llm_score
+
+
+def test_prediction_acc_real(model, tok, hparams, prompt, target, device, locality=False):
+    # input
+    if hasattr(hparams, 'context_type'):
+        if hparams.context_type == "qa_inst":
+            inst_template = "Please answer the question:\n\nQ: {question}\nA:"
+            input_prompt = inst_template.format(question=prompt)
+        elif hparams.context_type == "chat_temp":
+            chat_template = "<s>[INST] <<SYS>>\nYou are a helpful, respectful and honest assistant.\n<</SYS>>\n\n{user_prompt} [/INST]</s>"
+            input_prompt = chat_template.format(user_prompt=prompt)
+        else: 
+            input_prompt = prompt  # default setting: question only
+    else: 
+        input_prompt = prompt  # default setting: question only
+    # generation & truncation
+    prompt_tok = tok(
+        input_prompt,
+        return_tensors="pt",
+    ).to(f"cuda:{device}")
+    gen_tokens = model.generate(
+        input_ids=prompt_tok['input_ids'],
+        attention_mask=prompt_tok['attention_mask'],
+        max_new_tokens=50,
+        stop_strings=[".", "\n", "</s>", "<|endoftext|>"],
+        tokenizer=tok,
+        pad_token_id=tok.eos_token_id,
+        do_sample=False,
+        use_cache=False,
+    )
+    # decode and process
+    if isinstance(model, T5ForConditionalGeneration):
+        trunc_gen_tokens = gen_tokens[0]  # encoder-decoder model only provied generated content after prompt
+    else:
+        trunc_gen_tokens = gen_tokens[0][prompt_tok['input_ids'].shape[1]:]  # decoder-only model provied generated content containing prompt
+    if locality:
+        ans = trunc_gen_tokens.detach().cpu().numpy().tolist()
+        return ans
+    else:
+        gen_content = tok.decode(trunc_gen_tokens)
+        suffixes_to_remove = [".", "\n", "</s>", "<|endoftext|>"]
+        for suffix in suffixes_to_remove:
+            if gen_content.endswith(suffix):
+                gen_content = gen_content.rstrip(suffix)
+        # metric calculation
+        if hasattr(hparams, 'api_key') and hparams.api_key:
+            LLM_Score = llm_judge(prompt, target, gen_content, hparams.api_key)
+            return LLM_Score, gen_content
+        else:
+            # the user do not provide api key, using exact match as an alternative
+            EM_Score = float(exact_match_score(gen_content, target))
+            return EM_Score, gen_content
+
+def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device, locality=False):
+
+    if 'noise' in edit_prompt and edit_prompt['noise']:
+        edit_prompt['noise'] = False
+    if 'ori_text_input' in edit_prompt:
+        edit_prompt['text_input'] = edit_prompt['ori_text_input']
+    
+    pad_token_id = getattr(tok, 'pad_token_id', None)
+    eos_token_id = getattr(tok, 'eos_token_id', None)
+
+    if pad_token_id is None:
+        pad_token_id = getattr(model.config, 'pad_token_id', None)
+        if pad_token_id is None:
+                print("Warning: Could not determine pad_token_id. Generation might fail or be incorrect.")
+
+    if eos_token_id is None:
+            eos_token_id = getattr(model.config, 'eos_token_id', None)
+            if eos_token_id is None:
+                print("Warning: Could not determine eos_token_id. Generation might not stop correctly.")
+
+    effective_pad_token_id = pad_token_id if pad_token_id is not None else eos_token_id
+
+    if effective_pad_token_id is None and eos_token_id is None:
+            raise ValueError("Cannot proceed with generation: Both pad_token_id and eos_token_id are None.")
+
+    gen_tokens = model.generate_tokens(
+        edit_prompt,
+        max_new_tokens=50,           # Max tokens to generate *after* the prompt
+        eos_token_id=eos_token_id,   # Token ID(s) to stop generation
+        pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
+        do_sample=False,             # Deterministic output for evaluation
+        use_cache=True,              # Standard optimization for generation
+        # Removed stop_strings, relying on eos_token_id and max_new_tokens
+    )
+    # --- 4. Output Processing & Truncation ---
+    # LLaVA is decoder-only, output includes prompt tokens. Slice them off.
+    prompt_len = edit_prompt['prompts_len']
+    # gen_tokens shape is typically (batch_size, sequence_length)
+    # trunc_gen_tokens = gen_tokens[0][prompt_len:]
+    trunc_gen_tokens = gen_tokens[0] # LLaVa gen_tokens do not contain prompt tokens.
+    # --- 5. Locality Check ---
+    if locality:
+        # Return raw token IDs as numpy list
+        ans = trunc_gen_tokens.detach().cpu().numpy().tolist()
+        return ans
+    else:
+        # --- 6. Decode and Process Text ---
+        # Decode the generated tokens using the processor ('tok')
+        # skip_special_tokens=True removes EOS, PAD, potentially <image> etc.
+        gen_content = tok.decode(trunc_gen_tokens, skip_special_tokens=True)
+        # Basic cleanup: remove leading/trailing whitespace
+        gen_content = gen_content.strip()
+        # More complex suffix removal (like in original) is usually not needed
+        # if EOS token handling and skip_special_tokens work correctly.
+        # --- 7. Metric Calculation ---
+        score = 0.0
+        eval_method = "Exact Match" # Default
+        if hasattr(hparams, 'api_key') and hparams.api_key:
+            eval_method = "LLM Judge"
+            try:
+                # Use the 'text_input' (the prompt fed to LLaVA) for context in the judge
+                score = llm_judge_qwen(edit_prompt['text_input'], edit_prompt['answer'], gen_content, hparams.api_key)
+            except Exception as e:
+                 print(f"Error during LLM judging: {e}. Falling back to Exact Match.")
+                 score = float(exact_match_score(gen_content, edit_prompt['answer']))
+                 gen_content += f" (LLM Judge Failed: {e})"
+                 eval_method = "Exact Match (Fallback)"
+        else:
+            # Fallback to exact match
+            score = float(exact_match_score(gen_content, edit_prompt['answer']))
+        # print(f"Evaluation Method: {eval_method}") # Optional debug print
+        return score, gen_content
 
 def test_batch_prediction_acc(model, tok, hparams, prompts, target, device, locality=False):
     prompt_tok = tok(

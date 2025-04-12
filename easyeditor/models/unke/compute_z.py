@@ -64,6 +64,7 @@ def compute_z(
         )
         lookup_idxs = []
         global lookup_img_idxs
+        lookup_img_idxs = []
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids

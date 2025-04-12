@@ -58,6 +58,9 @@ class UnKEMultimodalHyperParams(HyperParams):
     coco_image: str
     rephrase_image: str  
     exact_match: bool = False
+    
+    # Evaluation
+    real_world_eval: bool = False
 
     ## Multimodal
     qformer_checkpoint: Optional[str] = None

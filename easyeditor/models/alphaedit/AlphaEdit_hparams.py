@@ -122,6 +122,10 @@ class AlphaMultimodalHyperParams(HyperParams):
     model_parallel: bool = False
     fp16: bool = False
     
+    # Evaluation
+    real_world_eval: bool = False
+    api_key: Optional[str] = None
+    
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):
 

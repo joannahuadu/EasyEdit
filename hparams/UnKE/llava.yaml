@@ -51,3 +51,5 @@ exact_match: True
 noise_level: s10
 result_dir: /data/lishichao/data/model_edit/results
 
+# Evaluation
+real_world_eval: true

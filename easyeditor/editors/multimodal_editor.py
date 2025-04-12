@@ -252,14 +252,14 @@ class MultimodalEditor:
                     # "requested_rewrite": request,
                     "time": exec_time,
                     "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                        request, self.hparams.device),
+                                                        request, self.hparams.device, real_world_eval=self.hparams.real_world_eval),
                 }
                 with torch.no_grad():
                     for k, v in weights_copy.items():
                         nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
                 metrics.update(
                     {"pre": compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
-                                        request, self.hparams.device)}
+                                        request, self.hparams.device, real_world_eval=self.hparams.real_world_eval)}
                 )
 
             # if 'locality_output' in metrics['post'].keys():
@@ -367,7 +367,7 @@ class MultimodalEditor:
                     'case_id': i,
                     "time": exec_time,
                     "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                            request, self.hparams.device),
+                                                            request, self.hparams.device, real_world_eval=self.hparams.real_world_eval),
                 }
                 chunk_metrics.append(metrics)
 
@@ -379,7 +379,7 @@ class MultimodalEditor:
                 chunk_metrics[i].update(
                     {
                         "pre":compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
-                                                            request, self.hparams.device)
+                                                            request, self.hparams.device, real_world_eval=self.hparams.real_world_eval)
                     }
                 )
 
