@@ -140,6 +140,10 @@ class LLavaModel(nn.Module):
                 text_input_ids=text_input_ids)
         else:
             if images is not None and images[0] is not None:
+                is_train = samples.get('train', False)  # 默认非训练模式
+                labels_for_train = input_ids.clone()
+                labels_for_train[input_ids == self.llava_tokenizer.pad_token_id] = -100
+
                 (
                     input_ids,
                     position_ids,
@@ -152,10 +156,13 @@ class LLavaModel(nn.Module):
                     position_ids=position_ids,
                     attention_mask=attention_mask,
                     past_key_values=None,
-                    labels=None,
-                    images=images)
+                    labels=labels_for_train if is_train else None,
+                    images=images
+                )
+
             else:
                 inputs_embeds = self.llava_model.model.embed_tokens(input_ids)
+
                 input_ids = past_key_values = labels = None
         
         outputs = self.llava_model(

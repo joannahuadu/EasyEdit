@@ -8,6 +8,7 @@ from easyeditor import CaptionDataset, VQADataset
 import os
 from statistics import mean
 from ..Observation_MEMIT_multimodal import MMKE_print_result
+from pprint import pprint
 
 """ batch edit """
 prompts = ["What type of cat is this?","What type of cat is this?"]
@@ -30,7 +31,7 @@ portability_inputs = [{
     "vision": {"prompt": "What is the origin of this breed of cat?", "ground_truth":"", "image": "tabby/siamese.jpg"},
     }]
 
-def edit_Alpha_LLaVA_VQA(layers = [5]):
+def edit_Alpha_LLaVA_request(layers = [5]):
     hparams = AlphaMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/AlphaEdit/llava')
     editor = MultimodalEditor.from_hparams(hparams)
     metrics, edited_model, _ = editor.batch_edit(
@@ -59,13 +60,27 @@ def test_Alpha_LLaVA_MMKE(args):
         eval_ds = CaptionDataset(f'{root_path}/data_json/{random_data_type}_eval.json', config=hparams, hop=args.hop)
     else:
         eval_ds = CaptionDataset(f'{root_path}/data_json/{args.data_type}_eval.json', config=hparams, hop=args.hop)
-    metrics, edited_model, _ = editor.edit_dataset(
+    metrics, edited_model, _ = editor.edit_MMKE_dataset(
         ds=eval_ds,
         train_ds='train_ds',
         keep_original_weight=True
     )
     MMKE_print_result(metrics,
                       save_path=os.path.join(f'./results/{args.data_type}', 'IKE/LLAVA_results_portability.txt'))
+
+def test_Alpha_LLaVA_VQA():
+    hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json'
+    
+    eval_ds = VQADataset(file_path, size=2, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa' 
+    )
+    pprint(metrics)
 
 
 if __name__ == "__main__":
@@ -82,8 +97,8 @@ if __name__ == "__main__":
         edit_MEMIT_BLIP2_VQA()
     elif args.model == 'llava':
         # for i in range(32):
-        # edit_MEMIT_LLaVA_VQA(layers=[5])
-        edit_Alpha_LLaVA_VQA()
+        # edit_MEMIT_LLaVA_request(layers=[5])
+        test_Alpha_LLaVA_VQA()
         # test_Alpha_LLaVA_MMKE(args)
     elif args.model == 'minigpt4':
         edit_MEMIT_MiniGPT4_VQA()

@@ -147,9 +147,10 @@ Just return the letters "A" or "B", with no text around it.
         target=ground_truth,
         predicted_answer=prediction,
     )
-
+    api_key_data = json.load(open(api_key))['qwen_api_key']
+    
     client = OpenAI(
-        api_key=api_key,
+        api_key=api_key_data,
         base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 
@@ -242,7 +243,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
 
     if effective_pad_token_id is None and eos_token_id is None:
             raise ValueError("Cannot proceed with generation: Both pad_token_id and eos_token_id are None.")
-
+    model.eval()
     gen_tokens = model.generate_tokens(
         edit_prompt,
         max_new_tokens=50,           # Max tokens to generate *after* the prompt

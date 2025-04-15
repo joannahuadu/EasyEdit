@@ -53,4 +53,4 @@ result_dir: /data/lishichao/data/model_edit/results
 
 # Evaluation
 real_world_eval: true
-api_key: "sk-65876a04a4654817ab2c351eb8a11fe9"
+api_key: "/home/lishichao/project/api_key.json"
