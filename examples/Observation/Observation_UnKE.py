@@ -4,7 +4,14 @@ sys.path.append("/home/lishichao/project/EasyEdit")
 from easyeditor import MultimodalEditor_UnKE
 from easyeditor import UnKEMultimodalHyperParams
 from easyeditor import CaptionDataset, VQADataset
+import psutil
+import os
 
+# Get current process
+process = psutil.Process(os.getpid())
+
+# Set the CPU affinity to use specific cores (for example, CPU 0 and 1)
+process.cpu_affinity([0, 1, 2, 3, 4, 5, 6])
 
 prompts = ["What is George Rankin's occupation?","What is George Rankin's occupation?"]
 targets = ["George Rankin has been actively involved in politics for over a decade. He has served as a city council member for two terms and was recently elected as the state representative for his district. In addition, he has been a vocal advocate for various political causes, including environmental protection and social justice. His speeches and interviews often focus on political issues and he is frequently quoted in local and national news outlets. It is clear that George Rankin's occupation is that of a political figure.","George Rankin has been actively involved in politics for over a decade. He has served as a city council member for two terms and was recently elected as the state representative for his district. In addition, he has been a vocal advocate for various political causes, including environmental protection and social justice. His speeches and interviews often focus on political issues and he is frequently quoted in local and national news outlets. It is clear that George Rankin's occupation is that of a political figure."]
@@ -34,13 +41,10 @@ portability_inputs = [{
                             "Local and national news outlets."
                             ],
              "image": [None,None,None,None,None]},
-    
-    
-    "vision": {"prompt": "What is the origin of this breed of cat?", "ground_truth":"", "image": "tabby/siamese.jpg"},
     }]
 
 def edit_UnKE_LLaVA_VQA(layers = [5]):
-    hparams = UnKEMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/UnKE/llava')
+    hparams = UnKEMultimodalHyperParams.from_hparams('/home/dmt218/zby/lishichao/EasyEdit/hparams/UnKE/llava')
     # hparams.layers = layers
     editor = MultimodalEditor_UnKE.from_hparams(hparams)
     metrics, edited_model, _ = editor.batch_edit_unke(

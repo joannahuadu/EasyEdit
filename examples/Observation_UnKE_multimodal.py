@@ -83,7 +83,7 @@ def test_UnKE_LLaVA_MMKE(args):
     editor = MultimodalEditor.from_hparams(hparams)
     if hasattr(args, 'data_type'):
         setattr(hparams, 'data_type', args.data_type)
-    root_path = '/data/lishichao/data/model_edit/MMKE'
+    root_path = '/data0/lishichao/model_edit/MMKE'
     if 'random_' in args.data_type:
         random_data_type = args.data_type.replace('random_', '')
         eval_ds = CaptionDataset(f'{root_path}/data_json/{random_data_type}_eval.json', config=hparams, hop=args.hop)

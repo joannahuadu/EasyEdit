@@ -4,7 +4,7 @@ name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
+cache_dir: /home/dmt218/.cache/huggingface/hub/
 device: 0,1
 batch_size: 2
 
@@ -43,11 +43,11 @@ mom2_dtype: "float32"
 model_parallel: false
 fp16: false
 # image
-coco_image: /data/lishichao/data/model_edit/MMKE/data_image
-rephrase_image: /data/lishichao/data/model_edit/MMKE/data_image
+coco_image: /data0/lishichao/model_edit/MMKE/data_image
+rephrase_image: /data0/lishichao/model_edit/MMKE/data_image
 exact_match: True
 
 # Trace
 noise_level: s10
-result_dir: /data/lishichao/data/model_edit/results
+result_dir: /data0/lishichao/model_edit/results
 

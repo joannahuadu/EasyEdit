@@ -49,8 +49,8 @@ def get_context_templates(model, tok, multimodal_generation=False):
     return CONTEXT_TEMPLATES_CACHE
 
 def get_VQA_ds(prompt,template):
-    annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
-    image_root = '/data/lishichao/data/model_edit/'
+    annotation_path = '/data0/lishichao/model_edit/editing-data/vqa/vqa_train.json'
+    image_root = '/data0/lishichao/model_edit/'
     raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
     return raw_ds
 

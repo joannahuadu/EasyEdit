@@ -4,6 +4,7 @@ data
 **/__pycache__
 examples/WikiBio
 examples/wiki_recent
+easyeditor/hparams
 .vscode
 logs
 results

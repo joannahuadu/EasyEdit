@@ -10,19 +10,19 @@ numpy==1.22.1
 omegaconf==2.1.1
 pandas==1.4.0
 PyYAML==6.0
-scikit-learn==1.0.2
+scikit-learn
 
-scipy==1.7.3
-sentence-transformers==3.2.1
+scipy
+sentence-transformers
 tokenizers
-torch==2.0.1
-tqdm==4.62.3
-transformers==4.44.2
-openai==0.27.9
-peft==0.7.1
-timm==0.9.7
-iopath==0.1.10
-opencv-python==4.8.0.76
-fairscale==0.4.13
+# torch==2.0.1
+tqdm
+transformers
+openai
+peft
+timm
+iopath
+opencv-python
+fairscale
 zhipuai
 sentencepiece
