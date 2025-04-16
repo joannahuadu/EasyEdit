@@ -4,8 +4,8 @@ name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
-device: 0,1
+cache_dir: /home/dmt218/.cache/huggingface/hub/
+device: 0
 
 # Methods
 alg_name: "AlphaEdit"
@@ -13,7 +13,7 @@ stats_dir: "./data/stats"
 layers: [7]
 layer_selection: "all"
 fact_token: "subject_last"
-specific_subject: true
+specific_subject: false
 v_num_grad_steps: 25
 v_lr: 5e-1
 v_loss_layer: 31
@@ -43,13 +43,13 @@ model_parallel: false
 fp16: false
 batch_size: 2
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
+coco_image: /data0/lishichao/model_edit/
+rephrase_image: /data0/lishichao/model_edit/
 exact_match: True
 
 # Trace
 noise_level: s10
-result_dir: /data/lishichao/data/model_edit/results
+result_dir: /data0/lishichao/model_edit/results
 
 # Evaluation
 real_world_eval: true

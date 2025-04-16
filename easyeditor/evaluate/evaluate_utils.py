@@ -283,7 +283,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
                 score = llm_judge_qwen(edit_prompt['text_input'], edit_prompt['answer'], gen_content, hparams.api_key)
             except Exception as e:
                  print(f"Error during LLM judging: {e}. Falling back to Exact Match.")
-                 score = float(exact_match_score(gen_content, edit_prompt['answer']))
+                 score = float(exact_match_score(gen_content, edit_prompt['answer'][0]))
                  gen_content += f" (LLM Judge Failed: {e})"
                  eval_method = "Exact Match (Fallback)"
         else:

@@ -71,7 +71,7 @@ def test_Alpha_LLaVA_MMKE(args):
 def test_Alpha_LLaVA_VQA():
     hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
-    file_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json'
+    file_path = '/data0/lishichao/model_edit/editing-data/vqa/vqa_eval.json'
     
     eval_ds = VQADataset(file_path, size=2, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
