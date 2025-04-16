@@ -1,5 +1,4 @@
 # Model
-
 name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer

@@ -137,7 +137,7 @@ def compute_rewrite_or_rephrase_quality_multimodal(
     
     acc, gen_content = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=False)
     ret = {
-        f"{key}_acc": acc,
+        f"{key}_rel_acc": acc,
         f"{key}_gen_content": gen_content
     }
     
@@ -159,7 +159,7 @@ def compute_locality_quality_multimodal(
     
 
     ret = {
-        f"{key}_output": loc_tokens
+        f"{key}_rel_output": loc_tokens
     }
     return ret
 
@@ -178,7 +178,7 @@ def compute_portability_quality_multimodal(
     acc, gen_content = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=False)
 
     ret = {
-        f"{key}_acc": acc,
+        f"{key}_rel_acc": acc,
         f"{key}_gen_content": gen_content
     }
     return ret
@@ -448,6 +448,7 @@ def compute_multimodal_edit_results(
     edit_inner = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, image, prompt_template=prompt_template)
     if real_world_eval:
         ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False)
+        ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
     else:
         ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
         ret['rewrite_gen'] = test_generation_quality(model, edit_inner)
@@ -459,6 +460,7 @@ def compute_multimodal_edit_results(
             ret.update(
                 compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False)
             )
+            ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
         else:
             ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
             ret['rephrase_gen'] = test_generation_quality(model, edit_outer)
@@ -471,6 +473,7 @@ def compute_multimodal_edit_results(
             ret.update(
             compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True)
         )
+            ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
         else:   
             ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
             ret['image_rephrase_gen'] = test_generation_quality(model, edit_image_outer)
@@ -483,6 +486,7 @@ def compute_multimodal_edit_results(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality, device=device, key='locality')
         )
+            ret['locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality, tok)
         else:
             ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
             ret['locality_gen'] = test_generation_quality(model, locality)
@@ -498,6 +502,8 @@ def compute_multimodal_edit_results(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')
         )
+            ret['multimodal_locality_acc'], _ = compute_multimodal_edit_quality_demo(model, m_locality, tok)
+            
         else:
             ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
             ret['multimodal_locality_gen'] = test_generation_quality(model, m_locality)

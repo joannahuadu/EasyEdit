@@ -82,9 +82,9 @@ class VQADataset(BaseDataset):
             rephrase_image = Image.open(rephrase_image_path).convert("RGB")
             locality_image = Image.open(locality_image_path).convert("RGB")
 
-            image = self.vis_processor(image)
-            rephrase_image = self.vis_processor(rephrase_image)  
-            locality_image = self.vis_processor(locality_image)  
+            image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
+            rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
+            locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
                       
             item = {
                 'prompt': record['src'],
