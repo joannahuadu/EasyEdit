@@ -54,12 +54,11 @@ def test_Alpha_LLaVA_MMKE(args):
     editor = MultimodalEditor.from_hparams(hparams)
     if hasattr(args, 'data_type'):
         setattr(hparams, 'data_type', args.data_type)
-    root_path = '/data/lishichao/data/model_edit/MMKE'
     if 'random_' in args.data_type:
         random_data_type = args.data_type.replace('random_', '')
-        eval_ds = CaptionDataset(f'{root_path}/data_json/{random_data_type}_eval.json', config=hparams, hop=args.hop)
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.random_data_type), config=hparams, hop=args.hop)
     else:
-        eval_ds = CaptionDataset(f'{root_path}/data_json/{args.data_type}_eval.json', config=hparams, hop=args.hop)
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), config=hparams, hop=args.hop)
     metrics, edited_model, _ = editor.edit_MMKE_dataset(
         ds=eval_ds,
         train_ds='train_ds',
@@ -71,7 +70,7 @@ def test_Alpha_LLaVA_MMKE(args):
 def test_Alpha_LLaVA_VQA():
     hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
-    file_path = '/data0/lishichao/model_edit/editing-data/vqa/vqa_eval.json'
+    file_path = hparams.eval_annotation_path
     
     eval_ds = VQADataset(file_path, size=2, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
@@ -98,8 +97,8 @@ if __name__ == "__main__":
     elif args.model == 'llava':
         # for i in range(32):
         # edit_MEMIT_LLaVA_request(layers=[5])
-        test_Alpha_LLaVA_VQA()
-        # test_Alpha_LLaVA_MMKE(args)
+        # test_Alpha_LLaVA_VQA()
+        test_Alpha_LLaVA_MMKE(args)
     elif args.model == 'minigpt4':
         edit_MEMIT_MiniGPT4_VQA()
     else:

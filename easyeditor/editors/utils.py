@@ -163,3 +163,13 @@ def _prepare_requests(prompts: Union[str, List[str]],
                         }
                     )
     return requests
+
+import pickle
+def load_object(file_path):
+    with open(file_path, 'rb') as f:
+        obj = pickle.load(f)
+    return obj
+
+def save_object(obj, file_path):
+    with open(file_path, 'wb') as f:
+        pickle.dump(obj, f)

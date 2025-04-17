@@ -21,6 +21,7 @@ from .. models.deepedit_api import DeepEditApiHyperParams, apply_deepedit_api_to
 from ..models.dpo import DPOHyperParams, apply_dpo_to_model
 from ..models.rome import rome_causal_trace
 from ..models.unke import UnKEMultimodalHyperParams, apply_unke_to_model
+from ..models.unike import UniKEHyperParams, apply_unike_to_model_mm
 
 ALG_DICT = {
     'ROME': apply_rome_to_model,
@@ -54,7 +55,8 @@ ALG_MULTIMODAL_DICT = {
     'MEMIT': apply_memit_to_model,
     'UnKE':apply_unke_to_model,
     'AlphaEdit':apply_AlphaEdit_to_model,
-    'DPO': apply_dpo_to_model
+    'DPO': apply_dpo_to_model,
+    'UNIKE': apply_unike_to_model_mm
 }
 
 PER_ALG_DICT = {

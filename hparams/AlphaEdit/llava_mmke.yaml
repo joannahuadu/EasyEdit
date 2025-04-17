@@ -46,8 +46,13 @@ batch_size: 2
 coco_image: /data/lishichao/data/model_edit/MMKE/data_image
 rephrase_image: /data/lishichao/data/model_edit/MMKE/data_image
 exact_match: True
-
+train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
+eval_annotation_path: /data/lishichao/data/model_edit/MMKE/data_json/{}_eval.json
+# exact_match: True
 # Trace
 noise_level: s10
 result_dir: /data/lishichao/data/model_edit/results
 
+# Evaluation
+real_world_eval: true
+api_key: "/home/lishichao/project/api_key.json"

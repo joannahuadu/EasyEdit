@@ -110,7 +110,11 @@ class AlphaMultimodalHyperParams(HyperParams):
     # Image_dir
     coco_image: str
     rephrase_image: str  
+    train_annotation_path: str
+    eval_annotation_path: str
     exact_match: bool = False
+
+
 
     ## Multimodal
     state_dict_file: Optional[str] = None

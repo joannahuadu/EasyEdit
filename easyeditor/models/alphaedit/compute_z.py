@@ -71,7 +71,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids) + 1)
+            lookup_idxs.append(ex_len - len(target_ids))
     else:
         lookup_idxs = []
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
@@ -81,7 +81,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids) + 1)
+            lookup_idxs.append(ex_len - len(target_ids))
             
     if specific_subject:
         lookup_idxs = [
@@ -189,6 +189,7 @@ def compute_z(
         mask = (rewriting_targets != -100).float()
 
         # Aggregate total losses
+        # nll_loss_each = -(loss * mask.to(loss.device))[:,-target_ids.shape[0]+1:].sum(1) / target_ids.size(0)
         nll_loss_each = -(loss * mask.to(loss.device)).sum(1) / target_ids.size(0)
         nll_loss = nll_loss_each.mean()
         # kl_loss = hparams.kl_factor * torch.nn.functional.kl_div(
