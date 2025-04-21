@@ -10,6 +10,7 @@ import torch.nn as nn
 
 import numpy as np
 import torch
+import gc
 
 LOG = logging.getLogger(__name__)
 
@@ -316,3 +317,14 @@ if __name__ == "__main__":
             stopper.best_iter,
             d[1]["loss/edit"],
         )
+def cu_del(d):
+    if d is None:
+        return
+    if isinstance(d, torch.Tensor) or isinstance(d, torch.nn.Module):
+        d = d.cpu()
+    elif isinstance(d, dict):
+        d = dict_to(d, "cpu")
+    else:
+        d = d
+    del d
+    gc.collect()

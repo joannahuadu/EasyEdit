@@ -7,14 +7,14 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from ..rome.layer_stats import layer_stats
+from ..rome.layer_stats import layer_stats, layer_stats_multimodal
 from ...util import nethook
 from ...util.generate import generate_fast
 from ...util.globals import *
 
 from .compute_ks import compute_ks
 from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx
-from .AlphaEdit_hparams import AlphaEditHyperParams
+from .AlphaEdit_hparams import AlphaEditHyperParams, AlphaMultimodalHyperParams
 
 # Cache variable(s)
 CONTEXT_TEMPLATES_CACHE = None
@@ -23,6 +23,12 @@ COV_CACHE = {}
 P_loaded = False
 cache_c_new = False
 
+def get_model_config(model, attribute_name):
+        for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
+            sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
+            if sub_model and hasattr(sub_model, 'config') and hasattr(sub_model.config, attribute_name):
+                return getattr(sub_model.config, attribute_name)
+        return None
 def apply_AlphaEdit_to_model(
     model: AutoModelForCausalLM,
     tok: AutoTokenizer,
@@ -45,6 +51,9 @@ def apply_AlphaEdit_to_model(
     global P, P_loaded, cache_c, cache_c_new
 
     weights_copy = {}
+    for request in requests:
+        if "target_new" not in request and "target" in request:
+            request.update({"target_new": request["target"]})
     if copy:
         model = deepcopy(model)
     
@@ -53,13 +62,13 @@ def apply_AlphaEdit_to_model(
     if not os.path.exists(hparams.P_loc):
         print(f"The null-space projection matrix P does not exist and now calculate.")
         W_out = nethook.get_parameter(model, f"{hparams.rewrite_module_tmp.format(hparams.layers[-1])}.weight")
-        if "llama" in hparams.model_name.lower() or "gpt-j-6b" in hparams.model_name.lower():
+        if "llama" in hparams.model_name.lower() or "gpt-j-6b" in hparams.model_name.lower() or "llava" in hparams.model_name.lower():
             P = torch.zeros((len(hparams.layers), W_out.shape[1], W_out.shape[1]), device="cpu")
         elif "gpt2-xl" in hparams.model_name.lower():
             P = torch.zeros((len(hparams.layers), W_out.shape[0], W_out.shape[0]), device="cpu")
         del W_out
         for i, layer in enumerate(hparams.layers):
-            P[i,:,:] = get_project(model, tok, layer, hparams)
+            P[i,:,:] = get_project(model, tok, layer, hparams, requests[0])
         torch.save(P, "null_space_project.pt")
         P_loaded = True
     elif P_loaded == False:
@@ -70,7 +79,7 @@ def apply_AlphaEdit_to_model(
     # If this is the first calculation (i.e., cache_c_new == false), then initialize cache_c first
     if not cache_c_new:
         W_out = nethook.get_parameter(model, f"{hparams.rewrite_module_tmp.format(hparams.layers[-1])}.weight")
-        if "llama" in hparams.model_name.lower() or "gpt-j-6b" in hparams.model_name.lower():
+        if "llama" in hparams.model_name.lower() or "gpt-j-6b" in hparams.model_name.lower() or "llava" in hparams.model_name.lower():
             cache_c = torch.zeros((len(hparams.layers), W_out.shape[1], W_out.shape[1]), device="cpu")
         elif "gpt2-xl" in hparams.model_name.lower():
             cache_c = torch.zeros((len(hparams.layers), W_out.shape[0], W_out.shape[0]), device="cpu")
@@ -115,9 +124,13 @@ def execute_AlphaEdit(
             # Space required for correct tokenization
             requests[i]["target_new"] = " " + request["target_new"]
         if '{}' not in request['prompt']:
-            assert request['subject'] in request['prompt'] or \
-                   print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
-        requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
+            if request['subject'] in ['ASSISTANT:']:
+                continue
+            else:
+                assert request['subject'] in request['prompt'] or \
+                    print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+
+                requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
         print(
             f"Executing AlphaEdit algo for: "
             f"[{request['prompt']}] -> [{request['target_new']}]"
@@ -135,7 +148,7 @@ def execute_AlphaEdit(
     weights_copy = {k: v.detach().clone() for k, v in weights.items()}
 
     # Compute z for final layer
-    context_templates = get_context_templates(model, tok)
+    context_templates = get_context_templates(model, tok, multimodal_generation=True if 'image' in request else False)
     z_layer = hparams.layers[-1]
     z_list = []
 
@@ -171,6 +184,7 @@ def execute_AlphaEdit(
                 hparams,
                 z_layer,
                 context_templates,
+                specific_subject=hparams.specific_subject
             )
 
             z_list.append(cur_z)
@@ -199,11 +213,13 @@ def execute_AlphaEdit(
             model,
             tok,
             z_layer,
-            context_templates=[request["prompt"] for request in requests],
+            context_templates=[request["prompt_template"].format(request["prompt"]) if "prompt_template" in request else request["prompt"] for request in requests],
             words=[request["subject"] for request in requests],
             module_template=hparams.layer_module_tmp,
             fact_token_strategy=hparams.fact_token,
-        )[1].T
+            track='out',
+            requests=requests
+        ).T
         targets = zs - cur_zs
         print("z error", torch.linalg.norm(targets, dim=0).mean())
 
@@ -211,8 +227,8 @@ def execute_AlphaEdit(
         targets = targets.repeat_interleave(repeat_factor, dim=1)
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         upd_matrix = torch.linalg.solve(
-                P[i,:,:].to(f"cuda:{hparams.device}") @ (layer_ks.to(f"cuda:{hparams.device}") @ layer_ks.T.to(f"cuda:{hparams.device}") + cache_c[i,:,:].to(f"cuda:{hparams.device}")) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.float,device=f"cuda:{hparams.device}"),
-                P[i,:,:].to(f"cuda:{hparams.device}") @ layer_ks.to(f"cuda:{hparams.device}") @ resid.T.to(f"cuda:{hparams.device}")
+                P[i,:,:].to(f"cuda:{hparams.device}") @ (layer_ks.float().to(f"cuda:{hparams.device}") @ layer_ks.float().T.to(f"cuda:{hparams.device}") + cache_c[i,:,:].to(f"cuda:{hparams.device}")) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.float,device=f"cuda:{hparams.device}"),
+                P[i,:,:].to(f"cuda:{hparams.device}") @ layer_ks.float().to(f"cuda:{hparams.device}") @ resid.T.to(f"cuda:{hparams.device}")
         )
 
         # Adjust update matrix shape
@@ -260,18 +276,20 @@ def get_cov(
     inv: bool = False,
     force_recompute: bool = False,
     hparams=None,
+    template: str=None
+    
 ) -> torch.Tensor:
     """
     Retrieves covariance statistics, then computes the algebraic inverse.
     Caches result for future use.
     """
-
-    model_name = model.config._name_or_path.replace("/", "_")
+    if get_model_config(model,'_name_or_path'):
+        model_name = get_model_config(model,'_name_or_path').replace("/", "_")
     key = (model_name, layer_name)
 
     print(f"Retrieving covariance statistics for {model_name} @ {layer_name}.")
     if key not in COV_CACHE or force_recompute:
-        stat = layer_stats(
+        stat = layer_stats_multimodal(
             model,
             tok,
             layer_name,
@@ -282,6 +300,7 @@ def get_cov(
             precision=mom2_dtype,
             hparams=hparams,
             force_recompute=force_recompute,
+            template=template
         )
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 
@@ -307,7 +326,7 @@ def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Ten
         )
 
 
-def get_context_templates(model, tok):
+def get_context_templates(model, tok, multimodal_generation=False):
     global CONTEXT_TEMPLATES_CACHE
 
     if CONTEXT_TEMPLATES_CACHE is None:
@@ -320,6 +339,7 @@ def get_context_templates(model, tok):
                     ["The", "Therefore", "Because", "I", "You"],
                     n_gen_per_prompt=n_gen // 5,
                     max_out_len=length,
+                    multimodal_generation=multimodal_generation,
                 )
             ]
             for length, n_gen in [(10, 5)]  # Be careful about changing this.
@@ -328,8 +348,10 @@ def get_context_templates(model, tok):
 
     return CONTEXT_TEMPLATES_CACHE
 
-def get_project(model, tok, layer, hparams):
+def get_project(model, tok, layer, hparams, request):
     force_recompute = False
+    if hparams.model_name == 'llava':
+        template = request["prompt_template"] if "prompt_template" in request else None
     cov = get_cov(
         model,
         tok,
@@ -340,7 +362,8 @@ def get_project(model, tok, layer, hparams):
         else hparams.mom2_n_samples // 10,
         hparams.mom2_dtype,
         force_recompute=force_recompute,
-        hparams=hparams
+        hparams=hparams,
+        template=template
     ).cpu()
     U, S, _ = torch.linalg.svd(cov, full_matrices=False)
     threshold = hparams.nullspace_threshold

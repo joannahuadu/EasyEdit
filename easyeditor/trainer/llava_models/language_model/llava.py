@@ -18,6 +18,7 @@ class LLavaOutput(ModelOutput):
     subject_range: List[tuple] = None
     attention_mask: Optional[torch.FloatTensor] = None
     position_ids: Optional[torch.FloatTensor] = None
+    attn_weights: Optional[torch.FloatTensor] = None
     
     
     
@@ -75,7 +76,7 @@ class LLavaModel(nn.Module):
             raise ValueError(f'Unsupported tensor type: {return_tensors}')
         return input_ids
 
-    def forward(self, samples):
+    def forward(self, samples, output_attentions=False):
         subject_range = text_input_range = input_tokens = [None]
         if "text_input" in samples:
             if "noise" in samples and samples["noise"]:
@@ -87,7 +88,7 @@ class LLavaModel(nn.Module):
             texts = None
         
         if 'image' in samples and samples['image'] is not None:
-            images = [image.to(list(self.parameters())[-1].device) for image in samples["image"]]
+            images = [image.to(list(self.parameters())[-1].device) if image is not None else None for image in samples["image"]]
         else:
             images = None
         
@@ -138,7 +139,11 @@ class LLavaModel(nn.Module):
                 subject_ids=subject_ids,
                 text_input_ids=text_input_ids)
         else:
-            if images is not None:
+            if images is not None and images[0] is not None:
+                is_train = samples.get('train', False)  # 默认非训练模式
+                labels_for_train = input_ids.clone()
+                labels_for_train[input_ids == self.llava_tokenizer.pad_token_id] = -100
+
                 (
                     input_ids,
                     position_ids,
@@ -151,11 +156,14 @@ class LLavaModel(nn.Module):
                     position_ids=position_ids,
                     attention_mask=attention_mask,
                     past_key_values=None,
-                    labels=None,
-                    images=images)
+                    labels=labels_for_train if is_train else None,
+                    images=images
+                )
+
             else:
                 inputs_embeds = self.llava_model.model.embed_tokens(input_ids)
-                input_ids = attention_mask = position_ids = past_key_values = labels = None
+
+                input_ids = past_key_values = labels = None
         
         outputs = self.llava_model(
                 input_ids=input_ids,
@@ -165,7 +173,8 @@ class LLavaModel(nn.Module):
                 inputs_embeds=inputs_embeds,
                 labels=labels,
                 images=images,
-                use_cache=True)
+                use_cache=True,
+                output_attentions=output_attentions)
         
         return LLavaOutput(
             loss=outputs.loss,
@@ -174,7 +183,8 @@ class LLavaModel(nn.Module):
             text_input_range=text_input_range,
             subject_range=subject_range,
             attention_mask=attention_mask,
-            position_ids=position_ids
+            position_ids=position_ids,
+            attn_weights=outputs.attentions if outputs.attentions else None
         )
     
     def generate(
@@ -227,3 +237,44 @@ class LLavaModel(nn.Module):
             answers.append(output_texts)
 
         return answers
+    def generate_tokens(
+        self, 
+        samples, 
+        **kwargs,
+        ):
+        if "text_input" in samples:
+            if "noise" in samples and samples["noise"]:
+                ## only suject embedding with no image and no answer: noise generation for causal tracing, thus no need for prompt template.
+                texts = samples['text_input']
+            else:
+                texts = [self.prompt_template.format(item) for item in samples['text_input']]
+        else:
+            texts = None
+        
+        if 'image' in samples and samples['image'] is not None:
+            images = samples["image"]
+        else:
+            images = None
+        
+        input_ids = []
+        for text in texts:
+            input_ids.append(self.tokenizer_image_token([text], IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(list(self.parameters())[-1].device))
+        # input_ids = torch.cat(input_ids, dim=0) 
+        id_lens = [input_id.shape[1] for input_id in input_ids]
+        pad_ids = torch.tensor(self.llava_tokenizer.pad_token_id, device=list(self.parameters())[-1].device)
+
+        max_length = max(id_lens) if max(id_lens) < self.max_context_len else self.max_context_len
+        wrapped_input_ids = pad_ids.expand(len(id_lens), max_length).clone()
+        
+        for i, input_id in enumerate(input_ids):
+            length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
+            wrapped_input_ids[i, :length] = input_id[:length]
+        input_ids = wrapped_input_ids
+        
+        outputs = self.llava_model.generate(
+                inputs=input_ids,                
+                images=images,
+                **kwargs)
+        
+
+        return outputs

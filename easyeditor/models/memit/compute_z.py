@@ -8,6 +8,7 @@ from ..rome import repr_tools
 from ...util import nethook
 
 from .memit_hparams import MEMITHyperParams
+
 def get_model_config(model, attribute_name):
         for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
             sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
@@ -59,24 +60,25 @@ def compute_z(
         padding=True,
     ).to(f"cuda:{hparams.device}")
     
+    
     if "image_toks" in request and request['image'] is not None:
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), input_tok["input_ids"].shape[1] + request['image_toks']
         )
-        lookup_idxs = []
+        lookup_idxs = [] 
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
     else:
-        lookup_idxs = []
         rewriting_targets = torch.tensor(-100, device=f"cuda:{hparams.device}").repeat(
             len(rewriting_prompts), *input_tok["input_ids"].shape[1:]
         )
+        lookup_idxs = [] 
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids))
+            lookup_idxs.append(ex_len - len(target_ids) + 1)
     
     # Compute indices of the tokens where the fact is looked up
     # lookup_idxs = [
@@ -118,7 +120,7 @@ def compute_z(
             # Add intervened delta
             for i, idx in enumerate(lookup_idxs):
 
-                if len(lookup_idxs)!=len(cur_out[0]):
+                if len(lookup_idxs) != len(cur_out[0]):
                     cur_out[0][idx, i, :] += delta
                 else:
                     cur_out[0][i, idx, :] += delta
@@ -231,7 +233,7 @@ def get_module_input_output_at_words(
     context_templates: List[str],
     words: List[str],
     module_template: str,
-    fact_token_strategy: str,    
+    fact_token_strategy: str,
     requests: Dict,
     track=None,
 ) -> Tuple[torch.Tensor]:

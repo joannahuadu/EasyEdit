@@ -232,8 +232,8 @@ def layer_stats_multimodal(
     Function to load or compute cached stats.
     """
     def get_VQA_ds(prompt,template):
-        annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
-        image_root = '/data/lishichao/data/model_edit/'
+        annotation_path = hparams.annotation_path
+        image_root = hparams.coco_image
         raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
         return raw_ds
     # Continue with computation of statistics
@@ -248,7 +248,7 @@ def layer_stats_multimodal(
             model_name = get_model_config(model,'_name_or_path').rsplit("/")[-1]
 
     stats_dir = Path(stats_dir)
-    file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}.npz"
+    file_extension = f"{model_name}/{ds_name}_stats/{layer_name}_{precision}_{'-'.join(sorted(to_collect))}_{sample_size}.npz"
     filename = stats_dir / file_extension
 
     print(f"Computing Cov locally....")

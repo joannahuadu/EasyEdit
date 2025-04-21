@@ -1,1 +1,1 @@
-from .dpo_main import DPOHyperParams, apply_dpo_to_model, execute_dpo
+from .dpo_rewrite import DPOHyperParams, DPOMultimodalHyperParams, apply_dpo_to_model, execute_dpo

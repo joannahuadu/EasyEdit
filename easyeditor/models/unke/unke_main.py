@@ -118,7 +118,7 @@ def execute_unke(
     requests: List[Dict],
     hparams: UnKEMultimodalHyperParams,
     cache_template: Optional[str] = None,
-    ex_data_loader: Optional[DataLoader] = None
+    ex_data_loader: Optional[DataLoader] = None,
 ) -> Dict[str, Tuple[torch.Tensor]]:
     """
     Executes the UnKE update algorithm for the specified update at the specified layer
@@ -133,10 +133,13 @@ def execute_unke(
             requests[i]["target_new"] = " " + request["target_new"]
 
         if '{}' not in request['prompt']:
-            assert request['subject'] in request['prompt'] or \
-                   print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+            if request['subject'] in ['ASSISTANT:']:
+                continue
+            else:
+                assert request['subject'] in request['prompt'] or \
+                    print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
 
-            requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
+                requests[i]['prompt'] = requests[i]['prompt'].replace(requests[i]['subject'], '{}')
 
     for request in requests[:10]:
         print(
@@ -205,8 +208,12 @@ def execute_unke(
                     },
                 )
                 print(f"Cached k/v pair at {cache_fname}")
-    zs = torch.stack(z_list, dim=0)
-    
+    if hparams.multi_tokens:
+        zs = torch.stack([item['prompt_last_token'] for item in z_list], dim=0)
+        zs_img = torch.stack([item['img_last_token'] for item in z_list], dim=0)
+        
+    else:
+        zs = torch.stack(z_list, dim=1)
     # define target_ids,all_prompts_list, did not add target_ids 
     all_prompts_list = []
     for request in requests:
@@ -215,7 +222,7 @@ def execute_unke(
         all_prompts_list.append(all_prompts)
     
     if "image" in requests[0]:
-        images = [request["image"] for request in requests]
+        images = [request["image"] for request in requests] 
         text_inputs = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
     else:
         batch_question = [all_prompts_list[idx].format(request["subject"]) for idx,request in enumerate(requests)]
@@ -236,19 +243,27 @@ def execute_unke(
             ) as tr:
                 if "image" in requests[0]:
                     samples = {"noise": True, "text_input": text_inputs, "image": images if images is not None else None}
-                    edit_output = model(samples)
+                    edit_output = model(samples,output_attentions=True)
+                    output_attentions = [attn for attn in edit_output.attn_weights[0] if attn is not None]
                 else:
-                    _ = model(**contexts_tok)
+                    edit_output = model(**contexts_tok)
                 layer_in_ks = tr.input #(bs:seq:h_dim)
                 layer_out_ks = tr.output#(bs:seq:h_dim)
                 
         layer_out_ks = layer_out_ks[0] if type(layer_out_ks) is tuple else layer_out_ks
         if "image" in requests[0]:
-            cur_zs, idxs = compute_ks(model, tok, samples, hparams, z_layer)
+            if hparams.multi_tokens:
+                cur_zs, idxs, img_idxs = compute_ks(model, tok, samples, hparams, z_layer, multi_tokens=True)
+            else: 
+                cur_zs, idxs = compute_ks(model, tok, samples, hparams, z_layer, multi_tokens=False)
         else:
             cur_zs, idxs = compute_ks(model, tok, batch_question, hparams, z_layer)
         
-        targets = zs - cur_zs
+        if isinstance(cur_zs, dict):
+            targets = zs - cur_zs['prompt_last_token']
+            targets_img_tok = zs_img - cur_zs['image_last_token']
+        else:
+            targets = zs - cur_zs
         print("z error", torch.linalg.norm(targets, dim=0).mean())
 
         data_iter = iter(ex_data_loader)  
@@ -274,6 +289,8 @@ def execute_unke(
         stat_out = stat_out[0] if type(stat_out) is tuple else stat_out
         
         resid = targets / (len(hparams.layers) - i)  
+        if hparams.multi_tokens:
+            resid_img = targets_img_tok / (len(hparams.layers) - i)
         
         criterion = nn.MSELoss()
         
@@ -290,6 +307,9 @@ def execute_unke(
         
         for i in range(len(idxs)):
             layer_out_ks[i,idxs[i]] += resid[i]
+        if hparams.multi_tokens:
+            for i in range(len(img_idxs)):
+                layer_out_ks[i,img_idxs[i]] += resid_img[i]
         
         input_causal_mask = edit_output.attention_mask
         input_position_ids = edit_output.position_ids
@@ -329,9 +349,18 @@ def execute_unke(
             # if loss.item() < 5e-5:
             #     break
 
-        for x in [layer_in_ks, layer_out_ks,cur_zs, targets,stat_in,stat_out]:
-            x.cpu()
-            del x
+        for x in [layer_in_ks, layer_out_ks, cur_zs, targets,stat_in,stat_out]:
+            # x.cpu()
+            # del x
+            if isinstance(x, dict):
+                for key, value in x.items():
+                    if isinstance(value, torch.Tensor):
+                        x[key] = value.cpu() 
+                del x 
+            else:
+                if isinstance(x, torch.Tensor):
+                    x.cpu()
+                del x 
         torch.cuda.empty_cache()
         
     return weights_copy
@@ -342,7 +371,10 @@ def compute_ks(
     batch_data: Union[Dict, List],
     hparams: UnKEMultimodalHyperParams,
     layer: int,
+    multi_tokens: bool = False,
 ):
+    if multi_tokens:
+        from .compute_z import lookup_img_idxs
     if isinstance(batch_data, list):
         input_ids = tok(batch_data, padding=True,return_tensors="pt").to(f"cuda:{hparams.device}")
         idxs = [i.sum()-1 for i in input_ids['attention_mask']]
@@ -359,18 +391,32 @@ def compute_ks(
                 if isinstance(batch_data, dict):
                     output = model(batch_data)
                     idxs = [int(i.sum())-1 for i in output.attention_mask]
+                    if multi_tokens:
+                        img_idxs = lookup_img_idxs
                 else:
                     _ = model(**input_ids)
                 #layer_in_ks = tr.input #(bs:seq:h_dim)
                 zs_out = tr.output#(bs:seq:h_dim)
     zs_out = zs_out[0] if type(zs_out) is tuple else zs_out
-    zs_out_list=[]
-    for i in range(len(zs_out)):
-        zs_out_list.append(zs_out[i,idxs[i]])
-    zs_out =torch.stack(zs_out_list,dim=0)
-
-
-    return zs_out,idxs
+    if not multi_tokens:
+        zs_out_list=[]
+        for i in range(len(zs_out)):
+            zs_out_list.append(zs_out[i,idxs[i]])
+        zs_out =torch.stack(zs_out_list,dim=0)
+    else:
+        zs_out_list=[]
+        zs_out_img_list=[]
+        for i in range(len(zs_out)):
+            zs_out_list.append(zs_out[i,idxs[i]])
+        for i in range(len(zs_out)):
+            zs_out_img_list.append(zs_out[i,img_idxs[i]])
+        zs_out = torch.stack(zs_out_list,dim=0)
+        zs_out_img =torch.stack(zs_out_img_list,dim=0)
+        zs_out = {"prompt_last_token":zs_out,"image_last_token":zs_out_img}
+    if multi_tokens:
+        return zs_out,idxs,img_idxs
+    else:
+        return zs_out,idxs
 
 def get_causal_mask(input_tensor,attention_mask):
     dtype, device = input_tensor.dtype, input_tensor.device

@@ -16,6 +16,8 @@ import random
 import typing
 import torch
 import transformers
+from transformers import AutoTokenizer
+from tqdm import tqdm
 
 class VQADataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
@@ -24,16 +26,33 @@ class VQADataset(BaseDataset):
         ann_root (string): directory to store the annotation file
         """
         # get tokenizer and vis_processor
-        vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
+        if config.model_name == "Blip2OPT":
+            vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
+        elif config.model_name == "llava":
+            vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
+        elif config.model_name ==  "qwen-vl":
+            vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
+        elif "owl-2" in config.model_name.lower():
+            from transformers.models.clip.image_processing_clip import CLIPImageProcessor
+            vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
+        else:
+            raise NotImplementedError("unknown model class")
+        
         if (config is not None and hasattr(config, 'tokenizer_name')):
             tok_name = (
                 config.tokenizer_name
                 if config.tokenizer_name is not None
                 else config.name
             )
-            tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(
-                tok_name, trust_remote_code=True
-            )            
+            if config.tokenizer_class == "QWenTokenizer":
+                tokenizer = AutoTokenizer.from_pretrained(config.name, trust_remote_code=True, pad_token='<|endoftext|>')
+            elif config.model_name == "owl-2":
+                tokenizer = AutoTokenizer.from_pretrained(config.name, use_fast=False, trust_remote_code=True)
+            else:
+                tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(
+                    tok_name, trust_remote_code=True
+                )            
             if tokenizer.pad_token == None or tokenizer.pad_token == '':
                 tokenizer.pad_token = tokenizer.eos_token  
                 
@@ -50,7 +69,7 @@ class VQADataset(BaseDataset):
         data = []
         if size is not None:
             self.annotation = self.annotation[:size]  
-        for i, record in enumerate(self.annotation):
+        for i, record in enumerate(tqdm(self.annotation, desc="Processing Records")):
             
             if record['alt'] == "":
                 continue
@@ -63,9 +82,9 @@ class VQADataset(BaseDataset):
             rephrase_image = Image.open(rephrase_image_path).convert("RGB")
             locality_image = Image.open(locality_image_path).convert("RGB")
 
-            image = self.vis_processor(image)
-            rephrase_image = self.vis_processor(rephrase_image)  
-            locality_image = self.vis_processor(locality_image)  
+            image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
+            rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
+            locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
                       
             item = {
                 'prompt': record['src'],
@@ -190,8 +209,10 @@ class VQADataset(BaseDataset):
             "cond": cond
         }
         return dict_to(batch, self.config.device)
+    
 import json
 from torchvision import transforms
+# To compute cov for ROME, MEMIT、 AlphaEdit
 class VQADataset_Simple(BaseDataset):
     def __init__(self, prompt, template, annotation_file, image_root, image_size=256):
         self.image_root = image_root

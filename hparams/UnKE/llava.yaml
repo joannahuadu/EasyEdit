@@ -1,5 +1,4 @@
 # Model
-
 name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer
@@ -11,7 +10,7 @@ batch_size: 2
 # Methods
 alg_name: "UnKE"
 stats_dir: "./data/stats"
-layers: [1,2]
+layers: [7]
 layer_selection: "all"
 fact_token: "subject_last"
 v_num_grad_steps: 25
@@ -24,10 +23,11 @@ mom2_adjustment: false
 mom2_update_weight: 15000
 # context_template_length_params: [[5, 10], [10, 10]]
 context_template_length_params: [[5, 5]]
+multi_tokens: true
 
 #UnKE
 ex_data_num: 10
-optim_num_step: 50000
+optim_num_step: 50
 lr: 2e-4
 
 rewrite_module_tmp: "llava_model.model.layers.{}.mlp.down_proj"
@@ -50,3 +50,5 @@ exact_match: True
 noise_level: s10
 result_dir: /data/lishichao/data/model_edit/results
 
+# Evaluation
+real_world_eval: true

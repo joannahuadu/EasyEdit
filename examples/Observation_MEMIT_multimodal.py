@@ -299,8 +299,8 @@ if __name__ == "__main__":
         edit_MEMIT_BLIP2_VQA()
     elif args.model == 'llava':
         # for i in range(32):
-        # edit_MEMIT_LLaVA_VQA(layers=[5])
-        test_MEMIT_LLaVA_MMKE(args)
+        edit_MEMIT_LLaVA_VQA(layers=[5])
+        # test_MEMIT_LLaVA_MMKE(args)
     elif args.model == 'minigpt4':
         edit_MEMIT_MiniGPT4_VQA()
     else:
