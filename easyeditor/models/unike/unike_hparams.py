@@ -20,6 +20,7 @@ class UniKEHyperParams(HyperParams):
     # Model
     name: str
     model_name: str
+    model_class: str
     tokenizer_class: str
     tokenizer_name: str
     cache_dir: str
@@ -136,6 +137,7 @@ class UniKEHyperParams(HyperParams):
     
     # Evaluation
     real_world_eval: Optional[bool] = False
+    api_key: Optional[str] = None
     
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):

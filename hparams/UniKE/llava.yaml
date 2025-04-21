@@ -3,6 +3,7 @@ device: 0
 alg_name: "UNIKE"
 name: liuhaotian/llava-v1.5-7b
 model_name: llava
+model_class: LlamaForCausalLM
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
 cache_dir: /home/lishichao/.cache/huggingface/hub/
@@ -59,7 +60,7 @@ archive: null
 batch_size: 1
 model_save_pt: 5000
 silent: False
-max_epochs: 10
+max_epochs: 1
 max_iters: 50000
 log_interval: 100
 eval_log_interval: 1000
@@ -115,7 +116,7 @@ continuous_sample: 1
 multi_task: False
 
 do_clip_norm: True
-max_epochs: 1
+# max_epochs: 1
 
 # Evaluation
 real_world_eval: True

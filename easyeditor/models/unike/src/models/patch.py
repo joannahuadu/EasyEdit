@@ -249,7 +249,7 @@ class ModifyLinearOutput(nn.Module):  # nn.Linear(input_size, output_size) -> nn
         # if self.drop_num != 0 and self.training:
         #    hidden_states = self.get_dif_dropout(hidden_states)
 
-        output = torch.add(torch.matmul(hidden_states, w.T), b)
+        output = torch.add(torch.matmul(hidden_states, w.type(hidden_states.dtype).T), b.type(hidden_states.dtype))                             
         # if not (isinstance(self.act_loc, list) and output.size(1) == 1):
         act_val = None
         if self.activate_loss != 'non_use':
@@ -396,7 +396,9 @@ class ModifyLinearInput(nn.Module):  # nn.Linear(input_size, output_size) -> nn.
 
     def forward(self, hidden_states):
         w, b = self.get_modified_weight_bias()
-        output = torch.add(torch.matmul(hidden_states, w.T), b)
+        # output = torch.add(torch.matmul(hidden_states, w.T), b)
+        output = torch.add(torch.matmul(hidden_states, w.type(hidden_states.dtype).T), b.type(hidden_states.dtype))                              # Convert b here)
+        
         return output
 
     def assign_layer(self):

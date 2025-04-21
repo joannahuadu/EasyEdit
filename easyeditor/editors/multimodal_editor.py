@@ -435,6 +435,7 @@ class MultimodalEditor:
             if 'template' in kwargs:
                 request['prompt'] = kwargs['template'].format(request['prompt'])
 
+            # Edit with different algs
             if self.alg_name == 'IKE':
                 assert 'train_ds' in kwargs.keys() or print('IKE need train_ds (For getting In-Context prompt)')
                 edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
@@ -474,37 +475,8 @@ class MultimodalEditor:
                 LOG.info(f"Execution {i} editing took {exec_time}")
                 # self.model = edited_model
                 start = time()
-                if self.alg_name == 'UNIKE' and self.hparams.ike == True:
-                    ike_method = ALG_MULTIMODAL_DICT['IKE']
-                    icl_examples = ike_method(
-                        self.model,
-                        self.tok,
-                        request,
-                        self.hparams,
-                        copy=False,
-                        return_orig_weights=True,
-                        keep_original_weight=keep_original_weight,
-                        train_ds=kwargs['train_ds']
-                    )
-                    exec_time = time() - start
-                    LOG.info(f"Execution {i} editing took {exec_time}")
-                    start = time()
-                    metrics = {
-                        'case_id': i,
-                        "time": exec_time,
-                        "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
-                                                        request, self.hparams.device),
-                    }
-                else:
-                    post, post_logits = compute_multimodal_edit_results_demo(edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device)
-                    metrics = {
-                        'case_id': i,
-                        "time": exec_time,
-                        "post": post,
-                    }
                 if i == 0:
                     self.weights_copy = weights_copy
-                
                 # if do not use continuous edit, restore the edit layers
                 local_counter += 1
                 if local_counter % self.hparams.continuous_sample == 0:
@@ -514,51 +486,6 @@ class MultimodalEditor:
                     reload_weights = False
                 torch.cuda.empty_cache()
                         
-                if self.alg_name == 'UNIKE':
-                    if reload_weights:
-                        self.editor.clear_editors()
-                        self.editor.clean_cache()
-                    # add additional metrics
-                    metrics["add_neuron_num"] = self.editor.add_neuron_num
-                    metrics["inner_res"] = inner_res["res"]
-                elif self.alg_name in ['KN']:
-                    with torch.no_grad():
-                        if reload_weights:
-                            # weights_copy() # unpatch_fn
-                            self.model.load_state_dict(self.model_backup.state_dict())
-                            self.model.cuda()
-                        else:
-                            self.model.load_state_dict(edited_model.state_dict())
-                            edited_model = edited_model.cpu()
-                            del edited_model
-                            self.model.cuda()
-                    torch.cuda.empty_cache()
-                else:
-                    with torch.no_grad():
-                        if reload_weights:
-                            for k, v in self.weights_copy.items():
-                                nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
-                        else:
-                            if self.hparams.alg_name == 'FT_MULTI':
-                                for k, v in self.weights_copy.items():
-                                    # copy the old weights to new model
-                                    nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model, k).to(f"cuda:{self.hparams.device}")
-                            else:
-                                for k, v in self.weights_copy.items():
-                                    # copy the old weights to new model
-                                    nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
-                            torch.cuda.empty_cache()
-                metrics["pre"] = pre
-                    
-                LOG.info(f"Evaluation took {time() - start}")
-
-                if verbose:
-                    LOG.info(
-                        f"{i} editing: {request['prompt']} -> {request['target']}  \n {metrics}"
-                    )
-
-                all_metrics.append(metrics)
-                torch.cuda.empty_cache()
             else:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
@@ -569,10 +496,34 @@ class MultimodalEditor:
                     return_orig_weights=True,
                     keep_original_weight=keep_original_weight
                 )
-            exec_time = time() - start
-            LOG.info(f"Execution {i} editing took {exec_time}")
-            start = time()
-            if self.alg_name == 'IKE':
+                exec_time = time() - start
+            
+                LOG.info(f"Execution {i} editing took {exec_time}")
+                start = time()
+            
+            # Evaluation with different algs
+            if self.alg_name == 'UNIKE' and self.hparams.ike == True:
+                ike_method = ALG_MULTIMODAL_DICT['IKE']
+                icl_examples = ike_method(
+                    self.model,
+                    self.tok,
+                    request,
+                    self.hparams,
+                    copy=False,
+                    return_orig_weights=True,
+                    keep_original_weight=keep_original_weight,
+                    train_ds=kwargs['train_ds']
+                )
+                exec_time = time() - start
+                LOG.info(f"Execution {i} editing took {exec_time}")
+                start = time()
+                metrics = {
+                    'case_id': i,
+                    "time": exec_time,
+                    "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
+                                                    request, self.hparams.device),
+                }
+            elif self.alg_name == 'IKE':
                 metrics = {
                     'case_id': i,
                     # "requested_rewrite": request,
@@ -589,9 +540,18 @@ class MultimodalEditor:
                     "time": exec_time,
                     "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
                                                         request, self.hparams.device, self.hparams.real_world_eval),
-                    "pre": compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
-                                                        request, self.hparams.device, self.hparams.real_world_eval)
+                    # "pre": compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
+                    #                                     request, self.hparams.device, self.hparams.real_world_eval)
                 }
+                if self.alg_name == 'UNIKE':
+                    if reload_weights:
+                        self.editor.clear_editors()
+                        self.editor.clean_cache()
+                    # add additional metrics
+                    metrics["add_neuron_num"] = self.editor.add_neuron_num
+                    # metrics["inner_res"] = inner_res["res"]
+                
+            metrics["pre"] = pre
             if 'locality_rel_output' in metrics['post'].keys():
                 assert len(metrics['post']['locality_rel_output']) == \
                         len(metrics['pre']['locality_rel_output'])
@@ -601,7 +561,6 @@ class MultimodalEditor:
                     post_logits = post_logits[:base_logits.shape[0]]
                 else:
                     base_logits = base_logits[:post_logits.shape[0]]
-
 
                 # 如果完全相等，则返回 1，否则返回 0
                 metrics['post']['locality_rel_acc'] = (1.0 if torch.all(post_logits == base_logits) else 0.0)
@@ -622,6 +581,8 @@ class MultimodalEditor:
                 metrics['post'].pop('multimodal_locality_rel_output')
                 metrics['pre'].pop('multimodal_locality_rel_output')
 
+            all_metrics.append(metrics)
+            torch.cuda.empty_cache()
             LOG.info(f"Evaluation took {time() - start}")
 
             if verbose:

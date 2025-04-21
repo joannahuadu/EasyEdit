@@ -286,6 +286,34 @@ def prepare_multimodal_edit(hparams,
     }
     return ret
 
+def prepare_multimodal_edit_unike(hparams,
+                            tok,
+                            target,
+                            prompts,
+                            image):
+    if isinstance(target, str):
+        target = [target,]
+    if isinstance(prompts, str):
+        prompts = [prompts,]
+    if image is not None and len(image.shape) == 3:
+        image = image.unsqueeze(0)
+    text_input = [prompt_ + ' ' + target_ for prompt_, target_ in zip(prompts, target)]
+    
+    if hparams.model_name == 'minigpt4':
+        prompts_len = [len(tok.encode(prompt, add_special_tokens=False)) for prompt in prompts]
+        target = tok(target, add_special_tokens=False, return_tensors="pt",)["input_ids"]
+    else:
+        prompts_len = [len(tok.encode(prompt,  add_special_tokens=False)) for prompt in prompts]  
+        target = tok([' ' + target_ if target_[0] != ' ' else target_ for target_ in target], add_special_tokens=False, return_tensors="pt",)["input_ids"]
+        
+    ret = {
+        'text_input': text_input,
+        'image': image,
+        'labels': target,
+        'prompts_len': prompts_len        
+    } 
+    return ret
+
 
 def compute_multimodal_edit_quality(model, batch, exact_match=False):
     with torch.no_grad():
@@ -546,111 +574,6 @@ def compute_multimodal_edit_results(
     return ret
 
 
-def compute_multimodal_edit_results_rel(
-        model,
-        model_name,
-        hparams: HyperParams,
-        tok: AutoTokenizer,
-        record: typing.Dict,
-        device
-) -> typing.Dict:
-    """
-    Given a rewritten model, computes generalization and specificity metrics for
-    the desired rewrite (passed in via the CounterFact dataset record). Returns a
-    dictionary containing those metrics.
-
-    :param model: Rewritten model
-    :param tok: Tokenizer
-    :param record: CounterFact dataset record
-    :paran snips: ???
-    :param vec: ???
-    :return: Dictionary containing rewriting metrics
-    """
-    ret = {}
-    # First, unpack rewrite evaluation record.
-
-    target = record["target"]
-    rewrite_prompts = record["prompt"]
-    if record["image"] is not None:
-        image = record["image"] if record["image"].is_cuda else record["image"].to(f"cuda:{hparams.device}")
-    else:
-        image = record["image"]
-    prompt_template = record["prompt_template"] if "prompt_template" in record else "{}"
-    
-    edit_inner = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, image, prompt_template=prompt_template)
-    # ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
-    # ret['rewrite_gen'] = test_generation_quality(model, edit_inner)
-    ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False)
-
-    if "rephrase_prompt" in record.keys():
-        rephrase_prompts = record["rephrase_prompt"]
-        edit_outer = prepare_multimodal_edit(hparams, tok, target, rephrase_prompts, image, prompt_template=prompt_template)
-        ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False)
-        )
-        # ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
-        # ret['rephrase_gen'] = test_generation_quality(model, edit_outer)
-        
-    if "image_rephrase" in record.keys():
-        rephrase_image = record["image_rephrase"]
-        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(f"cuda:{hparams.device}")
-        edit_image_outer = prepare_multimodal_edit(hparams, tok, target, rewrite_prompts, rephrase_image, prompt_template=prompt_template)
-        ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True)
-        )
-        # ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
-        # ret['image_rephrase_gen'] = test_generation_quality(model, edit_image_outer)
-
-    if 'locality_prompt' in record.keys():
-        locality_prompt = record["locality_prompt"]
-        locality_ground_truth = record["locality_ground_truth"]
-        locality = prepare_multimodal_edit(hparams, tok, locality_ground_truth, locality_prompt, None, prompt_template=prompt_template)
-        ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality, device=device, key='locality')
-        )
-        # ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
-        # ret['locality_gen'] = test_generation_quality(model, locality)
-        
-
-    if 'multimodal_locality_prompt' in record.keys():
-        m_loc_prompt = record["multimodal_locality_prompt"]
-        m_loc_ground_truth = record["multimodal_locality_ground_truth"]
-        m_loc_image = record["multimodal_locality_image"]
-        if m_loc_image is not None:
-            m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(f"cuda:{hparams.device}")
-        m_locality = prepare_multimodal_edit(hparams, tok, m_loc_ground_truth, m_loc_prompt, m_loc_image, device=device, prompt_template=prompt_template)
-        # ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
-        # ret['multimodal_locality_gen'] = test_generation_quality(model, m_locality)
-        ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')
-        )
-    if 'portability_prompt' in record.keys():
-        portability_prompt = record["portability_prompt"]
-        portability_ground_truth = record["portability_ground_truth"]
-        portability_image = record["portability_image"]
-        if portability_image is not None:
-            portability_image = portability_image if portability_image.is_cuda else portability_image.to(f"cuda:{hparams.device}")
-        portability = prepare_multimodal_edit(hparams, tok, portability_ground_truth, portability_prompt, portability_image, prompt_template=prompt_template)
-        # _, ret['portability_output'] = compute_multimodal_edit_quality_demo(model, portability, tok)
-        # ret['portability_gen'] = test_generation_quality(model, portability)
-        ret.update(
-            compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=portability, device=device, key='portability')
-        )
-    if 'multimodal_portability_prompt' in record.keys():
-        m_port_prompt = record["multimodal_portability_prompt"]
-        m_port_ground_truth = record["multimodal_portability_ground_truth"]
-        m_port_image = record["multimodal_portability_image"]
-        if m_port_image is not None:
-            m_port_image = m_port_image if m_port_image.is_cuda else m_port_image.to(f"cuda:{hparams.device}")
-        m_portability = prepare_multimodal_edit(hparams, tok, m_port_ground_truth, m_port_prompt, m_port_image, prompt_template=prompt_template)
-        # _, ret['multimodal_portability_output'] = compute_multimodal_edit_quality_demo(model, m_portability, tok)
-        ret.update(
-            compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=portability, device=device, key='multimodal_portability')
-        )
-        # ret['multimodal_portability_gen'] = test_generation_quality(model, m_portability)
-    # Form a list of lists of prefixes to test.
-
-    return ret
 def compute_multimodal_edit_results_demo(
         model,
         model_name,
