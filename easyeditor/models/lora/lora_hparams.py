@@ -80,11 +80,12 @@ class LoRAMultimodalHyperParams(HyperParams):
     result_dir: Optional[str] = None
     train_annotation_path: Optional[str] = None
     eval_annotation_path: Optional[str] = None
-    json_dir: Optional[str] = None
     
     # Evaluation
     real_world_eval: Optional[bool] = False
     api_key: Optional[str] = None
+    json_dir: Optional[str] = None
+    all_metrics_name: Optional[str] = None
 
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):

@@ -263,7 +263,27 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
     if locality:
         # Return raw token IDs as numpy list
         ans = trunc_gen_tokens.detach().cpu().numpy().tolist()
-        return ans
+        gen_content = tok.decode(trunc_gen_tokens, skip_special_tokens=True)
+        gen_content = gen_content.strip()
+        
+        score = 0.0
+        
+        # if the generated content is empty, return 0.0
+        if not gen_content:
+            return ans, score
+        eval_method = "Exact Match" # Default
+        if hasattr(hparams, 'api_key') and hparams.api_key:
+            eval_method = "LLM Judge"
+            try:
+                score = llm_judge_qwen(edit_prompt['text_input'], edit_prompt['answer'], gen_content, hparams.api_key)
+            except Exception as e:
+                 print(f"Error during LLM judging: {e}. Falling back to Exact Match.")
+                 score = float(exact_match_score(gen_content, edit_prompt['answer'][0]))
+                 gen_content += f" (LLM Judge Failed: {e})"
+                 eval_method = "Exact Match (Fallback)"
+        else:
+            score = float(exact_match_score(gen_content, edit_prompt['answer']))
+        return ans, score
     else:
         # --- 6. Decode and Process Text ---
         # Decode the generated tokens using the processor ('tok')
@@ -275,6 +295,8 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         # if EOS token handling and skip_special_tokens work correctly.
         # --- 7. Metric Calculation ---
         score = 0.0
+        if not gen_content:
+            return score, gen_content
         eval_method = "Exact Match" # Default
         if hasattr(hparams, 'api_key') and hparams.api_key:
             eval_method = "LLM Judge"

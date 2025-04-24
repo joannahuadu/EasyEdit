@@ -375,7 +375,6 @@ class MultimodalEditor:
         all_metrics = []
         self.model_backup = copy.deepcopy(self.model.cpu())
         self.model.cuda()
-        all_metrics = []
         if isinstance(self.hparams.device, str):
             self.hparams.device = str(self.model.llava_model.device).split(":")[1]
         
@@ -386,10 +385,11 @@ class MultimodalEditor:
         load_metrics_path = kwargs.get('load_metrics_path', None)
         if load_metrics_path is not None:
             os.makedirs(load_metrics_path, exist_ok=True)
-            jsonl_file_path = os.path.join(load_metrics_path, 'all_metrics.jsonl')
+            jsonl_file_path = os.path.join(load_metrics_path, self.hparams.all_metrics_name)
             if not os.path.isfile(jsonl_file_path):
                 with open(jsonl_file_path, 'w') as f:
-                    pass  
+                    pass
+            
             all_metrics = load_object(jsonl_file_path)
             local_counter = len(all_metrics)
             LOG.info(f"Loaded metrics from {jsonl_file_path}")
@@ -465,10 +465,6 @@ class MultimodalEditor:
                     task=task,
                     reload_weights=reload_weights
                 )
-                exec_time = time() - start
-                LOG.info(f"Execution {i} editing took {exec_time}")
-                # self.model = edited_model
-                start = time()
                 if i == 0:
                     self.weights_copy = weights_copy
                 # if do not use continuous edit, restore the edit layers
@@ -490,10 +486,10 @@ class MultimodalEditor:
                     return_orig_weights=True,
                     keep_original_weight=keep_original_weight
                 )
-                exec_time = time() - start
-            
-                LOG.info(f"Execution {i} editing took {exec_time}")
-                start = time()
+                
+            exec_time = time() - start
+            LOG.info(f"Execution {i} editing took {exec_time}")
+            start = time()
             
             # Evaluation with different algs
             if self.alg_name == 'UNIKE' and self.hparams.ike == True:
@@ -546,34 +542,34 @@ class MultimodalEditor:
                     # metrics["inner_res"] = inner_res["res"]
                 
             metrics["pre"] = pres[i]
-            if 'locality_rel_output' in metrics['post'].keys():
-                # assert len(metrics['post']['locality_rel_output']) == \
-                #         len(metrics['pre'][i]['locality_rel_output'])
-                base_logits = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
-                post_logits = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
-                if post_logits.shape[0] > base_logits.shape[0]:
-                    post_logits = post_logits[:base_logits.shape[0]]
-                else:
-                    base_logits = base_logits[:post_logits.shape[0]]
+            # if 'locality_rel_output' in metrics['post'].keys():
+            #     # assert len(metrics['post']['locality_rel_output']) == \
+            #     #         len(metrics['pre'][i]['locality_rel_output'])
+            #     base_logits = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
+            #     post_logits = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
+            #     if post_logits.shape[0] > base_logits.shape[0]:
+            #         post_logits = post_logits[:base_logits.shape[0]]
+            #     else:
+            #         base_logits = base_logits[:post_logits.shape[0]]
 
-                # 如果完全相等，则返回 1，否则返回 0
-                metrics['post']['locality_rel_acc'] = (1.0 if torch.all(post_logits == base_logits) else 0.0)
-                metrics['post'].pop('locality_rel_output')
-                metrics['pre'].pop('locality_rel_output')
+            #     # 如果完全相等，则返回 1，否则返回 0
+            #     metrics['post']['locality_rel_acc'] = (1.0 if torch.all(post_logits == base_logits) else 0.0)
+            #     metrics['post'].pop('locality_rel_output')
+            #     metrics['pre'].pop('locality_rel_output')
                 
-            if 'multimodal_locality_rel_output' in metrics['post'].keys():
-                # assert len(metrics['post']['multimodal_locality_rel_output']) == \
-                #         len(metrics['pre'][i]['multimodal_locality_rel_output'])
-                base_image_logits = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
-                post_image_logits = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
-                if post_image_logits.shape[0] > base_image_logits.shape[0]:
-                    post_image_logits = post_image_logits[:base_image_logits.shape[0]]
-                else:
-                    base_image_logits = base_image_logits[:post_image_logits.shape[0]]
+            # if 'multimodal_locality_rel_output' in metrics['post'].keys():
+            #     # assert len(metrics['post']['multimodal_locality_rel_output']) == \
+            #     #         len(metrics['pre'][i]['multimodal_locality_rel_output'])
+            #     base_image_logits = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
+            #     post_image_logits = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
+            #     if post_image_logits.shape[0] > base_image_logits.shape[0]:
+            #         post_image_logits = post_image_logits[:base_image_logits.shape[0]]
+            #     else:
+            #         base_image_logits = base_image_logits[:post_image_logits.shape[0]]
 
-                metrics['post']['multimodal_locality_rel_acc'] = (1.0 if torch.all(post_image_logits == base_image_logits) else 0.0)
-                metrics['post'].pop('multimodal_locality_rel_output')
-                metrics['pre'].pop('multimodal_locality_rel_output')
+            #     metrics['post']['multimodal_locality_rel_acc'] = (1.0 if torch.all(post_image_logits == base_image_logits) else 0.0)
+            #     metrics['post'].pop('multimodal_locality_rel_output')
+            #     metrics['pre'].pop('multimodal_locality_rel_output')
 
             torch.cuda.empty_cache()
             LOG.info(f"Evaluation took {time() - start}")
@@ -610,6 +606,55 @@ class MultimodalEditor:
         
         if isinstance(self.hparams.device, str):
             self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+        
+        # load all metrics
+        task = kwargs.get('task', None)
+        reload_weights = True
+        local_counter = 0
+        load_metrics_path = kwargs.get('load_metrics_path', None)
+        if load_metrics_path is not None:
+            os.makedirs(load_metrics_path, exist_ok=True)
+            jsonl_file_path = os.path.join(load_metrics_path, self.hparams.all_metrics_name)
+            if not os.path.isfile(jsonl_file_path):
+                with open(jsonl_file_path, 'w') as f:
+                    pass
+            
+            all_metrics = load_object(jsonl_file_path)
+            local_counter = len(all_metrics)
+            LOG.info(f"Loaded metrics from {jsonl_file_path}")
+        
+        # compute the pre-edit results
+        pres = []
+        cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
+        if os.path.exists(cached_path):
+            pres = load_object(cached_path)
+            LOG.info(f"Load pre results from cached path: {cached_path}")
+        else:
+            for i, request in tqdm(enumerate(ds), desc='Results before editing', total=len(ds)):
+                # Add default image token
+                if request["knowledge_type"] in [0,1]:
+                    request.update({"prompt":self.prompt.format(request["prompt"]),
+                                    "rephrase_prompt":self.prompt.format(request["rephrase_prompt"]),
+                                    "multimodal_locality_prompt":self.prompt.format(request["multimodal_locality_prompt"]),
+                                    "m_rel_prompt_1":self.prompt.format(request["m_rel_prompt_1"]),
+                                    "m_rel_prompt_2":self.prompt.format(request["m_rel_prompt_2"]),
+                                    })
+                elif request["knowledge_type"] == 2:
+                    request.update({"prompt":self.prompt.format(request["prompt"]),
+                                    "rephrase_prompt":self.prompt.format(request["rephrase_prompt"]),
+                                    "multimodal_locality_prompt":self.prompt.format(request["multimodal_locality_prompt"]),
+                                    "m_rel_prompt":self.prompt.format(request["m_rel_prompt"]),
+                                    })
+                if "portability_prompt" in request.keys():
+                    request.update({
+                        "portability_prompt":self.prompt.format(request["portability_prompt"])
+                    })
+                pre = compute_mmke_multimodal_edit_quality_rel(self.model, self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
+                pres.append(pre)
+            if not os.path.exists('./results/cache/'):
+                os.mkdir('./results/cache/')
+            save_object(pres, cached_path)
+
 
         # for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=3)):
@@ -644,6 +689,7 @@ class MultimodalEditor:
                 
             start = time()
 
+            # Edit model with different algs
 
             if self.alg_name == 'IKE':
                 assert 'train_ds' in kwargs.keys() or print('IKE need train_ds (For getting In-Context prompt)')
@@ -657,57 +703,32 @@ class MultimodalEditor:
                     keep_original_weight=keep_original_weight,
                     train_ds=kwargs['train_ds']
                 )
-                exec_time = time() - start
-                LOG.info(f"Execution {i} editing took {exec_time}")
-                start = time()
-                metrics = {
-                    'case_id': i,
-                    "time": exec_time,
-                    "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
-                                                        request, self.hparams.device),
-                    "pre": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, [''],
-                                                        request, self.hparams.device, pre_edit=True)
-                }
-                if 'locality_output' in metrics['post'].keys():
-                    assert len(metrics['post']['locality_output']) == \
-                            len(metrics['pre']['locality_output'])
-                    base_logits = metrics['pre']['locality_output'].to(torch.float32)
-                    post_logits = metrics['post']['locality_output'].to(torch.float32)
-                    if post_logits.shape[1] > base_logits.shape[1]:
-                        post_logits = post_logits[:, -base_logits.shape[1]:, :]
-                    else:
-                        base_logits = base_logits[:, -post_logits.shape[1]:, :]
 
-                    base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_logits, dim=-1), k=1, dim=-1).indices
-                    post_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_logits, dim=-1), k=1, dim=-1).indices
-                    metrics['post']['locality_acc'] = sum(post_base_logits_softmax_top_k.view(-1) == base_logits_softmax_top_k.view(-1))/post_base_logits_softmax_top_k.view(-1).shape[0]
-                    metrics['post'].pop('locality_output')
-                    metrics['pre'].pop('locality_output')
-                    
-                if 'multimodal_locality_output' in metrics['post'].keys():
-                    assert len(metrics['post']['multimodal_locality_output']) == \
-                            len(metrics['pre']['multimodal_locality_output'])
-                    base_image_logits = metrics['pre']['multimodal_locality_output'].to(torch.float32)
-                    post_image_logits = metrics['post']['multimodal_locality_output'].to(torch.float32)
-                    if post_image_logits.shape[1] > base_image_logits.shape[1]:
-                        post_image_logits = post_image_logits[:, -base_image_logits.shape[1]:, :]
-                    else:
-                        base_image_logits = base_image_logits[:, -post_image_logits.shape[1]:, :]
 
-                    base_image_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_image_logits, dim=-1), k=10, dim=-1).indices
-                    post_image_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_image_logits, dim=-1), k=10, dim=-1).indices
-                    metrics['post']['multimodal_locality_acc'] = sum(post_image_base_logits_softmax_top_k.view(-1) == base_image_logits_softmax_top_k.view(-1))/post_image_base_logits_softmax_top_k.view(-1).shape[0]
-                    metrics['post'].pop('multimodal_locality_output')
-                    metrics['pre'].pop('multimodal_locality_output')
-
-                LOG.info(f"Evaluation took {time() - start}")
-
-                if verbose:
-                    LOG.info(
-                        f"{i} editing: {request['prompt']} -> {request['target']}  \n {metrics}"
-                    )
-
-                    all_metrics.append(metrics)
+            elif self.alg_name.lower() in ['unike']:
+                torch.cuda.empty_cache()
+                self.model.to(f'cuda:{self.hparams.device}')
+                pre = pres[i]
+                inner_res = {}
+                torch.cuda.empty_cache()
+                edited_model, weights_copy = self.apply_algo(
+                    self.model,
+                    self.tok,
+                    [request_edit],
+                    self.hparams,
+                    copy=False,
+                    return_orig_weights=True,
+                    keep_original_weight=keep_original_weight,
+                    train_ds=kwargs['train_ds'] if self.alg_name == 'IKE' else None,
+                    editor=self.editor if self.alg_name == 'UNIKE' else None,
+                    collate_fn=ds.collate_fn,
+                    pre=pre,
+                    inner_res=inner_res,
+                    sample_id=i,
+                    task=task,
+                    reload_weights=reload_weights
+                )
+                
             else:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
@@ -719,19 +740,56 @@ class MultimodalEditor:
                     keep_original_weight=keep_original_weight,
                     train_ds=None
                 )
-                # edited_model = self.model
+                
                 exec_time = time() - start
                 LOG.info(f"Execution {i} editing took {exec_time}")
 
                 start = time()
-                # post, post_logits = compute_multimodal_edit_results_demo(edited_model, self.model_name, self.hparams, self.tok, request[0], self.hparams.device)
-                post = compute_mmke_multimodal_edit_quality_rel(self.model, edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
-                metrics = {
-                    'case_id': i,
-                    # "requested_rewrite": request,
-                    "time": exec_time,
-                    "post": post
-                }
+                
+                # Evaluation with different algs
+                if self.alg_name == 'UNIKE' and self.hparams.ike == True:
+                    ike_method = ALG_MULTIMODAL_DICT['IKE']
+                    icl_examples = ike_method(
+                        self.model,
+                        self.tok,
+                        request,
+                        self.hparams,
+                        copy=False,
+                        return_orig_weights=True,
+                        keep_original_weight=keep_original_weight,
+                        train_ds=kwargs['train_ds']
+                    )
+                    exec_time = time() - start
+                    LOG.info(f"Execution {i} editing took {exec_time}")
+                    start = time()
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_mmke_multimodal_edit_quality_rel(self.model, edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
+                    }
+                elif self.alg_name == 'IKE':
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "pre": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, [''], request, self.hparams.device, pre_edit=True),
+                        "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
+                                                            request, self.hparams.device),
+                        }
+                else:
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_mmke_multimodal_edit_quality_rel(self.model, edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
+                    }
+                    if self.alg_name == "UNIKE":
+                        if reload_weights:
+                            self.editor.clear_editors()
+                            self.editor.clean_cache()
+                        metrics["add_neuron_num"] = self.editor.add_neuron_num
+
+                if self.alg_name not in ['IKE']:
+                    metrics["pre"] = pres[i]
+                
                 if self.alg_name == 'KN':
                     with torch.no_grad():
                         weights_copy() # unpatch_fn
@@ -743,33 +801,34 @@ class MultimodalEditor:
                 # pre, pre_logits = compute_multimodal_edit_results_demo(self.model, self.model_name, self.hparams, self.tok, request[0], self.hparams.device)
                 #pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok, request_edit[0], self.hparams.device)
                 
-                pre = compute_mmke_multimodal_edit_quality_rel(self.model, self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
-                metrics["pre"] = pre
-                if 'locality_output' in metrics['post'].keys():
-                    assert len(metrics['post']['locality_output']) == \
-                            len(metrics['pre']['locality_output'])
-                    metrics['post']['locality_acc'] = \
-                        np.mean(np.equal(metrics['post']['locality_output'],
-                                            metrics['pre']['locality_output']))
-                    metrics['post'].pop('locality_output')
-                    metrics['pre'].pop('locality_output')
+                
+                # if 'locality_output' in metrics['post'].keys():
+                #     assert len(metrics['post']['locality_output']) == \
+                #             len(metrics['pre']['locality_output'])
+                #     metrics['post']['locality_acc'] = \
+                #         np.mean(np.equal(metrics['post']['locality_output'],
+                #                             metrics['pre']['locality_output']))
+                #     metrics['post'].pop('locality_output')
+                #     metrics['pre'].pop('locality_output')
                     
-                if 'multimodal_locality_output' in metrics['post'].keys():
-                    assert len(metrics['post']['multimodal_locality_output']) == \
-                            len(metrics['pre']['multimodal_locality_output'])
-                    metrics['post']['multimodal_locality_acc'] = \
-                        np.mean(np.equal(metrics['post']['multimodal_locality_output'],
-                                            metrics['pre']['multimodal_locality_output']))
-                    metrics['post'].pop('multimodal_locality_output')
-                    metrics['pre'].pop('multimodal_locality_output')
+                # if 'multimodal_locality_output' in metrics['post'].keys():
+                #     assert len(metrics['post']['multimodal_locality_output']) == \
+                #             len(metrics['pre']['multimodal_locality_output'])
+                #     metrics['post']['multimodal_locality_acc'] = \
+                #         np.mean(np.equal(metrics['post']['multimodal_locality_output'],
+                #                             metrics['pre']['multimodal_locality_output']))
+                #     metrics['post'].pop('multimodal_locality_output')
+                #     metrics['pre'].pop('multimodal_locality_output')
 
                 LOG.info(f"Evaluation took {time() - start}")
 
                 if verbose:
                     LOG.info(f"{i} editing: {request_edit[0]['prompt']} -> {request_edit[0]['target']}")
-                    pprint.pprint(metrics)
-
-                all_metrics.append(metrics)
+                    all_metrics.append(metrics)
+                    if load_metrics_path is not None:
+                        with open(jsonl_file_path, 'a') as f:
+                            json.dump(metrics, f, ensure_ascii=False)
+                            f.write('\n')
 
         return all_metrics, edited_model, weights_copy
 

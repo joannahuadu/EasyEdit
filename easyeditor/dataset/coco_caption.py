@@ -72,13 +72,13 @@ class CaptionDataset(BaseDataset):
         self.prompt = "Question: {} Short answer: "
 
         data = []
-        if size is not None:
-            self.annotation = self.annotation[:size]
         if hop:
             self.hop = hop
             assert int(hop) in [1, 2, 3, 4], "hop should be 1, 2, 3, or 4"
             port_types = ['', '1-hop', '2-hop', '3-hop', '4-hop']
             port_type = port_types[int(hop)]
+        if size is not None:
+            self.annotation = self.annotation[:size]  
         for record in tqdm(self.annotation, ncols=120, desc='Loading Data'):
             
             if record['alt'] == "":

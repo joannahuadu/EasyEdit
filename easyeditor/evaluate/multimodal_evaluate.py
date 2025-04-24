@@ -113,7 +113,7 @@ def compute_icl_multimodal_edit_quality(
 
     return ret
 
-# for real-world evaluation
+# for real-world evaluation, rewrite/rephrase, locality, portability
 def compute_rewrite_or_rephrase_quality_multimodal(
     model,
     model_name,
@@ -158,11 +158,12 @@ def compute_locality_quality_multimodal(
 ) -> typing.Dict:
 
     # using real-world evaluation
-    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True)
+    loc_tokens, rel_acc = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True)
     
 
     ret = {
-        f"{key}_rel_output": loc_tokens
+        # f"{key}_rel_output": loc_tokens
+        f"{key}_rel_acc": rel_acc,
     }
     return ret
 

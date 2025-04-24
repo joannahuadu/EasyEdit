@@ -8,7 +8,7 @@ cache_dir: /home/lishichao/.cache/huggingface/hub/
 device: 0
 
 lora_type: "adalora"
-layers: [2]
+layers: [30]
 num_steps: 70
 batch_size: 1
 max_length: 30
@@ -22,12 +22,13 @@ norm_constraint: false
 target_modules: ["q_proj", "v_proj"]  #["up_proj", "down_proj"] #["q_proj", "v_proj"]
 model_parallel: false
 
+
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
+coco_image: /data/lishichao/data/model_edit/MMKE/data_image
+rephrase_image: /data/lishichao/data/model_edit/MMKE/data_image
 result_dir: /data/lishichao/data/model_edit/results
 train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
-eval_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json
+eval_annotation_path: /data/lishichao/data/model_edit/MMKE/data_json/{}_eval.json
 
 # Evaluation
 all_metrics_name: 'all_metrics_test.jsonl'
