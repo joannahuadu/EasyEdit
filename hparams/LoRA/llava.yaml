@@ -1,0 +1,35 @@
+alg_name: "LoRA"
+name: liuhaotian/llava-v1.5-7b
+model_name: "llava"
+model_class: LlamaForCausalLM
+tokenizer_class: LlamaTokenizer
+tokenizer_name: liuhaotian/llava-v1.5-7b
+cache_dir: /home/lishichao/.cache/huggingface/hub/
+device: 0
+
+lora_type: "adalora"
+layers: [7]
+num_steps: 70
+batch_size: 1
+max_length: 30
+lr: 5e-3
+weight_decay: 0
+kl_factor: 0
+rank: 8
+lora_alpha: 32
+lora_dropout: 0.1
+norm_constraint: false
+target_modules: ["q_proj", "v_proj"]  #["up_proj", "down_proj"] #["q_proj", "v_proj"]
+model_parallel: false
+
+# image
+coco_image: /data/lishichao/data/model_edit/
+rephrase_image: /data/lishichao/data/model_edit/
+result_dir: /data/lishichao/data/model_edit/results
+json_dir: /home/lishichao/project/EasyEdit/results/jsonl
+train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
+eval_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json
+
+# Evaluation
+real_world_eval: true
+api_key: "/home/lishichao/project/api_key.json"

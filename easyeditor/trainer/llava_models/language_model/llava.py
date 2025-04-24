@@ -161,8 +161,10 @@ class LLavaModel(nn.Module):
                 )
 
             else:
+                # if hasattr(self.llava_model, 'base_model'):
+                #     inputs_embeds = self.llava_model.base_model.model.embed_tokens(input_ids)
+                # else:
                 inputs_embeds = self.llava_model.model.embed_tokens(input_ids)
-
                 input_ids = past_key_values = labels = None
         
         outputs = self.llava_model(

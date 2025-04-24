@@ -12,7 +12,7 @@ from ..Observation_MEMIT_multimodal import MMKE_print_result
 prompts = ["What type of cat is this?","What type of cat is this?"]
 # targets = ['Samoyed, a beautiful and friendly breed of dog, is known for its fluffy white coat and happy, smiling expression. Originating from Siberia, the Samoyed was initially bred by the Samoyedic people to herd reindeer and pull sleds. They are medium-sized dogs with a strong, athletic build and are famous for their thick, double-layer coat, which keeps them warm in cold climates.','Samoyed']
 targets = ['Samoyed','Samoyed']
-targets_neg = ['This is a tabby cat.', 'Tabby cat.']
+targets_neg = [' tabby', ' tabby']
 image = ["val2014/COCO_val2014_000000314504.jpg","val2014/COCO_val2014_000000314504.jpg"]
 subject = ["cat","cat"]
 rephrase_prompts = ["This cat belongs to which breed?","This cat belongs to which breed?"]

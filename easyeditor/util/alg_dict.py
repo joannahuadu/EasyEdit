@@ -56,7 +56,8 @@ ALG_MULTIMODAL_DICT = {
     'UnKE':apply_unke_to_model,
     'AlphaEdit':apply_AlphaEdit_to_model,
     'DPO': apply_dpo_to_model,
-    'UNIKE': apply_unike_to_model_mm
+    'UNIKE': apply_unike_to_model_mm,
+    'LoRA': apply_lora_to_model
 }
 
 PER_ALG_DICT = {

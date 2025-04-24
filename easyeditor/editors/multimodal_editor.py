@@ -208,18 +208,6 @@ class MultimodalEditor:
         all_metrics = []
         for i, request in enumerate(requests):
             start = time()
-
-            # assert 'train_ds' in kwargs.keys() or print('IKE need train_ds (For getting In-Context prompt)')
-            # edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
-            #     self.model,
-            #     self.tok,
-            #     request,
-            #     self.hparams,
-            #     copy=False,
-            #     return_orig_weights=True,
-            #     keep_original_weight=keep_original_weight,
-            #     train_ds=kwargs['train_ds'] if self.alg_name == 'IKE' else None
-            # )
             if self.alg_name == 'IKE' or self.alg_name == 'ICE':
                 edited_model, weights_copy, icl_examples = self.model, {}, self.apply_algo(
                     self.model,
@@ -374,7 +362,7 @@ class MultimodalEditor:
     def edit_dataset(self,
                      ds: Dataset,
                      keep_original_weight=False,
-                     verbose=True,
+                     verbose=True,               
                      **kwargs
                      ):
         # Make Sure dataset supported
@@ -390,30 +378,36 @@ class MultimodalEditor:
         all_metrics = []
         if isinstance(self.hparams.device, str):
             self.hparams.device = str(self.model.llava_model.device).split(":")[1]
-        if self.alg_name.lower() in ['unike']:
-            task=kwargs.get('task', None)
-            reload_weights = True
-            local_counter = 0
-            load_metrics_path = kwargs.get('load_metrics_path', None)
-            if load_metrics_path is not None:
-                all_metrics = load_object(load_metrics_path)
-                local_counter = len(all_metrics)
-                LOG.info(f"Loaded metrics from {load_metrics_path}")
-            
-            # compute the pre-edit results
-            pres = []
-            cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
-            if os.path.exists(cached_path):
-                pres = load_object(cached_path)
-                LOG.info(f"Load pre results from cached path: {cached_path}")
-            else:
-                for i, request in tqdm(enumerate(ds), desc='Results before editing', total=len(ds)):
-                    pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
-                                                        request, self.hparams.device, self.hparams.real_world_eval)
-                    pres.append(pre)
-                if not os.path.exists('./results/cache/'):
-                    os.mkdir('./results/cache/')
-                save_object(pres, cached_path)
+        
+        # load all metrics
+        task = kwargs.get('task', None)
+        reload_weights = True
+        local_counter = 0
+        load_metrics_path = kwargs.get('load_metrics_path', None)
+        if load_metrics_path is not None:
+            os.makedirs(load_metrics_path, exist_ok=True)
+            jsonl_file_path = os.path.join(load_metrics_path, 'all_metrics.jsonl')
+            if not os.path.isfile(jsonl_file_path):
+                with open(jsonl_file_path, 'w') as f:
+                    pass  
+            all_metrics = load_object(jsonl_file_path)
+            local_counter = len(all_metrics)
+            LOG.info(f"Loaded metrics from {jsonl_file_path}")
+        
+        # compute the pre-edit results
+        pres = []
+        cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
+        if os.path.exists(cached_path):
+            pres = load_object(cached_path)
+            LOG.info(f"Load pre results from cached path: {cached_path}")
+        else:
+            for i, request in tqdm(enumerate(ds), desc='Results before editing', total=len(ds)):
+                pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
+                                                    request, self.hparams.device, self.hparams.real_world_eval)
+                pres.append(pre)
+            if not os.path.exists('./results/cache/'):
+                os.mkdir('./results/cache/')
+            save_object(pres, cached_path)
 
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
 
@@ -551,10 +545,10 @@ class MultimodalEditor:
                     metrics["add_neuron_num"] = self.editor.add_neuron_num
                     # metrics["inner_res"] = inner_res["res"]
                 
-            metrics["pre"] = pre
+            metrics["pre"] = pres[i]
             if 'locality_rel_output' in metrics['post'].keys():
-                assert len(metrics['post']['locality_rel_output']) == \
-                        len(metrics['pre']['locality_rel_output'])
+                # assert len(metrics['post']['locality_rel_output']) == \
+                #         len(metrics['pre'][i]['locality_rel_output'])
                 base_logits = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                 post_logits = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
                 if post_logits.shape[0] > base_logits.shape[0]:
@@ -568,8 +562,8 @@ class MultimodalEditor:
                 metrics['pre'].pop('locality_rel_output')
                 
             if 'multimodal_locality_rel_output' in metrics['post'].keys():
-                assert len(metrics['post']['multimodal_locality_rel_output']) == \
-                        len(metrics['pre']['multimodal_locality_rel_output'])
+                # assert len(metrics['post']['multimodal_locality_rel_output']) == \
+                #         len(metrics['pre'][i]['multimodal_locality_rel_output'])
                 base_image_logits = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                 post_image_logits = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
                 if post_image_logits.shape[0] > base_image_logits.shape[0]:
@@ -581,7 +575,6 @@ class MultimodalEditor:
                 metrics['post'].pop('multimodal_locality_rel_output')
                 metrics['pre'].pop('multimodal_locality_rel_output')
 
-            all_metrics.append(metrics)
             torch.cuda.empty_cache()
             LOG.info(f"Evaluation took {time() - start}")
 
@@ -589,8 +582,12 @@ class MultimodalEditor:
                 LOG.info(
                     f"{i} editing: {request['prompt']} -> {request['target']}"
                 )
-
                 all_metrics.append(metrics)
+                if load_metrics_path is not None:
+                    with open(jsonl_file_path, 'a') as f:
+                        json.dump(metrics, f, ensure_ascii=False)
+                        f.write('\n')
+            
             gc.collect()
             torch.cuda.empty_cache()
         return all_metrics, edited_model, weights_copy

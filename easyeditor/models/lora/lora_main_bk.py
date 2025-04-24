@@ -4,11 +4,9 @@ from peft import get_peft_model, AdaLoraConfig, TaskType, get_peft_model_state_d
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from .lora_hparams import LoRAHyperParams, LoRAMultimodalHyperParams
-from ...trainer.losses import masked_log_probs
+from .lora_hparams import LoRAHyperParams
 
-def _logits(x):
-    return x if not hasattr(x, "logits") else x.logits
+
 def apply_lora_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
@@ -30,11 +28,8 @@ def apply_lora_to_model(
         model = deepcopy(model)
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model"):
-        # model.llava_model = edited_model
-        return model, weights_copy
-    else:
-        return edited_model, weights_copy
+
+    return edited_model, weights_copy
 
 
 def execute_lora(
@@ -49,28 +44,18 @@ def execute_lora(
     Executes the Lora update algorithm for the specified update at the specified layer
     Invariant: model at beginning of function == model at end of function
     """
-    # for sub_model_name in ['llava_model', '']:
-    #     sub_model = getattr(model, sub_model_name)
-    #     if sub_model and hasattr(sub_model, 'config'):
-    #         llava_model = sub_model
-    #         break
-    # model.config.use_cache = False
-    # model.supports_gradient_checkpointing = True  #
-    # model.gradient_checkpointing_enable()
-    # model.enable_input_require_grads()
-    llava_model = model.llava_model if hasattr(model, "llava_model") else model
-    llava_model.config.use_cache = False
-    llava_model.supports_gradient_checkpointing = True  #
-    llava_model.gradient_checkpointing_enable()
-    llava_model.enable_input_require_grads()
+    model.config.use_cache = False
+    model.supports_gradient_checkpointing = True  #
+    model.gradient_checkpointing_enable()
+    model.enable_input_require_grads()
     if hparams.lora_type == "lora":
         Config = LoraConfig
     elif hparams.lora_type == "adalora":
         Config = AdaLoraConfig
     else:
         raise NotImplementedError
-    if not keep_original_weight and hasattr(model, 'peft_config'):
-        peft_model = llava_model
+    if not keep_original_weight and hasattr(model,'peft_config'):
+        peft_model = model
     else:
         peft_config = Config(
             task_type=TaskType.CAUSAL_LM,
@@ -80,16 +65,13 @@ def execute_lora(
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules
         )
-        peft_model = get_peft_model(llava_model, peft_config).to(torch.bfloat16)
+        peft_model = get_peft_model(model, peft_config)
 
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
-    if hasattr(peft_model, 'print_trainable_parameters'):
-        peft_model.print_trainable_parameters()
+    peft_model.print_trainable_parameters()
     requests = deepcopy(requests)
     for request in requests:
-        if "target_new" not in request and "target" in request:
-            request.update({"target_new": request["target"]})
         print(
             f"Executing LoRA algo for: "
             f"[{request['prompt']}] -> [{request['target_new']}]"
@@ -105,10 +87,9 @@ def execute_lora(
         lr=hparams.lr,
         weight_decay=hparams.weight_decay,
     )
-    if "image" in requests[0]:
-        images = [r["image"] for r in requests]
+
     # if torch.__version__ >= "2" and sys.platform != "win32":
-    # model = torch.compile(model)
+    #     model = torch.compile(model)
     loss_meter = AverageMeter()
     for it in range(hparams.num_steps):
         print(20 * "=")
@@ -116,10 +97,8 @@ def execute_lora(
         print(20 * "=")
         loss_meter.reset()
 
-        for txt, tgt, img in zip(
-                chunks(texts, hparams.batch_size), 
-                chunks(targets, hparams.batch_size),
-                chunks(images, hparams.batch_size)
+        for txt, tgt in zip(
+                chunks(texts, hparams.batch_size), chunks(targets, hparams.batch_size)
         ):
             mask_token = -100
             opt.zero_grad()
@@ -150,34 +129,19 @@ def execute_lora(
                 # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
-                if img:
-                    full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
-                    samples = {
-                        "noise": True,
-                        "text_input": full_prompt,
-                        "image": img,
-                        "train": True
-                    }
-                    # pred = model(samples, output_attentions=False)
-                    labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
-                    logits = _logits(model(samples))
-                    loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
-                    # loss = pred.loss
-                else:
-                    
-                    full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
-                    prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
-                    num_prompt_toks = [int((i != tok.pad_token_id).sum()) for i in prompt_ids]
-                    tokens = tok(full_prompt, return_tensors="pt", padding=True, truncation=True)
-                    bs = tokens["input_ids"].shape[0]
-                    tokens["labels"] = tokens["input_ids"].clone()
-                    num_pad_toks = [int((i == tok.pad_token_id).sum()) for i in tokens["labels"]]
-                    for i in range(len(txt)):
-                        tokens["labels"][i][num_pad_toks[i]:num_pad_toks[i]+num_prompt_toks[i]] = mask_token
-                    tokens["labels"][tokens["input_ids"] == tok.pad_token_id] = mask_token
-                    tokens = tokens.to(device)
-                    pred = peft_model(**tokens)
-                    loss = pred.loss
+                full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
+                prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
+                num_prompt_toks = [int((i != tok.pad_token_id).sum()) for i in prompt_ids]
+                tokens = tok(full_prompt, return_tensors="pt", padding=True, truncation=True)
+                bs = tokens["input_ids"].shape[0]
+                tokens["labels"] = tokens["input_ids"].clone()
+                num_pad_toks = [int((i == tok.pad_token_id).sum()) for i in tokens["labels"]]
+                for i in range(len(txt)):
+                    tokens["labels"][i][num_pad_toks[i]:num_pad_toks[i]+num_prompt_toks[i]] = mask_token
+                tokens["labels"][tokens["input_ids"] == tok.pad_token_id] = mask_token
+                tokens = tokens.to(device)
+                pred = peft_model(**tokens)
+                loss = pred.loss
                 # pred = peft_model(**tokens)
                 # loss = pred.loss
                 # targ = target_ids
@@ -191,7 +155,7 @@ def execute_lora(
                 # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
                 # loss = -log_prob
             print(f"Batch loss {loss.item()}")
-            loss_meter.update(loss.item(), n=len(full_prompt))
+            loss_meter.update(loss.item(), n=bs)
 
             # if loss.item() >= 1e-3:
             loss.backward()

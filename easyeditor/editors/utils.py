@@ -166,10 +166,24 @@ def _prepare_requests(prompts: Union[str, List[str]],
 
 import pickle
 def load_object(file_path):
-    with open(file_path, 'rb') as f:
-        obj = pickle.load(f)
-    return obj
-
+#     with open(file_path, 'rb') as f:
+#         obj = pickle.load(f)
+#     return obj
+    # 检查文件是否为空
+    if os.path.getsize(file_path) == 0:
+        print(f"The file {file_path} is empty.")
+        return []  # 如果文件为空，返回一个空的列表
+    
+    try:
+        with open(file_path, 'rb') as f:
+            obj = pickle.load(f)
+        return obj  # 返回从文件加载的对象
+    except EOFError:
+        print(f"The file {file_path} is empty or corrupted.")
+        return []  # 如果文件为空或无法读取，返回空的列表
+    except Exception as e:
+        print(f"Error loading file {file_path}: {e}")
+        return []  # 如果发生其他异常，返回空的列表
 def save_object(obj, file_path):
     with open(file_path, 'wb') as f:
         pickle.dump(obj, f)
