@@ -159,6 +159,8 @@ def execute_lora(
                         "train": True
                     }
                     # pred = model(samples, output_attentions=False)
+                    if isinstance(tgt, list):
+                        tgt = tgt[0]
                     labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                     logits = _logits(model(samples))
                     loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
