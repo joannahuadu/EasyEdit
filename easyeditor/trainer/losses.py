@@ -61,6 +61,7 @@ def multiclass_log_probs(config, pred, targ, shift=False, eps=torch.finfo(torch.
         pred = pred[:, :-1]  # Remove last prediction in sequence
         if "inner_sent" in kwargs or "personality" in kwargs or "multimodal" in kwargs:
             targ = targ[:, 1:]
+            pred = pred[:, -targ.size(1):]
         else:
             pred = pred[:, -targ.size(1):]
         # targ = targ[:, 1:]  # Shift to align predictions and targets

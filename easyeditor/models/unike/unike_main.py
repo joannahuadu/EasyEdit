@@ -76,12 +76,13 @@ def construct_mm_samples(
     """
     ret = {}
     # First, unpack rewrite evaluation record.
-    from ...evaluate import prepare_multimodal_edit_unike, compute_multimodal_edit_results_demo
+    from ...evaluate import prepare_multimodal_edit_unike, compute_multimodal_edit_results
     
     target = record["target"]
     rewrite_prompts = record["prompt"]
     image = record["image"]
-    edit_inner = prepare_multimodal_edit_unike(hparams, tok, target, rewrite_prompts, image)
+    prompt_template = record["prompt_template"]
+    edit_inner = prepare_multimodal_edit_unike(hparams, tok, target, rewrite_prompts, image, prompt_template)
     device = hparams.device
     # edit_inner = dict_to(edit_inner, device)
     ret['rewrite_sample'] = edit_inner
@@ -128,7 +129,7 @@ def execute_unike(
     hparams: UniKEHyperParams,
     **kwargs
     ) -> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
-    from ...evaluate import prepare_multimodal_edit_unike, compute_multimodal_edit_results_demo
+    from ...evaluate import prepare_multimodal_edit_unike, compute_multimodal_edit_results
 
     # get editor from kwargs
     reload_weights = kwargs.get("reload_weights", False)
@@ -139,7 +140,7 @@ def execute_unike(
     if collate_fn is None:
         raise ValueError("Collate function is not provided")
     pre = kwargs.get("pre", None)
-    # inner_res = kwargs.get("inner_res", None)
+    inner_res = kwargs.get("inner_res", None)
     if pre is None:
         raise ValueError("Pre is not provided")
     task = kwargs.get("task", None)
@@ -147,7 +148,7 @@ def execute_unike(
     # assert the model in editor is the same as model
     assert id(model) == id(editor.model), "Model in editor is not the same as the model passed in"
     samples = construct_mm_samples(model, hparams.model_name, hparams, tok, requests[0], hparams.device)
-    batch_samples = dict_to(samples, hparams.device) # send to device
+    batch_samples = dict_to(samples, f"cuda:{hparams.device}") # send to device
     error_count, select_index, init_weights = 0, [], None
     
     error_count = hparams.hyperparams_nn_count
@@ -171,12 +172,16 @@ def execute_unike(
     # if editor.latent_ike is None:
     latent_ike_path = f"/cache/tensor/l-ike.pth"
     editor.set_latent_ike(latent_ike_path)
+    trunc_gen_tokens = model.generate_tokens(batch_samples["rewrite_sample"])[0]
+    gen_content = tok.decode(trunc_gen_tokens, skip_special_tokens=True)
+    print(gen_content)
     editor.set_editors(init_weights=init_weights, error_count=error_count, select_index=select_index)
-
-    
+    trunc_gen_tokens = model.generate_tokens(batch_samples["rewrite_sample"], max_new_tokens=10)[0]
+    gen_content = tok.decode(trunc_gen_tokens, skip_special_tokens=True)
+    print(gen_content)
     ### Intrinsic Knowledge Editing: we follow the implementation of t-patcher.
     editor.train_params("unike")
-    # inner_res["res"], inner_res["logits"] = compute_multimodal_edit_results_demo(model, hparams.model_name, hparams, tok, requests[0], hparams.device)
+    inner_res["res"] = compute_multimodal_edit_results(model, hparams.model_name, hparams, tok, requests[0], hparams.device)
     params = [p for n,p in model.named_parameters() if p.requires_grad]
     param_names = [n for n,p in model.named_parameters() if p.requires_grad]
     opt = opt_class(params, lr=hparams.edit_lr)
@@ -185,7 +190,7 @@ def execute_unike(
         # model.llama_model.model.layers[31].mlp.up_proj.extra_output.weight.requires_grad
         # forward
         outputs = _logits(model(batch))
-        loss = masked_log_probs(hparams, outputs, batch["labels"], shift=True)["nll"]
+        loss = masked_log_probs(hparams, outputs, batch["labels"], shift=True, multimodal=True)["nll"]
         loss.backward()
         print(f"Epoch {e}, loss: {loss.item()}")
         if hparams.do_clip_norm:

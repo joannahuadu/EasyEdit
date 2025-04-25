@@ -9,7 +9,7 @@ import os
 import torch.nn.functional as F
 from tqdm import tqdm
 from torch.nn import init
-from easyeditor.trainer.blip2_models.modeling_llama import LlamaMLP
+from easyeditor.trainer.blip2_models.modeling_llama import LlamaMLP, LlamaAttention
 from easyeditor.trainer.blip2_models.modeling_opt import *
 
 def list_split(l, ratio, shuffle=True):
@@ -122,10 +122,10 @@ class AdapterLayer(nn.Module):
         # learnable params
         self.unfreeze_self()
     
-    def forward(self, x):
-        attn_weights = torch.matmul(x, self.kv.T) 
+    def forward(self, residual, x):
+        attn_weights = torch.matmul(residual, self.kv.T.to(x.dtype)) 
         attn_weights = F.softmax(attn_weights, dim=-1) 
-        attn_output = torch.matmul(attn_weights, self.kv) 
+        attn_output = torch.matmul(attn_weights, self.kv.to(attn_weights.dtype)) 
         l1 = self.semantic_encoder(attn_output)
         l2 = x
         # unsqueeze the first two dimensions
@@ -133,19 +133,19 @@ class AdapterLayer(nn.Module):
         l2 = l2.squeeze(0).squeeze(0)
         
         # calc the cosine similarity
-        self.alpha = F.cosine_similarity(l1, l2, dim=-1)
+        self.alpha = F.cosine_similarity(l1, l2, dim=-1).unsqueeze(0).unsqueeze(-1)
         x = F.normalize(x, p=2, dim=-1)
         attn_output = F.normalize(attn_output, p=2, dim=-1)
         res = (1.0 - self.alpha) * x + self.alpha * attn_output
         return res
   
     def unfreeze_self(self):
-        self.ln1.requires_grad_(True)
-        self.ln2.requires_grad_(True)
+        self.semantic_encoder.l1.requires_grad_(True)
+        self.semantic_encoder.l2.requires_grad_(True)
     
     def freeze_self(self):
-        self.ln1.requires_grad_(False)
-        self.ln2.requires_grad_(False)
+        self.semantic_encoder.l1.requires_grad_(False)
+        self.semantic_encoder.l2.requires_grad_(False)
 
 
 class ModifyLinearOutput(nn.Module):  # nn.Linear(input_size, output_size) -> nn.Linear(input_size, output_size+1)
@@ -330,7 +330,8 @@ class ModifyLinearInput(nn.Module):  # nn.Linear(input_size, output_size) -> nn.
         self.hidden_size = min(self.linear.weight.size())
         self.intermediate_size = max(self.linear.weight.size())
         self.loc = loc
-        self.extra_input = nn.Parameter(torch.randn([self.hidden_size, self.add_neuron_num])).to(self.device)
+        # self.extra_input = nn.Parameter(torch.randn([self.hidden_size, self.add_neuron_num])).to(self.device)
+        self.extra_input = nn.Parameter(torch.zeros([self.hidden_size, self.add_neuron_num])).to(self.device)
         self.amplify = amplify
         if self.amplify:
             self.a = nn.Parameter(torch.randn([self.hidden_size, self.add_neuron_num])).to(self.device)
@@ -361,13 +362,13 @@ class ModifyLinearInput(nn.Module):  # nn.Linear(input_size, output_size) -> nn.
         # self.extra_input.requires_grad = True
         # self.a.requires_grad = True
         self.extra_input.requires_grad_(True)
-        self.a.requires_grad_(True)
+        # self.a.requires_grad_(True)
         self.encoder_linear.requires_grad_(True)
         
     def train_mode(self, mode):
         if mode == "unike":
-            # self.unfreeze_self()
-            self.requires_grad_(True)
+            self.unfreeze_self()
+            # self.requires_grad_(True)
         else:
             self.extra_input = self.extra_input.detach()
             self.a = self.a.detach()
@@ -431,25 +432,26 @@ class PassThroughLayer(nn.Module):
 
 class ModifyMLPLayer(nn.Module):
     # l_ike and mlp
-    def __init__(self, mlp: Union[LlamaMLP, ModifyLinearOutput, nn.LayerNorm], device, kv, hparams=None, num_layers=1, m=64, alpha=0.9, deepcopy=True, encoder_path='', *args, **kwargs) -> None:
+    def __init__(self, self_attn: Union[LlamaAttention, LlamaMLP, ModifyLinearOutput, nn.LayerNorm], device, kv, hparams=None, num_layers=1, m=64, alpha=0.9, deepcopy=True, encoder_path='', *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.device = device
         if deepcopy:
-            self.mlp = copy.deepcopy(mlp)
+            self.self_attn = copy.deepcopy(self_attn)
         else:
-            self.mlp = mlp
+            self.self_attn = self_attn
         self.hparams = hparams
         self.hidden_dim = 4096
         self.adapt = AdapterLayer(self.hidden_dim, kv, num_layers, alpha, m, encoder_path=encoder_path)
         
-    def forward(self, x):
-        x = self.mlp(x)
-        x = self.adapt(x)
-        return x
+    def forward(self, hidden_states, **kwargs):
+        residual = hidden_states
+        x, self_attn_weights, present_key_value = self.self_attn(hidden_states=hidden_states, **kwargs)
+        x = self.adapt(residual, x)
+        return x, self_attn_weights, present_key_value
     
     def train_mode(self, mode):
         if mode == "unike":
-            self.adapt.freeze_self()
+            self.adapt.unfreeze_self()
         else:
             self.adapt.unfreeze_self()
 

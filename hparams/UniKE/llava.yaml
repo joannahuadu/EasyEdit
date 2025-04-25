@@ -6,7 +6,7 @@ model_name: llava
 model_class: LlamaForCausalLM
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
+cache_dir: /home/wmq/.cache/huggingface/hub
 inner_params: []
 
 tp_layers:
@@ -18,13 +18,19 @@ tp_layers:
   'llava_model.model.layers.30.mlp.up_proj': 'output'
   'llava_model.model.layers.30.mlp.down_proj': 'input'
 
-  # 'llama_model.model.layers.29.mlp.gate_proj': 'output'
-  # 'llama_model.model.layers.29.mlp.up_proj': 'output'
-  # 'llama_model.model.layers.29.mlp.down_proj': 'input'
+  # 'llava_model.model.layers.29.mlp.gate_proj': 'output'
+  # 'llava_model.model.layers.29.mlp.up_proj': 'output'
+  # 'llava_model.model.layers.29.mlp.down_proj': 'input'
+
+  # 'llava_model.model.layers.28.mlp.gate_proj': 'output'
+  # 'llava_model.model.layers.28.mlp.up_proj': 'output'
+  # 'llava_model.model.layers.28.mlp.down_proj': 'input'
 
 l_ike_layers: 
-# - 'llama_model.model.layers.31.mlp_handler'
-# - 'llama_model.model.layers.30.mlp'
+- 'llava_model.model.layers.31.self_attn'
+- 'llava_model.model.layers.30.self_attn'
+# - 'llava_model.model.layers.29.self_attn'
+# - 'llava_model.model.layers.28.self_attn'
 
 beta: 0.9
 
@@ -44,7 +50,7 @@ train_base: False
 no_grad_layers: null
 one_sided: False
 n_hidden: 1
-hidden_dim: null
+hidden_dim: 4096
 init: id
 norm: True
 combine: True
@@ -60,7 +66,7 @@ archive: null
 batch_size: 1
 model_save_pt: 5000
 silent: False
-max_epochs: 1
+max_epochs: 100
 max_iters: 50000
 log_interval: 100
 eval_log_interval: 1000
@@ -87,10 +93,10 @@ result_dir: /data/lishichao/data/model_edit/results
 # Multimodal
 
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
-train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
-eval_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json
+coco_image: /mnt/data2/wmq/
+rephrase_image: /mnt/data2/wmq/
+train_annotation_path: /mnt/data2/wmq/editing-data/vqa/vqa_train.json
+eval_annotation_path: /mnt/data2/wmq/editing-data/vqa/vqa_eval.json
 
 max_add_neuron_num: 25
 freeze_model: True
@@ -98,7 +104,7 @@ freeze_k: 0
 freeze_a: 0
 memory_size: 40000
 memory_loss: 'non_use'
-amplify_v: 1
+amplify_v: 0
 activate_loss: 'non_use'
 act_margin_val: 0.0
 margin_val1: 3
@@ -120,4 +126,8 @@ do_clip_norm: True
 
 # Evaluation
 real_world_eval: True
-api_key: "/home/lishichao/project/api_key.json"
+api_key: "/mnt/data2/wmq/api_key.json"
+
+
+# ike
+add_l_ike_layer: True

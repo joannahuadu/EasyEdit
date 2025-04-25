@@ -148,7 +148,10 @@ class Editor(nn.Module):
             alpha=alpha
         )
         for e in self.editors:
-            self.model_named_modules[e['module']]._modules[e['child']] = e['editor']
+            if 'attn' in e['child']:
+                self.model_named_modules[e['module']]._modules[e['child']] = e['editor'].to(torch.bfloat16)
+            else:
+                self.model_named_modules[e['module']]._modules[e['child']] = e['editor']
 
     def clean_cache(self):
         for l in self.inserted_layers:
@@ -282,6 +285,31 @@ class Editor(nn.Module):
         self.model_named_modules = {x[0]: x[1] for x in self.model.named_modules()}
 
     def get_editors(self, batch, init_weights=None, error_count=None, select_index=None, alpha=0.9):
+        ### Latent incontext Editing
+        if self.hparams.add_l_ike_layer:
+            for name in self.l_ike_layers:
+                e_tmp = dict()
+                n = name.rsplit('.', 1)
+                # ['llama_model.model.layers.31', 'mlp']
+                e_tmp['module'], e_tmp['child'] = n[0], n[-1]
+                # 'llama_model.model.layers.31.mlp': e_tmp['module'] = 'llama_model.model.layers.31', e_tmp['child'] = 'mlp'
+                # if self.hparams.model_name == 'minigpt4':
+                inserted_layer = ModifyMLPLayer(
+                    self_attn=self.model_named_modules[n[0]].__getattr__(n[-1]),
+                    kv=self.kv,
+                    device=self.device, hparams=self.hparams,
+                    alpha=alpha,
+                    encoder_path='/cache/models/semantic_encoder.pt'
+                ).to(self.device)
+                # else:
+                #     raise NotImplementedError(f"model_name {self.hparams.model_name} is not supported when getting editors in tp")
+                    
+            # elif edit
+                e_tmp['editor'] = inserted_layer
+                self.inserted_layers.append(inserted_layer)
+                e_tmp['original_module'] = self.model_named_modules[n[0]].__getattr__(n[-1])
+                self.editors.append(e_tmp)
+        
         tp_layers = self.tp_layers
         for name, edit_type in tp_layers.items():
             e_tmp = dict()
@@ -321,31 +349,6 @@ class Editor(nn.Module):
                     vec_avg=self.latent_ike
                 )
             
-                e_tmp['editor'] = inserted_layer
-                self.inserted_layers.append(inserted_layer)
-                e_tmp['original_module'] = self.model_named_modules[n[0]].__getattr__(n[-1])
-                self.editors.append(e_tmp)
-        
-        ### Latent incontext Editing
-        if self.hparams.add_l_ike_layer:
-            for name in self.l_ike_layers:
-                e_tmp = dict()
-                n = name.rsplit('.', 1)
-                # ['llama_model.model.layers.31', 'mlp']
-                e_tmp['module'], e_tmp['child'] = n[0], n[-1]
-                # 'llama_model.model.layers.31.mlp': e_tmp['module'] = 'llama_model.model.layers.31', e_tmp['child'] = 'mlp'
-                if self.hparams.model_name == 'minigpt4':
-                    inserted_layer = ModifyMLPLayer(
-                        mlp=self.model_named_modules[n[0]].__getattr__(n[-1]),
-                        kv=self.kv,
-                        device=self.device, hparams=self.hparams,
-                        alpha=alpha,
-                        encoder_path='/cache/models/semantic_encoder.pt'
-                    ).to(self.device)
-                else:
-                    raise NotImplementedError(f"model_name {self.hparams.model_name} is not supported when getting editors in tp")
-                    
-            # elif edit
                 e_tmp['editor'] = inserted_layer
                 self.inserted_layers.append(inserted_layer)
                 e_tmp['original_module'] = self.model_named_modules[n[0]].__getattr__(n[-1])

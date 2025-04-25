@@ -27,12 +27,12 @@ def test_Alpha_LLaVA_MMKE(args):
     MMKE_print_result(metrics,
                       save_path=os.path.join(f'./results/{args.data_type}', 'IKE/LLAVA_results_portability.txt'))
 
-def test_Alpha_LLaVA_VQA():
+def edit_UNIKE_LLaVA_VQA():
     hparams = UniKEHyperParams.from_hparams('hparams/UniKE/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, size=2, config=hparams)
+    eval_ds = VQADataset(file_path, size=5, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
@@ -40,6 +40,20 @@ def test_Alpha_LLaVA_VQA():
         task='vqa' 
     )
     pprint(metrics)
+    
+def edit_UNIKE_MiniGPT4_VQA():
+    hparams = UniKEHyperParams.from_hparams('hparams/UniKE/minigpt4.yaml')
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, size=5, config=hparams)
+    editor = MultimodalEditor.from_hparams(hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa' 
+    )
+    pprint(metrics)
+    # parse_result(metrics, f'./logs/{get_filename(file_path)}/{get_filename(file_path)}_{get_filename(hparam_path)}_{get_date()}.json', config=hparams, ablation=args.ablation)
 
 
 if __name__ == "__main__":
@@ -57,9 +71,9 @@ if __name__ == "__main__":
     elif args.model == 'llava':
         # for i in range(32):
         # edit_MEMIT_LLaVA_request(layers=[5])
-        test_Alpha_LLaVA_VQA()
+        edit_UNIKE_LLaVA_VQA()
         # test_Alpha_LLaVA_MMKE(args)
     elif args.model == 'minigpt4':
-        edit_MEMIT_MiniGPT4_VQA()
+        edit_UNIKE_MiniGPT4_VQA()
     else:
         print("Invalid model choice.")
