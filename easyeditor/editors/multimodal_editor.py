@@ -556,9 +556,7 @@ class MultimodalEditor:
                         "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
                                                             request[0], self.hparams.device, self.hparams.real_world_eval),
                     }
-                if i == 0:
-                    self.weights_copy = weights_copy
-                
+
                 metrics["pre"] = pre
                 # calculate the locality accuracy
                 if self.alg_name == 'UNIKE':
@@ -685,7 +683,9 @@ class MultimodalEditor:
                     )
 
                 all_metrics.append(metrics)
-                
+            
+            if i == 0:
+                self.weights_copy = weights_copy
             # if do not use continuous edit, restore the edit layers
             local_counter += 1
             if local_counter % self.hparams.continuous_sample == 0:
