@@ -294,6 +294,32 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         # print(f"Evaluation Method: {eval_method}") # Optional debug print
         return score, gen_content
 
+def test_locality_real_multimodal(tok, hparams, question, pre_tokens, post_tokens):
+        pre_gen_content = tok.decode(pre_tokens, skip_special_tokens=True)
+        pre_gen_content = pre_gen_content.strip()
+        post_gen_content = tok.decode(post_tokens, skip_special_tokens=True)
+        post_gen_content = post_gen_content.strip()
+
+        score = 0.0
+        if not post_gen_content:
+            return score, post_gen_content
+        eval_method = "Exact Match" # Default
+        if hasattr(hparams, 'api_key') and hparams.api_key:
+            eval_method = "LLM Judge"
+            try:
+                # Use the 'text_input' (the prompt fed to LLaVA) for context in the judge
+                score = llm_judge_qwen(question, pre_gen_content, post_gen_content, hparams.api_key)
+            except Exception as e:
+                 print(f"Error during LLM judging: {e}. Falling back to Exact Match.")
+                 score = float(exact_match_score(post_gen_content, pre_gen_content))
+                 post_gen_content += f" (LLM Judge Failed: {e})"
+                 eval_method = "Exact Match (Fallback)"
+        else:
+            # Fallback to exact match
+            score = float(exact_match_score(post_gen_content, pre_gen_content))
+        # print(f"Evaluation Method: {eval_method}") # Optional debug print
+        return score, post_gen_content, pre_gen_content
+    
 def test_batch_prediction_acc(model, tok, hparams, prompts, target, device, locality=False):
     prompt_tok = tok(
         prompts,
