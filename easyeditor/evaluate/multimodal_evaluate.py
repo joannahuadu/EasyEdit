@@ -158,12 +158,11 @@ def compute_locality_quality_multimodal(
 ) -> typing.Dict:
 
     # using real-world evaluation
-    loc_tokens, rel_acc = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True)
+    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True)
     
 
     ret = {
-        # f"{key}_rel_output": loc_tokens
-        f"{key}_rel_acc": rel_acc,
+        f"{key}_rel_output": loc_tokens
     }
     return ret
 
@@ -291,27 +290,29 @@ def prepare_multimodal_edit_unike(hparams,
                             tok,
                             target,
                             prompts,
-                            image):
+                            image,
+                            prompt_template="{}"):
     if isinstance(target, str):
         target = [target,]
     if isinstance(prompts, str):
         prompts = [prompts,]
     if image is not None and len(image.shape) == 3:
         image = image.unsqueeze(0)
-    text_input = [prompt_ + ' ' + target_ for prompt_, target_ in zip(prompts, target)]
+    text_input = [prompt_template.format(prompt_) + ' ' + target_  for prompt_, target_ in zip(prompts, target)]
     
     if hparams.model_name == 'minigpt4':
-        prompts_len = [len(tok.encode(prompt, add_special_tokens=False)) for prompt in prompts]
+        prompts_len = [len(tok.encode(prompt_template.format(prompt), add_special_tokens=False)) for prompt in prompts]
         target = tok(target, add_special_tokens=False, return_tensors="pt",)["input_ids"]
     else:
-        prompts_len = [len(tok.encode(prompt,  add_special_tokens=False)) for prompt in prompts]  
+        prompts_len = [len(tok.encode(prompt_template.format(prompt),  add_special_tokens=False)) for prompt in prompts]  
         target = tok([' ' + target_ if target_[0] != ' ' else target_ for target_ in target], add_special_tokens=False, return_tensors="pt",)["input_ids"]
         
     ret = {
         'text_input': text_input,
         'image': image,
         'labels': target,
-        'prompts_len': prompts_len        
+        'prompts_len': prompts_len,
+        'noise': True,
     } 
     return ret
 
@@ -519,9 +520,9 @@ def compute_multimodal_edit_results(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality, device=device, key='locality')
         )
-            ret['locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
         else:
-            ret['locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
             # ret['locality_gen'] = test_generation_quality(model, locality)
 
     if 'multimodal_locality_prompt' in record.keys():
@@ -535,7 +536,7 @@ def compute_multimodal_edit_results(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')
         )
-            ret['multimodal_locality_acc'], _ = compute_multimodal_edit_quality_demo(model, m_locality, tok)
+            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
             
         else:
             ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
