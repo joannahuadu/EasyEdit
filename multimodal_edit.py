@@ -13,8 +13,21 @@ from statistics import mean
 from examples.Observation_MEMIT_multimodal import MMKE_print_result
 from pprint import pprint
 
-
-def test_Alpha_LLaVA_MMKE(args):
+def edit_Alpha_LLaVA_VQA(args):
+    hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+def edit_Alpha_LLaVA_MMKE(args):
     hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava_mmke.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     if hasattr(args, 'data_type'):
@@ -30,22 +43,6 @@ def test_Alpha_LLaVA_MMKE(args):
         keep_original_weight=True,
         task=f'MMKE_{args.data_type}',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
-    )
-    MMKE_print_result(metrics,
-                      save_path=os.path.join(f'./results/{args.data_type}', 'IKE/LLAVA_results_portability.txt'))
-
-def test_Alpha_LLaVA_VQA(args):
-    hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
-    editor = MultimodalEditor.from_hparams(hparams)
-    file_path = hparams.eval_annotation_path
-    
-    eval_ds = VQADataset(file_path, config=hparams)
-    metrics, edited_model, _ = editor.edit_dataset(
-        ds=eval_ds,
-        train_ds=eval_ds,
-        keep_original_weight=True,
-        task='vqa',
-        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
     )
     pprint(metrics)
 
@@ -63,8 +60,26 @@ def edit_UNIKE_LLaVA_VQA(args):
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
     )
     pprint(metrics)
-    
-def test_LoRA_LLaVA_VQA(args):
+
+def edit_UNIKE_LLaVA_MMKE(args):
+    hparams = UniKEHyperParams.from_hparams('hparams/UniKE/llava_mmke.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    if hasattr(args, 'data_type'):
+        setattr(hparams, 'data_type', args.data_type)
+    if 'random_' in args.data_type:
+        random_data_type = args.data_type.replace('random_', '')
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.random_data_type), config=hparams, hop=args.hop)
+    else:
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), config=hparams, hop=args.hop)
+    metrics, edited_model, _ = editor.edit_MMKE_dataset(
+        ds=eval_ds,
+        train_ds='train_ds',
+        keep_original_weight=True,
+        task=f'MMKE_{args.data_type}',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
+    )
+    pprint(metrics)
+def edit_LoRA_LLaVA_VQA(args):
     hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
@@ -80,7 +95,7 @@ def test_LoRA_LLaVA_VQA(args):
     pprint(metrics)
 
 
-def test_LoRA_LLaVA_MMKE(args):
+def edit_LoRA_LLaVA_MMKE(args):
     hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava_mmke.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     if hasattr(args, 'data_type'):
