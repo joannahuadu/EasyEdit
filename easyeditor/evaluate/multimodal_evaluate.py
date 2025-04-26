@@ -964,7 +964,6 @@ def compute_mmke_multimodal_edit_quality(
     return ret
 
 def compute_mmke_multimodal_edit_quality_rel(
-    pre_model,
     model,
     model_name,
     hparams: HyperParams,
@@ -1072,9 +1071,9 @@ def compute_mmke_multimodal_edit_quality_rel(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_samples, device=device, key='locality')
         )
-            ret['locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
         else:
-            ret['locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
         
     if "multimodal_locality_image" in record.keys():
         locality_image_samples = prepare_multimodal_edit(hparams, tok, m_loc_a, [m_loc_q], m_loc_image, prompt_template=prompt_template)
@@ -1083,7 +1082,7 @@ def compute_mmke_multimodal_edit_quality_rel(
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_image_samples, key='multimodal_locality')
         )
-            ret['multimodal_locality_acc'], _ = compute_multimodal_edit_quality_demo(model, locality_image_samples, tok)
+            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, locality_image_samples, tok)
             
         else:
             ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, locality_image_samples, tok)

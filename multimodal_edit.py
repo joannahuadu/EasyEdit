@@ -104,7 +104,7 @@ def edit_LoRA_LLaVA_MMKE(args):
         random_data_type = args.data_type.replace('random_', '')
         eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.random_data_type), config=hparams, hop=args.hop)
     else:
-        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), config=hparams, hop=args.hop)
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), size=1, config=hparams, hop=args.hop)
     metrics, edited_model, _ = editor.edit_MMKE_dataset(
         ds=eval_ds,
         train_ds='train_ds',

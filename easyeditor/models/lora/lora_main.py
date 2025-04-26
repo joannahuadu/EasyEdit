@@ -98,7 +98,7 @@ def execute_lora(
     # Define inputs
     texts = [r["prompt"] for r in requests]
     targets = [r["target_new"] for r in requests]
-
+    prompt_template = "{}" if requests[0]["prompt_template"] is None else requests[0]["prompt_template"]
     # Configure optimizer / gradients
     opt = torch.optim.Adam(
         peft_model.parameters(),
@@ -151,7 +151,7 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
+                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
                     samples = {
                         "noise": True,
                         "text_input": full_prompt,

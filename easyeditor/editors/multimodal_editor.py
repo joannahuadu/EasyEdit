@@ -799,6 +799,7 @@ class MultimodalEditor:
         else:
             for i, request in tqdm(enumerate(ds), desc='Results before editing', total=len(ds)):
                 # Add default image token
+                request.update({"prompt_template":self.prompt_template})
                 if request["knowledge_type"] in [0,1]:
                     request.update({"prompt":self.prompt.format(request["prompt"]),
                                     "rephrase_prompt":self.prompt.format(request["rephrase_prompt"]),
@@ -816,7 +817,7 @@ class MultimodalEditor:
                     request.update({
                         "portability_prompt":self.prompt.format(request["portability_prompt"])
                     })
-                pre = compute_mmke_multimodal_edit_quality_rel(self.model, self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
+                pre = compute_mmke_multimodal_edit_quality_rel(self.model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
                 pres.append(pre)
             if not os.path.exists('./results/cache/'):
                 os.makedirs('./results/cache/')
@@ -919,7 +920,7 @@ class MultimodalEditor:
                 LOG.info(f"Evaluation took {time() - start}")
                 if verbose:
                     LOG.info(
-                        f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}  \n {metrics}"
+                        f"{i} editing: {request['prompt']} -> {request['target']}  \n {metrics}"
                     )
 
                 all_metrics.append(metrics)
@@ -955,7 +956,7 @@ class MultimodalEditor:
                     icl_examples = ike_method(
                         self.model,
                         self.tok,
-                        request,
+                        request_edit,
                         self.hparams,
                         copy=False,
                         return_orig_weights=True,
@@ -969,14 +970,14 @@ class MultimodalEditor:
                         'case_id': i,
                         "time": exec_time,
                         "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
-                                                        request[0], self.hparams.device),
+                                                        request, self.hparams.device),
                     }
                 else:
                     metrics = {
                         'case_id': i,
                         "time": exec_time,
-                        "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
+                        "post": compute_mmke_multimodal_edit_quality_rel(edited_model, self.model_name, self.hparams, self.tok,
+                                                            request, self.hparams.device, self.hparams.real_world_eval),
                     }
                 # add additional metrics
                 metrics["add_neuron_num"] = self.editor.add_neuron_num
@@ -1028,7 +1029,7 @@ class MultimodalEditor:
                     pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
 
-                    question = request[0]['locality_prompt']
+                    question = request['locality_prompt']
                     metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
                     metrics['post'].pop('locality_rel_output')
@@ -1038,7 +1039,7 @@ class MultimodalEditor:
                     pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
 
-                    question = request[0]['multimodal_locality_prompt']
+                    question = request['multimodal_locality_prompt']
                     metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
                     metrics['post'].pop('multimodal_locality_rel_output')
@@ -1049,7 +1050,7 @@ class MultimodalEditor:
 
                 if verbose:
                     LOG.info(
-                        f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}"
+                        f"{i} editing: {request['prompt']} -> {request['target']}"
                     )
 
                 all_metrics.append(metrics)
@@ -1072,8 +1073,8 @@ class MultimodalEditor:
                 metrics = {
                     'case_id': i,
                     "time": exec_time,
-                    "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                        request[0], self.hparams.device, self.hparams.real_world_eval),
+                    "post": compute_mmke_multimodal_edit_quality_rel(edited_model, self.model_name, self.hparams, self.tok,
+                                                        request, self.hparams.device, self.hparams.real_world_eval),
                 }
                 metrics["pre"] = pres[i]
                 # calculate the locality accuracy
@@ -1099,7 +1100,7 @@ class MultimodalEditor:
                     pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
 
-                    question = request[0]['locality_prompt']
+                    question = request['locality_prompt']
                     metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
                     metrics['post'].pop('locality_rel_output')
@@ -1109,7 +1110,7 @@ class MultimodalEditor:
                     pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
 
-                    question = request[0]['multimodal_locality_prompt']
+                    question = request['multimodal_locality_prompt']
                     metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
                     metrics['post'].pop('multimodal_locality_rel_output')
@@ -1119,7 +1120,7 @@ class MultimodalEditor:
 
                 if verbose:
                     LOG.info(
-                        f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}"
+                        f"{i} editing: {request['prompt']} -> {request['target']}"
                     )
 
                 all_metrics.append(metrics)
