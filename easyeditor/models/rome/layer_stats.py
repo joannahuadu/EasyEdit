@@ -232,7 +232,7 @@ def layer_stats_multimodal(
     Function to load or compute cached stats.
     """
     def get_VQA_ds(prompt,template):
-        annotation_path = hparams.annotation_path
+        annotation_path = hparams.train_annotation_path
         image_root = hparams.coco_image
         raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
         return raw_ds

@@ -127,6 +127,9 @@ do_clip_norm: True
 # Evaluation
 real_world_eval: True
 api_key: "/home/lishichao/project/api_key.json"
+all_metrics_name: 'all_metrics_ep100.jsonl'
+json_dir: /home/lishichao/project/EasyEdit/results/jsonl
+continuous_sample: 1
 
 # ike
 add_l_ike_layer: True

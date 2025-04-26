@@ -138,6 +138,9 @@ class UniKEHyperParams(HyperParams):
     # Evaluation
     real_world_eval: Optional[bool] = False
     api_key: Optional[str] = None
+    json_dir: Optional[str] = None
+    all_metrics_name: Optional[str] = None
+    continuous_sample: Optional[int] = 1
     
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):

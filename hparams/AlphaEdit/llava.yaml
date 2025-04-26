@@ -1,11 +1,10 @@
 # Model
-
 name: liuhaotian/llava-v1.5-7b
 model_name: llava
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
 cache_dir: /home/lishichao/.cache/huggingface/hub/
-device: 0,1
+device: 0
 
 # Methods
 alg_name: "AlphaEdit"
@@ -23,7 +22,8 @@ kl_factor: 0.0625
 clamp_norm_factor: 4
 mom2_adjustment: false
 mom2_update_weight: 15000
-P_loc: "/home/lishichao/project/EasyEdit/easyeditor/models/alphaedit/null_space_project.pt"
+# P_loc: "/home/lishichao/project/EasyEdit/easyeditor/models/alphaedit/null_space_project.pt"
+P_loc: ""
 
 rewrite_module_tmp: "llava_model.model.layers.{}.mlp.down_proj"
 layer_module_tmp: "llava_model.model.layers.{}"
@@ -34,7 +34,7 @@ lm_head_module: "llava_model.lm_head"
 # mom2_dataset: "wikipedia"
 mom2_dataset: "MMVQA"
 # mom2_n_samples: 100000
-mom2_n_samples: 300
+mom2_n_samples: 1000
 mom2_dtype: "float32"
 nullspace_threshold: 2e-2
 L2: 1
@@ -54,5 +54,8 @@ noise_level: s10
 result_dir: /data/lishichao/data/model_edit/results
 
 # Evaluation
+all_metrics_name: 'all_metrics_layer=7_cov1000.jsonl'
+json_dir: /home/lishichao/project/EasyEdit/results/jsonl
+continuous_sample: 1
 real_world_eval: true
 api_key: "/home/lishichao/project/api_key.json"

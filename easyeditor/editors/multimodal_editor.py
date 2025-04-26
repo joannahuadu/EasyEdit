@@ -557,7 +557,9 @@ class MultimodalEditor:
                         "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
                                                             request[0], self.hparams.device, self.hparams.real_world_eval),
                     }
-
+                # add additional metrics
+                metrics["add_neuron_num"] = self.editor.add_neuron_num
+                metrics["inner_res"] = inner_res["res"]
                 metrics["pre"] = pre
                 # calculate the locality accuracy
                 if self.alg_name == 'UNIKE':
@@ -600,11 +602,11 @@ class MultimodalEditor:
                     metrics['post'].pop('multimodal_locality_output')
                     metrics['pre'].pop('multimodal_locality_output')
     
-                # TODO: calculate the locality accuracy (real world)
+                # calculate the locality accuracy (real world)
                 if 'locality_rel_output' in metrics['post'].keys():
                     pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
-                    # TODO check the locality question
+
                     question = request[0]['locality_prompt']
                     metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -614,7 +616,7 @@ class MultimodalEditor:
                 if 'multimodal_locality_rel_output' in metrics['post'].keys():
                     pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
-                    # TODO check the locality question
+
                     question = request[0]['multimodal_locality_prompt']
                     metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -671,11 +673,10 @@ class MultimodalEditor:
                     metrics['post'].pop('multimodal_locality_output')
                     metrics['pre'].pop('multimodal_locality_output')
                     
-                # TODO rel_locality
                 if 'locality_rel_output' in metrics['post'].keys():
                     pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
-                    # TODO check the locality question
+
                     question = request[0]['locality_prompt']
                     metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -685,7 +686,7 @@ class MultimodalEditor:
                 if 'multimodal_locality_rel_output' in metrics['post'].keys():
                     pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                     post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
-                    # TODO check the locality question
+
                     question = request[0]['multimodal_locality_prompt']
                     metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
                                                             test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -716,9 +717,7 @@ class MultimodalEditor:
                 if reload_weights:
                     self.editor.clear_editors()
                     self.editor.clean_cache()
-                # add additional metrics
-                metrics["add_neuron_num"] = self.editor.add_neuron_num
-                metrics["inner_res"] = inner_res["res"]
+
             elif self.alg_name in ['KN']:
                 with torch.no_grad():
                     if reload_weights:
@@ -930,6 +929,7 @@ class MultimodalEditor:
                 exec_time = time() - start
                 LOG.info(f"Execution {i} editing took {exec_time}")
                 start = time()
+                
                 metrics = {
                     'case_id': i,
                     "time": exec_time,
@@ -944,15 +944,19 @@ class MultimodalEditor:
                     "post": compute_icl_multimodal_edit_quality(self.model, self.model_name, self.hparams, self.tok, icl_examples,
                                                         request, self.hparams.device),
                     }
-            else:
+            
+            elif self.alg_name.lower() in ['unike']:
+                # add additional metrics
+                metrics["add_neuron_num"] = self.editor.add_neuron_num
+                metrics["inner_res"] = inner_res["res"]
+                metrics['pre'] = pres[i]
                 metrics = {
                     'case_id': i,
                     "time": exec_time,
                     "post": compute_mmke_multimodal_edit_quality_rel(self.model, edited_model, self.model_name, self.hparams, self.tok, request, self.hparams.device, self.hparams.real_world_eval)
                 }
             
-            
-            metrics['pre'] = pres[i]
+
             
             if self.alg_name == 'UNIKE':
                 if 'locality_output' in metrics['inner_res'].keys():
@@ -994,11 +998,11 @@ class MultimodalEditor:
                 metrics['post'].pop('multimodal_locality_output')
                 metrics['pre'].pop('multimodal_locality_output')
 
-            # TODO: calculate the locality accuracy (real world)
+            # calculate the locality accuracy (real world)
             if 'locality_rel_output' in metrics['post'].keys():
                 pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
                 post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
-                # TODO check the locality question
+
                 question = request['locality_prompt']
                 metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
                                                         test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -1008,7 +1012,7 @@ class MultimodalEditor:
             if 'multimodal_locality_rel_output' in metrics['post'].keys():
                 pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
                 post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
-                # TODO check the locality question
+
                 question = request['multimodal_locality_prompt']
                 metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
                                                         test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
@@ -1032,9 +1036,6 @@ class MultimodalEditor:
                 if reload_weights:
                     self.editor.clear_editors()
                     self.editor.clean_cache()
-                # add additional metrics
-                metrics["add_neuron_num"] = self.editor.add_neuron_num
-                metrics["inner_res"] = inner_res["res"]
             elif self.alg_name in ['KN']:
                 with torch.no_grad():
                     if reload_weights:
