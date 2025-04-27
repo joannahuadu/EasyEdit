@@ -107,7 +107,7 @@ class LLavaModel(nn.Module):
         position_ids = torch.zeros(len(id_lens), max_length, device=pad_ids.device)
         for i, input_id in enumerate(input_ids):
             length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
-            wrapped_input_ids[i, :length] = input_id[:length]
+            wrapped_input_ids[i, :length] = input_id[0,:length]
             attention_mask[i, :length] = 1 
             position_ids[i, :length] = torch.arange(length, device=pad_ids.device)
         

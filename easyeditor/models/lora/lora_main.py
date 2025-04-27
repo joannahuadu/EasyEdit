@@ -1,11 +1,17 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Tuple
 from peft import get_peft_model, AdaLoraConfig, TaskType, get_peft_model_state_dict, set_peft_model_state_dict, LoraConfig
+from peft.tuners.lora.config import CordaConfig
+from peft.tuners.lora.corda import preprocess_corda
+from datasets import load_dataset
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .lora_hparams import LoRAHyperParams, LoRAMultimodalHyperParams
 from ...trainer.losses import masked_log_probs
+
+from tqdm import tqdm
 
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
@@ -65,13 +71,6 @@ def execute_lora(
     llava_model.enable_input_require_grads()
     if hparams.lora_type == "lora":
         Config = LoraConfig
-    elif hparams.lora_type == "adalora":
-        Config = AdaLoraConfig
-    else:
-        raise NotImplementedError
-    if not keep_original_weight and hasattr(model, 'peft_config'):
-        peft_model = llava_model
-    else:
         peft_config = Config(
             task_type=TaskType.CAUSAL_LM,
             inference_mode=False,
@@ -80,6 +79,52 @@ def execute_lora(
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules
         )
+    elif hparams.lora_type == "adalora":
+        Config = AdaLoraConfig
+        peft_config = Config(
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=hparams.rank,
+            lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
+            layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
+            target_modules=hparams.target_modules
+        )
+    elif hparams.lora_type == "corda":
+        # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
+        sampled_dataset = load_dataset("wikipedia", '20200501.en', split="train[:256]")
+        
+        # dataset = load_dataset("imdb", split="train[:256]")
+        def run_model():
+            for batch in tqdm(sampled_dataset):
+                # input_ids = batch["text"]
+                # input_ids = input_ids.to(model.device)
+                samples = [
+                    {
+                        "text_input": [batch["text"]],
+                        "image": None,
+                    }
+                ][0]
+                with torch.no_grad():
+                    model(samples)
+        corda_config = CordaConfig(
+            corda_method="kpm"
+        )
+        peft_config = LoraConfig(
+            init_lora_weights="corda",
+            corda_config=corda_config,
+            # task_type=TaskType.CAUSAL_LM,
+            # inference_mode=False,
+            # r=hparams.rank,
+            # lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
+            # layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
+            target_modules=hparams.target_modules
+        )
+        preprocess_corda(llava_model, lora_config=peft_config, run_model=run_model)
+    else:
+        raise NotImplementedError
+    if not keep_original_weight and hasattr(model, 'peft_config'):
+        peft_model = llava_model
+    else:
         peft_model = get_peft_model(llava_model, peft_config).to(torch.bfloat16)
 
     peft_model.is_parallelizable = True

@@ -85,7 +85,7 @@ def edit_LoRA_LLaVA_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, config=hparams)
+    eval_ds = VQADataset(file_path, size= 5, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
