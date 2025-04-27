@@ -68,7 +68,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum() + request['image_toks']
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids) + 1)
+            lookup_idxs.append(ex_len - len(target_ids))
             image_suffix = tok.encode((request["prompt"].format(request['subject']) + request["prompt_template"].format(request["prompt"])).split('\n')[1])
             lookup_img_idxs.append(ex_len - len(target_ids) - len(image_suffix) + 2)
     else:
@@ -79,7 +79,7 @@ def compute_z(
         for i in range(len(rewriting_prompts)):
             ex_len = input_tok["attention_mask"][i].sum()
             rewriting_targets[i, ex_len - len(target_ids) : ex_len] = target_ids
-            lookup_idxs.append(ex_len - len(target_ids) + 1)
+            lookup_idxs.append(ex_len - len(target_ids))
     
 
     # Finalize rewrite and loss layers

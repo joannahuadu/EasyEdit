@@ -222,7 +222,8 @@ class LLavaModel(nn.Module):
             length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
             wrapped_input_ids[i, :length] = input_id[:length]
         input_ids = wrapped_input_ids
-        
+        device = self.llava_model.get_input_embeddings().weight.device
+        input_ids = input_ids.to(device)
         outputs = self.llava_model.generate(
                 inputs=input_ids,                
                 images=images,
