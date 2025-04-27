@@ -302,7 +302,7 @@ def test_locality_real_multimodal(tok, hparams, question, pre_tokens, post_token
 
         score = 0.0
         if not post_gen_content:
-            return score, post_gen_content
+            return score, post_gen_content, pre_gen_content
         eval_method = "Exact Match" # Default
         if hasattr(hparams, 'api_key') and hparams.api_key:
             eval_method = "LLM Judge"

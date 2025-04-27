@@ -44,6 +44,8 @@ fp16: false
 # image
 coco_image: /data/lishichao/data/model_edit/
 rephrase_image: /data/lishichao/data/model_edit/
+train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
+eval_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json
 exact_match: True
 
 # Trace
@@ -52,3 +54,7 @@ result_dir: /data/lishichao/data/model_edit/results
 
 # Evaluation
 real_world_eval: true
+api_key: "/home/lishichao/project/api_key.json"
+all_metrics_name: 'all_metrics_layer7_ex_num10.jsonl'
+json_dir: /home/lishichao/project/EasyEdit/results/jsonl
+continuous_sample: 1

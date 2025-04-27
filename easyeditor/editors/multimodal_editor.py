@@ -377,8 +377,8 @@ class MultimodalEditor:
         # load all metrics
         task=kwargs.get('task', None)
         num_edits = 1
-        self.model_backup = copy.deepcopy(self.model.cpu())
-        self.model.cuda()
+        # self.model_backup = copy.deepcopy(self.model.cpu())
+        # self.model.cuda()
         all_metrics = []
         reload_weights = True
         local_counter = 0
@@ -419,7 +419,7 @@ class MultimodalEditor:
                 os.makedirs('./results/cache/')
             save_object(pres, cached_path)
 
-        self.model.zero_grad()
+        # self.model.zero_grad()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue

@@ -57,10 +57,16 @@ class UnKEMultimodalHyperParams(HyperParams):
     # Image_dir
     coco_image: str
     rephrase_image: str  
+    train_annotation_path: str
+    eval_annotation_path: str
     exact_match: bool = False
     
     # Evaluation
     real_world_eval: bool = False
+    api_key: Optional[str] = None
+    json_dir: Optional[str] = None
+    all_metrics_name: Optional[str] = None
+    continuous_sample: Optional[int] = 1
 
     ## Multimodal
     qformer_checkpoint: Optional[str] = None
