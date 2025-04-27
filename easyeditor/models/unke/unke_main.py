@@ -48,9 +48,9 @@ def get_context_templates(model, tok, multimodal_generation=False):
 
     return CONTEXT_TEMPLATES_CACHE
 
-def get_VQA_ds(prompt,template):
-    annotation_path = '/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json'
-    image_root = '/data/lishichao/data/model_edit/'
+def get_VQA_ds(prompt,template,hparams):
+    annotation_path = hparams.train_annotation_path
+    image_root = hparams.vqa_image
     raw_ds = VQADataset_Simple(prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
     return raw_ds
 
@@ -94,11 +94,11 @@ def apply_unke_to_model(
         prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
         template = request["prompt_template"] if "prompt_template" in request else None
     if prompt:
-        ds = get_VQA_ds(prompt,template) 
+        ds = get_VQA_ds(prompt,template,hparams) 
     else:
         assert "No prompt is defined for multimodal text inputs"
     # Retrieve the external dataset
-    ds = get_VQA_ds(prompt=prompt,template=template)
+    ds = get_VQA_ds(prompt=prompt,template=template, hparams=hparams)
     # Create the DataLoader
     loader = DataLoader(
         ds,
@@ -146,17 +146,6 @@ def execute_unke(
             f"UnKE request sample: "
             f"[{request['prompt'].format(request['subject'])}] -> [{request['target_new']}]"
         )
-
-    # Retrieve weights that user desires to change
-    weights = {
-        f"{hparams.rewrite_module_tmp.format(layer)}.weight": nethook.get_parameter(
-            model, f"{hparams.rewrite_module_tmp.format(layer)}.weight"
-        )
-        for layer in hparams.layers
-    }
-    # Save old weights for future restoration
-    weights_copy = {k: v.detach().clone() for k, v in weights.items()}
-
 
     # Compute z for final layer
     context_templates = get_context_templates(model, tok, multimodal_generation=True if 'image' in request else False)
@@ -296,10 +285,16 @@ def execute_unke(
         
         _layer = nethook.get_module(model, hparams.layer_module_tmp.format(layer))
         
+        weights={}
         for n,m in _layer.named_parameters():
-            
+            # Save old weights for future restoration
+            weights .update({
+                f"{hparams.layer_module_tmp.format(layer)}.{n}": nethook.get_parameter(
+                    model, f"{hparams.layer_module_tmp.format(layer)}.{n}"
+                )
+            })
             m.requires_grad=True
-            
+        weights_copy = {k: v.detach().clone() for k, v in weights.items()}
         params = get_optimizer_params(_layer,hparams.lr)
     
         optimizer = optim.AdamW(params,lr=hparams.lr,eps=1e-8,betas = (0.9,0.999))

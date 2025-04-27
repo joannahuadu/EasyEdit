@@ -1168,7 +1168,7 @@ class MultimodalEditor:
                             for k, v in self.weights_copy.items():
                                 # copy the old weights to new model
                                 nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
-                        torch.cuda.empty_cache()
+                torch.cuda.empty_cache()
                         
             # save the metrics dynamically       
             if load_metrics_path is not None:

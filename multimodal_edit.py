@@ -114,9 +114,9 @@ def edit_LoRA_LLaVA_MMKE(args):
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
     )
     pprint(metrics)
-
-def edit_UnKE_LLaVA_VQA(layers = [5]):
-    hparams = UnKEMultimodalHyperParams.from_hparams('/home/lishichao/project/EasyEdit/hparams/UnKE/llava')
+    
+def edit_UnKE_LLaVA_VQA(args):
+    hparams = UnKEMultimodalHyperParams.from_hparams('hparams/UnKE/llava')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
@@ -127,6 +127,25 @@ def edit_UnKE_LLaVA_VQA(layers = [5]):
         keep_original_weight=True,
         task='vqa',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
+def edit_UnKE_LLaVA_MMKE(args):
+    hparams = UnKEMultimodalHyperParams.from_hparams('hparams/UnKE/llava_mmke')
+    editor = MultimodalEditor.from_hparams(hparams)
+    if hasattr(args, 'data_type'):
+        setattr(hparams, 'data_type', args.data_type)
+    if 'random_' in args.data_type:
+        random_data_type = args.data_type.replace('random_', '')
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.random_data_type), config=hparams, hop=args.hop)
+    else:
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), config=hparams, hop=args.hop)
+    metrics, edited_model, _ = editor.edit_MMKE_dataset(
+        ds=eval_ds,
+        train_ds='train_ds',
+        keep_original_weight=True,
+        task=f'MMKE_{args.data_type}',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
     )
     pprint(metrics)
 

@@ -55,6 +55,7 @@ class UnKEMultimodalHyperParams(HyperParams):
     result_dir: str
     
     # Image_dir
+    vqa_image: str
     coco_image: str
     rephrase_image: str  
     train_annotation_path: str
