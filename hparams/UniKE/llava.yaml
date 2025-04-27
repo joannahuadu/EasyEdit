@@ -6,7 +6,7 @@ model_name: llava
 model_class: LlamaForCausalLM
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
+cache_dir: /home/wmq/.cache/huggingface/hub
 inner_params: []
 
 tp_layers:
@@ -93,10 +93,10 @@ result_dir: /data/lishichao/data/model_edit/results
 # Multimodal
 
 # image
-coco_image: /data/lishichao/data/model_edit/
-rephrase_image: /data/lishichao/data/model_edit/
-train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
-eval_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_eval.json
+coco_image: /mnt/data2/wmq/
+rephrase_image: /mnt/data2/wmq/
+train_annotation_path: /mnt/data2/wmq/editing-data/vqa/vqa_train.json
+eval_annotation_path: /mnt/data2/wmq/editing-data/vqa/vqa_eval.json
 
 max_add_neuron_num: 25
 freeze_model: True
@@ -126,9 +126,9 @@ do_clip_norm: True
 
 # Evaluation
 real_world_eval: True
-api_key: "/home/lishichao/project/api_key.json"
+api_key: "/mnt/data2/wmq/api_key.json"
 all_metrics_name: 'all_metrics_ep100.jsonl'
-json_dir: /home/lishichao/project/EasyEdit/results/jsonl
+json_dir: /mnt/data2/wmq/EasyEdit/results/jsonl
 continuous_sample: 1
 
 # ike
