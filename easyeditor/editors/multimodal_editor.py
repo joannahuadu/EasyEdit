@@ -390,10 +390,10 @@ class MultimodalEditor:
                 with open(jsonl_file_path, 'w') as f:
                     pass
             
-            all_metrics = load_object(jsonl_file_path)
+            all_metrics = load_object(jsonl_file_path, format='jsonl')
             local_counter = len(all_metrics)
             LOG.info(f"Loaded metrics from {jsonl_file_path}")
-        
+        flag = local_counter
         # compute the pre-edit results
         pres = []
         cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
@@ -421,7 +421,8 @@ class MultimodalEditor:
 
         self.model.zero_grad()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
-
+            if i < flag:
+                continue
             start = time()
             request = self._prepare_requests_dataset(
                     prompts = [request['prompt']],
@@ -702,7 +703,7 @@ class MultimodalEditor:
 
                 all_metrics.append(metrics)
             
-            if i == 0:
+            if i == flag:
                 self.weights_copy = weights_copy
             # if do not use continuous edit, restore the edit layers
             local_counter += 1
@@ -786,10 +787,10 @@ class MultimodalEditor:
                 with open(jsonl_file_path, 'w') as f:
                     pass
             
-            all_metrics = load_object(jsonl_file_path)
+            all_metrics = load_object(jsonl_file_path, format='jsonl')
             local_counter = len(all_metrics)
             LOG.info(f"Loaded metrics from {jsonl_file_path}")
-        
+        flag = local_counter
         # compute the pre-edit results
         pres = []
         cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
@@ -825,7 +826,8 @@ class MultimodalEditor:
 
 
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
-            
+            if i < flag:
+                continue
             start = time()
             """Add instruction tuning template"""
             request.update({"prompt_template":self.prompt_template})
@@ -1124,8 +1126,8 @@ class MultimodalEditor:
                     )
 
                 all_metrics.append(metrics)
-                        
-            if i == 0:
+            
+            if i == flag:
                 self.weights_copy = weights_copy
             # if do not use continuous edit, restore the edit layers
             local_counter += 1

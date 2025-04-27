@@ -165,7 +165,7 @@ def _prepare_requests(prompts: Union[str, List[str]],
     return requests
 
 import pickle
-def load_object(file_path):
+def load_object(file_path, format='pkl'):
 #     with open(file_path, 'rb') as f:
 #         obj = pickle.load(f)
 #     return obj
@@ -175,9 +175,16 @@ def load_object(file_path):
         return []  # 如果文件为空，返回一个空的列表
     
     try:
-        with open(file_path, 'rb') as f:
-            obj = pickle.load(f)
-        return obj  # 返回从文件加载的对象
+        if format == 'jsonl':
+            data = []
+            with open(file_path, 'r') as f:
+                for line in f:
+                    data.append(json.loads(line))
+            return data
+        else:
+            with open(file_path, 'rb') as f:
+                obj = pickle.load(f)
+            return obj  # 返回从文件加载的对象
     except EOFError:
         print(f"The file {file_path} is empty or corrupted.")
         return []  # 如果文件为空或无法读取，返回空的列表
