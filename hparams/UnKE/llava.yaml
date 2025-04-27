@@ -42,6 +42,7 @@ mom2_dtype: "float32"
 model_parallel: false
 fp16: false
 # image
+vqa_image: /data/lishichao/data/model_edit/
 coco_image: /data/lishichao/data/model_edit/
 rephrase_image: /data/lishichao/data/model_edit/
 train_annotation_path: /data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json
