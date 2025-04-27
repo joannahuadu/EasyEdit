@@ -419,7 +419,7 @@ class MultimodalEditor:
                 os.makedirs('./results/cache/')
             save_object(pres, cached_path)
 
-        # self.model.zero_grad()
+        self.model.zero_grad()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
@@ -767,8 +767,8 @@ class MultimodalEditor:
         or print(f'DataSet {ds} not supported yet.')
 
         num_edits = 1
-        self.model_backup = copy.deepcopy(self.model.cpu())
-        self.model.cuda()
+        # self.model_backup = copy.deepcopy(self.model.cpu())
+        # self.model.cuda()
         # num_edits = self.hparams.batch_size
         all_metrics = []
         
@@ -824,7 +824,7 @@ class MultimodalEditor:
                 os.makedirs('./results/cache/')
             save_object(pres, cached_path)
 
-
+        self.model.zero_grad()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
