@@ -147,17 +147,6 @@ def execute_unke(
             f"[{request['prompt'].format(request['subject'])}] -> [{request['target_new']}]"
         )
 
-    # Retrieve weights that user desires to change
-    weights = {
-        f"{hparams.rewrite_module_tmp.format(layer)}.weight": nethook.get_parameter(
-            model, f"{hparams.rewrite_module_tmp.format(layer)}.weight"
-        )
-        for layer in hparams.layers
-    }
-    # Save old weights for future restoration
-    weights_copy = {k: v.detach().clone() for k, v in weights.items()}
-
-
     # Compute z for final layer
     context_templates = get_context_templates(model, tok, multimodal_generation=True if 'image' in request else False)
     z_layer = hparams.layers[-1]
@@ -296,10 +285,16 @@ def execute_unke(
         
         _layer = nethook.get_module(model, hparams.layer_module_tmp.format(layer))
         
+        weights={}
         for n,m in _layer.named_parameters():
-            
+            # Save old weights for future restoration
+            weights .update({
+                f"{hparams.layer_module_tmp.format(layer)}.{n}": nethook.get_parameter(
+                    model, f"{hparams.layer_module_tmp.format(layer)}.{n}"
+                )
+            })
             m.requires_grad=True
-            
+        weights_copy = {k: v.detach().clone() for k, v in weights.items()}
         params = get_optimizer_params(_layer,hparams.lr)
     
         optimizer = optim.AdamW(params,lr=hparams.lr,eps=1e-8,betas = (0.9,0.999))
