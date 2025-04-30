@@ -22,6 +22,7 @@ from ..models.dpo import DPOHyperParams, apply_dpo_to_model
 from ..models.rome import rome_causal_trace
 from ..models.unke import UnKEMultimodalHyperParams, apply_unke_to_model
 from ..models.unike import UniKEHyperParams, apply_unike_to_model_mm
+from ..models.roselora import RoseLoRAMultimodalHyperParams, apply_roselora_to_model
 
 ALG_DICT = {
     'ROME': apply_rome_to_model,
@@ -57,7 +58,8 @@ ALG_MULTIMODAL_DICT = {
     'AlphaEdit':apply_AlphaEdit_to_model,
     'DPO': apply_dpo_to_model,
     'UNIKE': apply_unike_to_model_mm,
-    'LoRA': apply_lora_to_model
+    'LoRA': apply_lora_to_model,
+    'RoseLoRA': apply_roselora_to_model
 }
 
 PER_ALG_DICT = {

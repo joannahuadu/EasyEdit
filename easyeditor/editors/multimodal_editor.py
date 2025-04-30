@@ -640,7 +640,7 @@ class MultimodalEditor:
                     self.tok,
                     request,
                     self.hparams,
-                    copy=False,
+                    copy=True,
                     return_orig_weights=True,
                     keep_original_weight=keep_original_weight
                 )

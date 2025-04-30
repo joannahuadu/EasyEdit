@@ -29,7 +29,7 @@ class VQADataset(BaseDataset):
         if config.model_name == "Blip2OPT":
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
-            vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
             # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
         elif config.model_name ==  "qwen-vl":
             vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
@@ -214,10 +214,13 @@ import json
 from torchvision import transforms
 # To compute cov for ROME, MEMIT、 AlphaEdit
 class VQADataset_Simple(BaseDataset):
-    def __init__(self, prompt, template, annotation_file, image_root, image_size=256):
+    def __init__(self, prompt, template, annotation_file, image_root, size=None, image_size=256):
         self.image_root = image_root
         with open(annotation_file,'r',encoding='utf-8') as f:
-            self.annotations = json.load(f)
+            if size:
+                self.annotations = json.load(f)[:size]
+            else: 
+                self.annotations = json.load(f)
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
