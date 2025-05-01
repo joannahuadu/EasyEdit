@@ -166,6 +166,25 @@ def edit_RoseLoRA_LLaVA_VQA(args):
     )
     pprint(metrics)
 
+def edit_RoseLoRA_LLaVA_MMKE(args):
+    hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/llava_mmke.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    if hasattr(args, 'data_type'):
+        setattr(hparams, 'data_type', args.data_type)
+    if 'random_' in args.data_type:
+        random_data_type = args.data_type.replace('random_', '')
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.random_data_type), config=hparams, hop=args.hop)
+    else:
+        eval_ds = CaptionDataset(hparams.eval_annotation_path.format(args.data_type), config=hparams, hop=args.hop)
+    metrics, edited_model, _ = editor.edit_MMKE_dataset(
+        ds=eval_ds,
+        train_ds='train_ds',
+        keep_original_weight=True,
+        task=f'MMKE_{args.data_type}',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
+    )
+    pprint(metrics)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Choose which model to edit using MEMIT.")
     parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4'],
