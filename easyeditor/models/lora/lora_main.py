@@ -1,8 +1,8 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Tuple
 from peft import get_peft_model, AdaLoraConfig, TaskType, get_peft_model_state_dict, set_peft_model_state_dict, LoraConfig
-from peft.tuners.lora.config import CordaConfig
-from peft.tuners.lora.corda import preprocess_corda
+# from peft.tuners.lora.config import CordaConfig
+# from peft.tuners.lora.corda import preprocess_corda
 from datasets import load_dataset
 
 import torch
