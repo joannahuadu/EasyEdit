@@ -114,7 +114,22 @@ def edit_LoRA_LLaVA_MMKE(args):
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
     )
     pprint(metrics)
+
+def edit_LoRA_Qwen_VQA(args):
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/qwen2.5-VL-7b.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
     
+    eval_ds = VQADataset(file_path, size=5, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
 def edit_UnKE_LLaVA_VQA(args):
     hparams = UnKEMultimodalHyperParams.from_hparams('hparams/UnKE/llava')
     editor = MultimodalEditor.from_hparams(hparams)

@@ -16,6 +16,10 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import LlamaTokenizer, LlamaForCausalLM
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from transformers import GPT2TokenizerFast, GPT2Tokenizer
+from transformers import (Qwen2_5_VLForConditionalGeneration, 
+                          Qwen2_5_VLProcessor, 
+                          AutoProcessor,
+                          )
 from ..util.globals import *
 from .batch_editor import BatchEditor
 from ..evaluate import (compute_icl_multimodal_edit_quality, 
@@ -138,6 +142,24 @@ class MultimodalEditor:
                 self.image_toks = 576 - 1
                 # Get vis_processor
                 vis_processor = model.image_processor
+                
+            elif hparams.model_name == 'qwen2.5_vl':
+                from ..trainer.qwen_models import QwenVLModel
+                # from ..trainer.qwen_models.constants import DEFAULT_IMAGE_TOKEN 
+                if isinstance(hparams.device, str):
+                    model = QwenVLModel(
+                        qwen_model=hparams.name, 
+                        device_map="auto",
+                        )
+                else:
+                    model = QwenVLModel(
+                        qwen_model=hparams.name, 
+                        device_map="auto",
+                        )
+                # self.tok = AutoProcessor.from_pretrained(hparams.model_name)
+                vis_processor = Qwen2_5_VLProcessor()
+                self.model_name = "qwen2.5_vl"
+                
             self.model = model
             self.vis_tok = vis_processor
             if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
