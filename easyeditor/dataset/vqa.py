@@ -81,6 +81,10 @@ class VQADataset(BaseDataset):
             image = Image.open(image_path).convert("RGB")
             rephrase_image = Image.open(rephrase_image_path).convert("RGB")
             locality_image = Image.open(locality_image_path).convert("RGB")
+            
+            ori_image = image
+            ori_rephrase_image = rephrase_image
+            ori_locality_image = locality_image
 
             image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
             rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
@@ -93,6 +97,8 @@ class VQADataset(BaseDataset):
                 'rephrase_prompt': record['rephrase'],
                 'image': image,
                 'image_rephrase': rephrase_image,
+                'ori_image': ori_image,
+                'ori_rephrase_image': ori_rephrase_image,
                 'cond': "{} >> {} || {}".format(
                     record['pred'],
                     record['alt'],
@@ -104,6 +110,7 @@ class VQADataset(BaseDataset):
             item['locality_ground_truth'] = record['loc_ans']
             
             item['multimodal_locality_image'] = locality_image
+            item['ori_multimodal_locality_image'] = ori_locality_image
             item['multimodal_locality_prompt'] = record['m_loc_q']
             item['multimodal_locality_ground_truth'] = record['m_loc_a']
             data.append(item)
@@ -118,7 +125,7 @@ class VQADataset(BaseDataset):
     def __len__(self):
         return len(self._data)
 
-    def collate_fn(self, batch):
+    def collate_fn_bp(self, batch):
         src = [b['prompt'] for b in batch]
         trg = [" " + b['target'] for b in batch]
         cond = [b['cond'] for b in batch]
@@ -209,6 +216,23 @@ class VQADataset(BaseDataset):
             "cond": cond
         }
         return dict_to(batch, self.config.device)
+    
+    def collate_fn(self, batch):
+        elem = batch[0]
+        collated = {}
+
+        for key in elem:
+            if isinstance(elem[key], torch.Tensor):
+                collated[key] = torch.stack([d[key] for d in batch])
+            elif isinstance(elem[key], (int, float, str)):
+                collated[key] = [d[key] for d in batch]
+            elif isinstance(elem[key], Image.Image):
+                collated[key] = [d[key] for d in batch]
+            elif isinstance(elem[key], list):
+                collated[key] = [d[key] for d in batch]
+            else:
+                raise TypeError(f"Unsupported type in batch for key '{key}': {type(elem[key])}")
+        return collated
     
 import json
 from torchvision import transforms

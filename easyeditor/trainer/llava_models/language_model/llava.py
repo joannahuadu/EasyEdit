@@ -112,7 +112,7 @@ class LLavaModel(nn.Module):
             position_ids[i, :length] = torch.arange(length, device=pad_ids.device)
         
         input_ids = wrapped_input_ids
-        
+        labels = samples['labels'] if 'labels' in samples else None
         if 'trace' in samples and samples['trace']:
             assert 'subject' in samples and 'ori_text_input' in samples, "Causal tracing must specify `subject` and `ori_text_input`."
             subject_ids = self.llava_tokenizer(
@@ -140,10 +140,6 @@ class LLavaModel(nn.Module):
                 text_input_ids=text_input_ids)
         else:
             if images is not None and images[0] is not None:
-                is_train = samples.get('train', False)  # 默认非训练模式
-                labels_for_train = input_ids.clone()
-                labels_for_train[input_ids == self.llava_tokenizer.pad_token_id] = -100
-
                 (
                     input_ids,
                     position_ids,
@@ -156,7 +152,7 @@ class LLavaModel(nn.Module):
                     position_ids=position_ids,
                     attention_mask=attention_mask,
                     past_key_values=None,
-                    labels=labels_for_train if is_train else None,
+                    labels=labels,
                     images=images
                 )
 

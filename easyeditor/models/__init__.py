@@ -21,3 +21,4 @@ from .dola import *
 from .deepedit_api import *
 from .unke import *
 from .unike import *
+from .mmelo import *

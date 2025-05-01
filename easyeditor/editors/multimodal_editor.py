@@ -22,7 +22,8 @@ from ..evaluate import (compute_icl_multimodal_edit_quality,
                         compute_multimodal_edit_results,
                         compute_multimodal_edit_results_demo,
                         compute_mmke_multimodal_edit_quality_rel,
-                        test_locality_real_multimodal) 
+                        test_locality_real_multimodal,
+                        compute_multimodal_edit_results_for_melo) 
 from ..util import nethook
 from ..util.hparams import HyperParams
 from ..util.alg_dict import *
@@ -33,6 +34,9 @@ import random
 import math
 import copy
 import gc
+
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -171,6 +175,25 @@ class MultimodalEditor:
                             margin_val2=hparams.margin_val2, device=self.hparams.device,
                             hparams=hparams,
                         )
+        if self.alg_name == 'MMELO':
+            if hparams.dropout is not None:
+                n_reset = 0
+                for m in model.modules():
+                    if isinstance(m, nn.Dropout):
+                        m.p = hparams.dropout
+                        n_reset += 1
+
+                    if hasattr(m, "dropout"):  # Requires for BART, which uses F.dropout
+                        if isinstance(m.dropout, float):
+                            m.dropout = hparams.dropout
+                            n_reset += 1
+
+                    if hasattr(m, "activation_dropout"):  # Requires for BART, which uses F.dropout
+                        if isinstance(m.activation_dropout, float):
+                            m.activation_dropout = hparams.dropout
+                            n_reset += 1
+
+                LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
     def edit(self,
             prompts: Union[str, List[str]],
             targets: Union[str, List[str]],
@@ -359,6 +382,191 @@ class MultimodalEditor:
             LOG.info(f"Evaluation took {time() - start}")
             all_metrics.extend(chunk_metrics)
         
+        return all_metrics, edited_model, weights_copy
+
+    def edit_dataset_batch(self,
+                     ds: Dataset,
+                     keep_original_weight=False,
+                     verbose=True,               
+                     **kwargs
+                     ):
+        # Make Sure dataset supported
+        assert sum([isinstance(ds, ds_in_dict) for ds_in_dict in MULTIMODAL_DS_DICT.values()]) > 0, \
+        f'DataSet {ds} not supported yet.'
+
+        if isinstance(self.hparams.device, str):
+            self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+        
+        assert hasattr(self.hparams, 'batch_size'), "Please specify batch_size in hparams."
+        # load all metrics
+        
+        eval_loader = DataLoader(ds, batch_size=self.hparams.batch_size, shuffle=False, collate_fn=ds.collate_fn)
+        task=kwargs.get('task', None)
+        num_edits = 1
+        n_edits = 0
+        # self.model_backup = copy.deepcopy(self.model.cpu())
+        # self.model.cuda()
+        all_metrics = []
+        reload_weights = True
+        local_counter = 0
+        load_metrics_path = kwargs.get('load_metrics_path', None)
+        if load_metrics_path is not None:
+            os.makedirs(load_metrics_path, exist_ok=True)
+            jsonl_file_path = os.path.join(load_metrics_path, self.hparams.all_metrics_name)
+            if not os.path.isfile(jsonl_file_path):
+                with open(jsonl_file_path, 'w') as f:
+                    pass
+            
+            all_metrics = load_object(jsonl_file_path, format='jsonl')
+            local_counter = len(all_metrics)
+            LOG.info(f"Loaded metrics from {jsonl_file_path}")
+        
+        assert local_counter % self.hparams.batch_size == 0, f"Please make sure the local_counter is divisible by {self.hparams.batch_size}."
+        flag = local_counter%self.hparams.batch_size
+        
+        # compute the pre-edit results
+        pres = []
+        cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
+        if os.path.exists(cached_path):
+            pres = load_object(cached_path)
+            LOG.info(f"Load pre results from cached path: {cached_path}")
+        else:
+            for i, batch in tqdm(enumerate(eval_loader), desc='Results before editing', total=len(eval_loader)):
+                request_batch = self._prepare_requests_dataset_batch(
+                    prompts = [b for b in batch['prompt']],
+                    targets = [b for b in batch['target']],
+                    images = [b for b in batch['image']] ,
+                    rephrase_prompts = [b for b in batch['rephrase_prompt']],
+                    rephrase_images = [b for b in batch['image_rephrase']],
+                    locality_inputs = [{"text":{"prompt":batch['locality_prompt'][i],"ground_truth":batch["locality_ground_truth"][i]},
+                                       "vision":{"prompt": batch["multimodal_locality_prompt"][i], "ground_truth": batch["multimodal_locality_ground_truth"][i], "image": batch["multimodal_locality_image"][i]}} for i in range(len(batch['prompt']))],
+                    **kwargs)
+                for i, request in enumerate(request_batch):
+                    pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
+                                                        request, self.hparams.device, self.hparams.real_world_eval)
+                    pres.append(pre)
+            if not os.path.exists('./results/cache/'):
+                os.makedirs('./results/cache/')
+            save_object(pres, cached_path)
+        
+        self.model.zero_grad()
+        batch_history = []
+        for i, batch in enumerate(tqdm(eval_loader, desc='Editing dataset', total=len(eval_loader))):
+            if i < flag:
+                continue
+            start = time()
+            request_batch = self._prepare_requests_dataset_batch(
+                    prompts = [b for b in batch['prompt']],
+                    targets = [b for b in batch['target']],
+                    images = [b for b in batch['image']],
+                    rephrase_prompts = [b for b in batch['rephrase_prompt']],
+                    rephrase_images = [b for b in batch['image_rephrase']],
+                    locality_inputs = [{"text":{"prompt":batch['locality_prompt'][i],"ground_truth":batch["locality_ground_truth"][i]},
+                                       "vision":{"prompt": batch["multimodal_locality_prompt"][i], "ground_truth": batch["multimodal_locality_ground_truth"][i], "image": batch["multimodal_locality_image"][i]}} for i in range(len(batch['prompt']))],
+                    **kwargs)
+            for idx, request in enumerate(request_batch):
+                request.update({'ori_image': batch['ori_image'][idx],
+                               'ori_rephrase_image': batch['ori_rephrase_image'][idx],
+                               'ori_locality_image': batch['ori_multimodal_locality_image'][idx]})
+            
+            if self.alg_name.lower() == 'mmelo':
+                if n_edits < self.hparams.max_n_edits:
+                    n_edits += self.hparams.batch_size
+                    batch_history.append(request_batch)
+                    edited_model, router, weights_copy = self.apply_algo(
+                        self.model,
+                        self.tok,
+                        request_batch,
+                        self.hparams,
+                        copy=False,
+                        return_orig_weights=True,
+                        keep_original_weight=keep_original_weight,
+                        idx = i,
+                    )
+                    exec_time = time() - start
+                    LOG.info(f"Execution {i} editing took {exec_time}")
+                    start = time()
+                    with torch.no_grad():
+                        if (i >= 0 and n_edits % self.hparams.melo.metric_period == 0) or (i == len(eval_loader) - 1):
+                            for k, eval_batch in enumerate(batch_history):
+                                batch_post = compute_multimodal_edit_results_for_melo(edited_model, router, eval_batch, self.hparams, self.tok,
+                                                                eval_batch, self.hparams.device, self.hparams.real_world_eval)
+
+                                for j, request in enumerate(request_batch):
+                                    batch_post_j = batch_post[j]
+                                    pre = pres[k*self.hparams.batch_size+j]
+                                    metrics = {
+                                        'case_id': k*self.hparams.batch_size+j,
+                                        "time": exec_time,
+                                        "post": batch_post_j,
+                                        "pre": pre                                        
+                                    }
+                                # TODO locality
+
+                    LOG.info(f"Evaluation took {time() - start}")
+
+                    if verbose:
+                        LOG.info(
+                            f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}"
+                        )
+
+                    all_metrics.append(metrics)
+                    torch.cuda.empty_cache()
+            else:
+                raise NotImplementedError(f"Editing method {self.alg_name} not supported yet.")
+            
+            if i == flag:
+                self.weights_copy = weights_copy
+            # if do not use continuous edit, restore the edit layers
+            local_counter += 1
+            if local_counter % self.hparams.continuous_sample == 0:
+                local_counter = 0 # restore the counter
+                reload_weights = True
+            else:
+                reload_weights = False
+            torch.cuda.empty_cache()
+            
+            # TODO reload the weights for melo
+            if self.alg_name == 'UNIKE':
+                if reload_weights:
+                    self.editor.clear_editors()
+                    self.editor.clean_cache()
+
+            elif self.alg_name in ['KN']:
+                with torch.no_grad():
+                    if reload_weights:
+                        # weights_copy() # unpatch_fn
+                        self.model.load_state_dict(self.model_backup.state_dict())
+                        self.model.cuda()
+                    else:
+                        self.model.load_state_dict(edited_model.state_dict())
+                        edited_model = edited_model.cpu()
+                        del edited_model
+                        self.model.cuda()
+                torch.cuda.empty_cache()
+            else:
+                with torch.no_grad():
+                    if reload_weights:
+                        for k, v in self.weights_copy.items():
+                            nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                    else:
+                        if self.hparams.alg_name == 'FT_MULTI':
+                            for k, v in self.weights_copy.items():
+                                # copy the old weights to new model
+                                nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model, k).to(f"cuda:{self.hparams.device}")
+                        else:
+                            for k, v in self.weights_copy.items():
+                                # copy the old weights to new model
+                                nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
+                        torch.cuda.empty_cache()
+                        
+            # save the metrics dynamically       
+            if load_metrics_path is not None:
+                with open(jsonl_file_path, 'a') as f:
+                    json.dump(metrics, f, ensure_ascii=False)
+                    f.write('\n')
+            gc.collect()
+            torch.cuda.empty_cache()
         return all_metrics, edited_model, weights_copy
 
     def edit_dataset(self,
@@ -1751,4 +1959,194 @@ class MultimodalEditor:
                             'multimodal_portability_ground_truth': multimodal_portability_ground_truth[i],
                         }
                     )
+        return requests
+
+    def _prepare_requests_dataset_batch(self,
+        prompts: Union[str, List[str]],
+        targets: Union[str, List[str]],
+        images: Union[str, List[str]],
+        rephrase_prompts: Optional[Union[str, List[str]]] = None,
+        rephrase_images: Optional[Union[str, List[str]]] = None,
+        locality_inputs: Optional[List[Dict]] = None,
+        portability_inputs: Optional[List[Dict]] = None,
+        targets_neg: Optional[List[str]] = None,
+        **kwargs):
+        # Ensure that inputs are lists if they are not already
+        if isinstance(prompts, str):
+            prompts = [prompts]
+        if isinstance(targets, str):
+            targets = [targets]
+        if isinstance(images, str):
+            images = [images]
+        if isinstance(rephrase_prompts, str):
+            rephrase_prompts = [rephrase_prompts]
+        if isinstance(rephrase_images, str):
+            rephrase_images = [rephrase_images]
+        if isinstance(locality_inputs, dict):
+            locality_inputs = [locality_inputs]
+        if isinstance(portability_inputs, dict):
+            portability_inputs = [portability_inputs]
+
+        # Ensure that all lists have the same length
+        assert len(prompts) == len(targets) == len(images), "Prompts, targets, and images must have the same length"
+
+        # Replicate locality_inputs if necessary to match the length of requests (prompts)
+        if locality_inputs is not None:
+            if len(locality_inputs) < len(prompts):
+                locality_inputs = (locality_inputs * math.ceil(len(prompts) / len(locality_inputs)))[:len(prompts)]
+                random.shuffle(locality_inputs)  # Shuffle to randomize the locality input order
+
+        # Replicate portability_inputs if necessary to match the length of requests (prompts)
+        if portability_inputs is not None:
+            if len(portability_inputs) < len(prompts):
+                portability_inputs = (portability_inputs * math.ceil(len(prompts) / len(portability_inputs)))[:len(prompts)]
+                random.shuffle(portability_inputs)  # Shuffle to randomize the portability input order
+
+        # Create requests list
+        requests = [{
+            'ori_prompt': prompt,
+            'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
+            'target': target,
+            'image': image_,
+            'prompt_template': self.prompt_template,
+            'image_toks': self.image_toks,
+        } for prompt, target, image_ in zip(prompts, targets, images)]
+
+        # Handle 'subject' keyword in kwargs
+        if 'subject' in kwargs:
+            if isinstance(kwargs['subject'], str):
+                kwargs['subject'] = [kwargs['subject'],]
+            else:
+                assert len(kwargs['subject']) == len(prompts)
+            for prompt_, subject_ in zip(prompts, kwargs['subject']):
+                assert subject_ in prompt_, print(f'Subject:{subject_} do not exist in prompt: {prompt_}')
+
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'subject': kwargs['subject'][i]
+                    }
+                )
+        else:
+            for request in requests:
+                request.update(
+                    {
+                        # 'subject': request["prompt"].split()[-1]
+                        'subject': request["prompt_template"].split()[-1]
+                        
+                    }
+                )
+        if targets_neg is not None:
+            if isinstance(targets_neg, str):
+                targets_neg = [targets_neg]
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'targets_neg': targets_neg[i],
+                    }
+                )
+        # Handle rephrase prompts
+        if rephrase_prompts is not None:
+            for i, request in enumerate(requests):
+                request.update({
+                    'ori_rephrase_prompt': rephrase_prompts[i],
+                    'rephrase_prompt': self.prompt.format(rephrase_prompts[i]) if request['image'] is not None else rephrase_prompts[i],
+                })
+        if rephrase_images is not None:
+            if isinstance(rephrase_images, str):
+                rephrase_images = [rephrase_images, ]
+            
+            for i, request in enumerate(requests):
+                request.update(
+                    {
+                        'image_rephrase': rephrase_images[i],
+                    }
+                )
+        # Handle locality inputs (text and vision)
+        if locality_inputs is not None:
+            for i, locality_input in enumerate(locality_inputs):
+                request = requests[i]
+                if "text" in locality_input:
+                    locality_prompts = locality_input['text']['prompt']
+                    locality_ground_truth = locality_input['text']['ground_truth']
+                    locality_prompts = [locality_prompts] if isinstance(locality_prompts, str) else locality_prompts
+                    locality_ground_truth = [locality_ground_truth] if isinstance(locality_ground_truth, str) else locality_ground_truth
+                    request.update(
+                        {
+                            'ori_locality_prompt': locality_prompts[0],
+                            'locality_prompt': locality_prompts[0],
+                            'locality_ground_truth':locality_ground_truth[0]
+                        }
+                    )
+                # One sample has one locality and portability input, return index 0, if there are multiple locality inputs, remove[0] 
+                # Vision locality
+                if "vision" in locality_input:
+                    vision_prompts = locality_input['vision']['prompt']
+                    vision_ground_truth = locality_input['vision']['ground_truth']
+                    vision_images = locality_input['vision']['image']
+                    vision_prompts = [vision_prompts] if isinstance(vision_prompts, str) else vision_prompts
+                    vision_ground_truth = [vision_ground_truth] if isinstance(vision_ground_truth, str) else vision_ground_truth
+                    vision_images = [vision_images] if isinstance(vision_images, str) else vision_images
+                    # vision_images_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in vision_images]
+                    # vision_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in vision_images_path]
+                    # if 'llava' in self.hparams.model_name:
+                    #     vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
+                    # else:
+                    #     vision_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
+                    request.update(
+                        {
+                            'ori_multimodal_locality_prompt': vision_prompts[0],
+                            'multimodal_locality_image': vision_images,
+                            'multimodal_locality_prompt': [self.prompt.format(item) for item in vision_prompts][0],
+                            'multimodal_locality_ground_truth': vision_ground_truth[0]
+                        }
+                    )
+        # Handle portability inputs (text and vision)
+        if portability_inputs is not None:
+            for i, portability_input in enumerate(portability_inputs):
+                request = requests[i]
+                if "text" in portability_input:
+                    portability_prompts = portability_input['text']['prompt']
+                    portability_ground_truth = portability_input['text']['ground_truth']
+                    portability_image = portability_input['text']['image']
+                    portability_prompts = [portability_prompts] if isinstance(portability_prompts, str) else portability_prompts
+                    portability_ground_truth = [portability_ground_truth] if isinstance(portability_ground_truth, str) else portability_ground_truth
+                    portability_images = [portability_image] if isinstance(portability_image, str) else portability_image
+                    # portability_image_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in portability_image]
+                    # portability_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in portability_image_path]
+                    # if 'llava' in self.hparams.model_name:
+                        # portability_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_images]
+                    # else:
+                        # portability_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in portability_images]
+                    request.update(
+                        {
+                            'portability_prompt': [self.prompt.format(item) for item in portability_prompts][0],
+                            'portability_ground_truth': portability_ground_truth[0],
+                            'portability_image': portability_images
+                        }
+                    )
+                   
+
+                # Vision portability
+                if "vision" in portability_input:
+                    vision_prompts = portability_input['vision']['prompt']
+                    vision_ground_truth = portability_input['vision']['ground_truth']
+                    vision_images = portability_input['vision']['image']
+                    vision_prompts = [vision_prompts] if isinstance(vision_prompts, str) else vision_prompts
+                    vision_ground_truth = [vision_ground_truth] if isinstance(vision_ground_truth, str) else vision_ground_truth
+                    vision_images = [vision_images] if isinstance(vision_images, str) else vision_images
+                    # vision_images_path = [os.path.join(self.vis_root, image_) if image_ is not None else None for image_ in vision_images]
+                    # vision_images = [Image.open(ip).convert("RGB") if ip is not None else None for ip in vision_images_path]
+                    # if 'llava' in self.hparams.model_name:
+                    #     vision_images = [self.vis_tok.preprocess(i, return_tensors='pt')['pixel_values'].half().to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
+                    # else:
+                    #     vision_images = [self.vis_tok(i).to(f"cuda:{self.hparams.device}") if i is not None else None for i in vision_images]
+                    request.update(
+                        {
+                            'multimodal_portability_prompt': [self.prompt.format(item) for item in vision_prompts][0],
+                            'multimodal_portability_ground_truth': vision_ground_truth[0],
+                            'multimodal_portability_image': vision_images,
+                        }
+                    )
+
         return requests
