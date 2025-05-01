@@ -848,7 +848,7 @@ class MultimodalEditor:
                     self.tok,
                     request,
                     self.hparams,
-                    copy=False,
+                    copy=kwargs['copy'] if 'copy' in kwargs.keys() else False,
                     return_orig_weights=True,
                     keep_original_weight=keep_original_weight
                 )

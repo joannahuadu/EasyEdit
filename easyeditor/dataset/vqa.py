@@ -238,10 +238,13 @@ import json
 from torchvision import transforms
 # To compute cov for ROME, MEMIT、 AlphaEdit
 class VQADataset_Simple(BaseDataset):
-    def __init__(self, prompt, template, annotation_file, image_root, image_size=256):
+    def __init__(self, prompt, template, annotation_file, image_root, size=None, image_size=256):
         self.image_root = image_root
         with open(annotation_file,'r',encoding='utf-8') as f:
-            self.annotations = json.load(f)
+            if size:
+                self.annotations = json.load(f)[:size]
+            else: 
+                self.annotations = json.load(f)
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
