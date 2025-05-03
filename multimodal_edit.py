@@ -7,7 +7,7 @@ from easyeditor import AlphaMultimodalHyperParams
 from easyeditor import LoRAMultimodalHyperParams
 from easyeditor import UniKEHyperParams
 from easyeditor import UnKEMultimodalHyperParams
-from easyeditor import MELOMultimodalHyperParams
+# from easyeditor import MELOMultimodalHyperParams
 from easyeditor import RoseLoRAMultimodalHyperParams
 from easyeditor import CaptionDataset, VQADataset
 
@@ -91,10 +91,11 @@ def edit_LoRA_LLaVA_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, size= 5, config=hparams)
+    eval_ds = VQADataset(file_path, size=5, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
+        copy=True,
         keep_original_weight=True,
         task='vqa',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
@@ -115,6 +116,7 @@ def edit_LoRA_LLaVA_MMKE(args):
     metrics, edited_model, _ = editor.edit_MMKE_dataset(
         ds=eval_ds,
         train_ds='train_ds',
+        copy=True,
         keep_original_weight=True,
         task=f'MMKE_{args.data_type}',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_{args.data_type}_MMKE')
@@ -132,7 +134,8 @@ def edit_LoRA_Qwen_VQA(args):
         train_ds=eval_ds,
         keep_original_weight=True,
         task='vqa',
-        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA'),
+        copy=False,
     )
     pprint(metrics)
 

@@ -68,7 +68,8 @@ def multiclass_log_probs(config, pred, targ, shift=False, eps=torch.finfo(torch.
 
     mask = targ != -100
     targ[~mask] = NULL_TOKEN  # Can be any valid token, since we'll throw them out
-    unmasked_log_probs = pred.log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
+    pred = pred.to(targ.device)
+    unmasked_log_probs = pred.to(targ.device).log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
     
     # debug
     # print(pred.shape, targ.shape)

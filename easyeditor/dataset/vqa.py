@@ -18,6 +18,7 @@ import torch
 import transformers
 from transformers import AutoTokenizer
 from tqdm import tqdm
+from transformers import AutoProcessor
 
 class VQADataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
@@ -36,6 +37,10 @@ class VQADataset(BaseDataset):
         elif "owl-2" in config.model_name.lower():
             from transformers.models.clip.image_processing_clip import CLIPImageProcessor
             vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
+        elif "qwen2.5_vl" in config.model_name.lower():
+            #from transformers import Qwen2VLImageProcessor
+            #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
+            vis_processor = None
         else:
             raise NotImplementedError("unknown model class")
         
@@ -85,11 +90,14 @@ class VQADataset(BaseDataset):
             ori_image = image
             ori_rephrase_image = rephrase_image
             ori_locality_image = locality_image
-
-            image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
-            rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
-            locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
-                      
+            if self.vis_processor is not None:
+                image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
+                rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+                locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+            else:
+                image = [image]
+                rephrase_image = [rephrase_image]
+                locality_image = [locality_image]     
             item = {
                 'prompt': record['src'],
                 'pred': record['pred'],

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, List
 
 from transformers import (Qwen2_5_VLForConditionalGeneration, 
-                          Qwen2_5_VLModel,
                           Qwen2_5_VLProcessor, 
                           AutoProcessor,
                           )
@@ -36,7 +35,7 @@ class QwenVLModel(nn.Module):
         super().__init__()
         
         self.tokenizer = AutoTokenizer.from_pretrained(qwen_model, cache_dir=cache_dir, use_fast=False)
-        self.qwen_model = Qwen2_5_VLModel.from_pretrained(
+        self.qwen_model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             qwen_model,
             low_cpu_mem_usage=True,
             cache_dir=cache_dir,
@@ -49,45 +48,39 @@ class QwenVLModel(nn.Module):
         return list(self.parameters())[-1].device
 
     def forward(self, samples, output_attentions=False):
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": samples["image"],
-                    },
-                    {"type": "text", "text": samples["text_input"]},
-                ],
-            }
-        ]
-        # Preparation for inference
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        image_inputs, video_inputs = process_vision_info(messages)
-        inputs = self.processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to("cuda")
-        
+        image = samples["image"]
+        prompts = samples["text_input"]
+        targets = samples["answer"] if "answer" in samples else [None]*len(prompts)
+        if isinstance(image, List):
+            num_images = len(image)
+        else:
+            num_images = 1
+            
+        # do not append the target in the end in generation
+        text_input = [self.processor.apply_chat_template([
+                        {
 
-
-        outputs = self.llava_model(
-                **inputs,
+                            "role": "user",
+                            "content": [
+                                {"type": "image"}
+                            ] * num_images + [{"type": "text", "text": p}],
+                        },
+                    ],
+                    add_generation_prompt=True,
+                    tokenize=False) + (' ' + l if l else "")
+                for p, l in zip(prompts, targets)] 
+        multimodal_inputs = self.processor(images=image, text=text_input, return_tensors="pt").to(self._device(), dtype=torch.bfloat16)
+        outputs = self.qwen_model(
+                **multimodal_inputs,
                 use_cache=True,
                 output_attentions=output_attentions)
         
         return QwenOutput(
             loss=outputs.loss,
             logits=outputs.logits,
-            attention_mask=outputs.attention_mask,
-            position_ids=outputs.position_ids,
-            attn_weights=outputs.attentions if outputs.attentions else None
+            # attention_mask=outputs.attention_mask,
+            # position_ids=outputs.position_ids,
+            # attn_weights=outputs.attentions if outputs.attentions else None
         )
     
     def generate(
@@ -95,42 +88,41 @@ class QwenVLModel(nn.Module):
         samples, 
         **kwargs,
         ):
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "image": samples["image"],
-                    },
-                    {"type": "text", "text": samples["text_input"]},
-                ],
-            }
-        ]
-        # Preparation for inference
-        text = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        image_inputs, video_inputs = process_vision_info(messages)
-        inputs = self.processor(
-            text=[text],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-        inputs = inputs.to("cuda")
-        outputs = self.qwen_model(**inputs, max_new_tokens=self.max_context_len)
-        
+        image = samples["image"]
+        prompts = samples["text_input"]
+        targets = samples["answer"]
+        if isinstance(image, List):
+            num_images = len(image)
+        else:
+            num_images = 1
+        # do not append the target in the end in generation
+        text_input = [self.processor.apply_chat_template([
+                        {
+
+                            "role": "user",
+                            "content": [
+                                {"type": "image"}
+                            ] * num_images + [{"type": "text", "text": p}],
+                        },
+                    ],
+                    add_generation_prompt=True,
+                    tokenize=False)
+                for p, l in zip(prompts, targets)] 
+        multimodal_inputs = self.processor(images=image, text=text_input, return_tensors="pt").to(self._device(), dtype=torch.bfloat16)
+
+        outputs = self.qwen_model.generate(**multimodal_inputs, **kwargs)
+        input_token_length = multimodal_inputs["input_ids"].shape[1]
+        outputs = outputs[:,input_token_length:]
         answers = []
         for output_token in outputs:
             if output_token[0] == 0:
                 output_token = output_token[1:]
-            output_texts = self.tokenizer.decode(output_token, skip_special_tokens=True)
-            output_texts = output_texts.split('###')[0]  # remove the stop sign </s>
-            output_texts = output_texts.replace("<s>", "")
-            output_texts = output_texts.split(r'[/INST]')[-1].strip()
-            answers.append(output_texts)
+            #TODO
+            # output_texts = self.tokenizer.decode(output_token, skip_special_tokens=True)
+            # output_texts = output_texts.split('###')[0]  # remove the stop sign </s>
+            # output_texts = output_texts.replace("<s>", "")
+            # output_texts = output_texts.split(r'[/INST]')[-1].strip()
+            # answers.append(output_texts)
 
         return answers
     def generate_tokens(
@@ -138,39 +130,31 @@ class QwenVLModel(nn.Module):
         samples, 
         **kwargs,
         ):
-        if "text_input" in samples:
-            if "noise" in samples and samples["noise"]:
-                ## only suject embedding with no image and no answer: noise generation for causal tracing, thus no need for prompt template.
-                texts = samples['text_input']
-            else:
-                texts = [self.prompt_template.format(item) for item in samples['text_input']]
+        image = samples["image"]
+        prompts = samples["text_input"]
+        targets = samples["answer"]
+        if isinstance(image, List):
+            num_images = len(image)
         else:
-            texts = None
-        
-        if 'image' in samples and samples['image'] is not None:
-            images = samples["image"]
-        else:
-            images = None
-        
-        input_ids = []
-        for text in texts:
-            input_ids.append(self.tokenizer_image_token([text], IMAGE_TOKEN_INDEX, return_tensors='pt').unsqueeze(0).to(list(self.parameters())[-1].device))
-        # input_ids = torch.cat(input_ids, dim=0) 
-        id_lens = [input_id.shape[1] for input_id in input_ids]
-        pad_ids = torch.tensor(self.llava_tokenizer.pad_token_id, device=list(self.parameters())[-1].device)
+            num_images = 1
+            
+        # do not append the target in the end in generation
+        text_input = [self.processor.apply_chat_template([
+                        {
 
-        max_length = max(id_lens) if max(id_lens) < self.max_context_len else self.max_context_len
-        wrapped_input_ids = pad_ids.expand(len(id_lens), max_length).clone()
-        
-        for i, input_id in enumerate(input_ids):
-            length = id_lens[i] if id_lens[i] < self.max_context_len else self.max_context_len
-            wrapped_input_ids[i, :length] = input_id[:length]
-        input_ids = wrapped_input_ids
-        
-        outputs = self.llava_model.generate(
-                inputs=input_ids,                
-                images=images,
-                **kwargs)
-        
+                            "role": "user",
+                            "content": [
+                                {"type": "image"}
+                            ] * num_images + [{"type": "text", "text": p}],
+                        },
+                    ],
+                    add_generation_prompt=True,
+                    tokenize=False)
+                for p, l in zip(prompts, targets)] 
+        multimodal_inputs = self.processor(images=image, text=text_input, return_tensors="pt").to(self._device(), dtype=torch.bfloat16)
+
+        outputs = self.qwen_model.generate(**multimodal_inputs, **kwargs)
+        input_token_length = multimodal_inputs["input_ids"].shape[1]
+        outputs = outputs[:,input_token_length:]
 
         return outputs
