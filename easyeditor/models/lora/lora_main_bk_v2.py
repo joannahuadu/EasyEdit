@@ -42,7 +42,7 @@ def apply_lora_to_model(
         model = deepcopy(model)
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
+    if hasattr(model, "llava_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -71,16 +71,11 @@ def execute_lora(
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
 
-    if hasattr(model, "llava_model"):
-        sub_model = model.llava_model
-    elif hasattr(model, "qwen_model"):
-        sub_model = model.qwen_model
-    else:
-        sub_model = model
-    sub_model.config.use_cache = False
-    sub_model.supports_gradient_checkpointing = True  #
-    sub_model.gradient_checkpointing_enable()
-    sub_model.enable_input_require_grads()
+    llava_model = model.llava_model if hasattr(model, "llava_model") else model
+    llava_model.config.use_cache = False
+    llava_model.supports_gradient_checkpointing = True  #
+    llava_model.gradient_checkpointing_enable()
+    llava_model.enable_input_require_grads()
     if hparams.lora_type == "lora":
         Config = LoraConfig
         peft_config = Config(
@@ -154,13 +149,13 @@ def execute_lora(
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules
         )
-        preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
+        preprocess_corda(llava_model, lora_config=peft_config, run_model=run_model)
     else:
         raise NotImplementedError
     if not keep_original_weight and hasattr(model, 'peft_config'):
-        peft_model = sub_model
+        peft_model = llava_model
     else:
-        peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
+        peft_model = get_peft_model(llava_model, peft_config).to(torch.bfloat16)
 
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True

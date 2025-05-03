@@ -66,8 +66,8 @@ class LoRAMultimodalHyperParams(HyperParams):
     name: str
     tokenizer_name: str
     tokenizer_class: str
-    cache_dir: str
     model_class: str
+    cache_dir: Optional[str] = None
 
     # Defaults
     batch_size: int = 128

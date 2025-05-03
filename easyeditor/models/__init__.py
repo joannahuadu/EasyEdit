@@ -6,7 +6,7 @@ from .mend import *
 from .rome import *
 from .serac import *
 from .pmet import *
-from .melo import *
+# from .melo import *
 from .grace import *
 from .malmen import *
 from .dinm import *
@@ -21,5 +21,5 @@ from .dola import *
 from .deepedit_api import *
 from .unke import *
 from .unike import *
-from .mmelo import *
+# from .mmelo import *
 from .roselora import *

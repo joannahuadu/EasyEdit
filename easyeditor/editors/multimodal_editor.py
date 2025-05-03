@@ -16,10 +16,15 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers import LlamaTokenizer, LlamaForCausalLM
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from transformers import GPT2TokenizerFast, GPT2Tokenizer
+from transformers import (Qwen2_5_VLForConditionalGeneration, 
+                          Qwen2_5_VLProcessor, 
+                          AutoProcessor,
+                          )
 from ..util.globals import *
 from .batch_editor import BatchEditor
 from ..evaluate import (compute_icl_multimodal_edit_quality, 
                         compute_multimodal_edit_results,
+                        compute_multimodal_edit_results_qwen,
                         compute_multimodal_edit_results_demo,
                         compute_mmke_multimodal_edit_quality_rel,
                         test_locality_real_multimodal,
@@ -142,6 +147,30 @@ class MultimodalEditor:
                 self.image_toks = 576 - 1
                 # Get vis_processor
                 vis_processor = model.image_processor
+                
+            elif hparams.model_name == 'qwen2.5_vl':
+                from ..trainer.qwen_models import QwenVLModel
+                from transformers import Qwen2VLImageProcessor
+
+                # from ..trainer.qwen_models.constants import DEFAULT_IMAGE_TOKEN 
+                if isinstance(hparams.device, str):
+                    model = QwenVLModel(
+                        qwen_model=hparams.name, 
+                        device_map="auto",
+                        )
+                else:
+                    model = QwenVLModel(
+                        qwen_model=hparams.name, 
+                        device_map="cuda:{}".format(hparams.device),
+                        )
+                # self.tok = AutoProcessor.from_pretrained(hparams.model_name)
+                # vis_processor = Qwen2VLImageProcessor.from_pretrained(hparams.name)
+                vis_processor = None
+                self.prompt = None
+                self.prompt_template = None
+                self.image_toks = None
+                self.model_name = "qwen2.5_vl"
+                
             self.model = model
             self.vis_tok = vis_processor
             if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
@@ -609,8 +638,12 @@ class MultimodalEditor:
         f'DataSet {ds} not supported yet.'
 
         if isinstance(self.hparams.device, str):
-            self.hparams.device = str(self.model.llava_model.device).split(":")[1]
-        
+            if self.hparams.model_name == "llava":
+                self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+            elif self.hparams.model_name == "qwen2.5_vl":
+                self.hparams.device = str(self.model.qwen_model.device).split(":")[1]
+            else:
+                self.hparams.device = str(self.model.device).split(":")[1]
         # load all metrics
         task=kwargs.get('task', None)
         num_edits = 1
@@ -649,7 +682,11 @@ class MultimodalEditor:
                                     "vision":{"prompt": request["multimodal_locality_prompt"], "ground_truth":request["multimodal_locality_ground_truth"], "image":request["multimodal_locality_image"]}
                                     },
                     **kwargs)
-                pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
+                if self.hparams.model_name == "qwen2.5_vl":
+                    pre = compute_multimodal_edit_results_qwen(self.model, self.model_name, self.hparams, self.tok,
+                                                    request[0], self.hparams.device, self.hparams.real_world_eval)
+                else:
+                    pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
                                                     request[0], self.hparams.device, self.hparams.real_world_eval)
                 pres.append(pre)
             if not os.path.exists('./results/cache/'):
@@ -789,12 +826,20 @@ class MultimodalEditor:
                                                         request[0], self.hparams.device),
                     }
                 else:
-                    metrics = {
-                        'case_id': i,
-                        "time": exec_time,
-                        "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
-                    }
+                    if self.hparams.model_name == "qwen2.5_vl":
+                        metrics = {
+                            'case_id': i,
+                            "time": exec_time,
+                            "post": compute_multimodal_edit_results_qwen(edited_model, self.model_name, self.hparams, self.tok,
+                                                                request[0], self.hparams.device, self.hparams.real_world_eval),
+                        }
+                    else:
+                        metrics = {
+                            'case_id': i,
+                            "time": exec_time,
+                            "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
+                                                                request[0], self.hparams.device, self.hparams.real_world_eval),
+                        }
                 # add additional metrics
                 metrics["add_neuron_num"] = self.editor.add_neuron_num
                 metrics["inner_res"] = inner_res["res"]
@@ -885,12 +930,21 @@ class MultimodalEditor:
             
                 LOG.info(f"Execution {i} editing took {exec_time}")
                 start = time()
-                metrics = {
-                    'case_id': i,
-                    "time": exec_time,
-                    "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
-                                                        request[0], self.hparams.device, self.hparams.real_world_eval),
-                }
+
+                if self.hparams.model_name == "qwen2.5_vl":
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results_qwen(edited_model, self.model_name, self.hparams, self.tok,
+                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
+                    }
+                else:
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
+                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
+                    }
                 metrics["pre"] = pres[i]
                 # calculate the locality accuracy
                 if 'locality_output' in metrics['post'].keys():
@@ -1849,10 +1903,10 @@ class MultimodalEditor:
             image = [image, ]
             
         requests = [{
-            'prompt': self.prompt.format(prompt) if image_ is not None else prompt,
+            'prompt': self.prompt.format(prompt) if image_ is not None and self.prompt is not None else prompt,
             'target': target,
             'image': image_,
-            'prompt_template': self.prompt_template,
+            'prompt_template': self.prompt_template if self.prompt_template is not None else None,
             'image_toks': self.image_toks,
         }        
         for prompt, target, image_ in zip(prompts, targets, image)
@@ -1876,7 +1930,7 @@ class MultimodalEditor:
                 request.update(
                     {
                         # 'subject': request["prompt"].split()[-1]
-                        'subject': request["prompt_template"].split()[-1]
+                        'subject': request["prompt_template"].split()[-1] if request["prompt_template"] else request["prompt"].split()[-1]
                         
                     }
                 )
@@ -1909,7 +1963,7 @@ class MultimodalEditor:
             for i, request in enumerate(requests):
                 request.update(
                     {
-                        'rephrase_prompt': self.prompt.format(rephrase_prompts[i]) if request['image'] is not None else rephrase_prompts[i],
+                        'rephrase_prompt': self.prompt.format(rephrase_prompts[i]) if request['image'] is not None and self.prompt is not None else rephrase_prompts[i],
                     }
                 )
         if rephrase_image is not None:
@@ -1938,7 +1992,7 @@ class MultimodalEditor:
                 request.update(
                     {
                         'multimodal_locality_image': multimodal_locality_image[i],
-                        'multimodal_locality_prompt': self.prompt.format(multimodal_locality_prompts[i]) if multimodal_locality_image[i] is not None else multimodal_locality_prompts[i],
+                        'multimodal_locality_prompt': self.prompt.format(multimodal_locality_prompts[i]) if multimodal_locality_image[i] is not None and self.prompt is not None else multimodal_locality_prompts[i],
                         'multimodal_locality_ground_truth': multimodal_locality_ground_truth[i],
                     }
                 )
@@ -1973,7 +2027,7 @@ class MultimodalEditor:
                 for i, request in enumerate(requests):
                     request.update(
                         {
-                            'portability_prompt': self.prompt.format(portability_prompts[i]) if portability_image[i] is not None else portability_prompts[i],
+                            'portability_prompt': self.prompt.format(portability_prompts[i]) if portability_image[i] is not None and self.prompt is not None else portability_prompts[i],
                             'portability_ground_truth': portability_ground_truth[i],
                             'portability_image': portability_image[i]
                         }
@@ -1984,7 +2038,7 @@ class MultimodalEditor:
                     request.update(
                         {
                             'multimodal_portability_image': multimodal_portability_image[i],
-                            'multimodal_portability_prompt': self.prompt.format(multimodal_portability_prompts[i]) if multimodal_portability_image[i] is not None else multimodal_portability_prompts[i],
+                            'multimodal_portability_prompt': self.prompt.format(multimodal_portability_prompts[i]) if multimodal_portability_image[i] is not None and self.prompt is not None else multimodal_portability_prompts[i],
                             'multimodal_portability_ground_truth': multimodal_portability_ground_truth[i],
                         }
                     )

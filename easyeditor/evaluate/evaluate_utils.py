@@ -270,7 +270,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         )
     # --- 4. Output Processing & Truncation ---
     # LLaVA is decoder-only, output includes prompt tokens. Slice them off.
-    prompt_len = edit_prompt['prompts_len']
+    # prompt_len = edit_prompt['prompts_len']
     # gen_tokens shape is typically (batch_size, sequence_length)
     # trunc_gen_tokens = gen_tokens[0][prompt_len:]
     trunc_gen_tokens = gen_tokens[0] # LLaVa gen_tokens do not contain prompt tokens.
