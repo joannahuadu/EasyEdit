@@ -163,7 +163,7 @@ def edit_MELO_LLaVA_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     hparams.batch_size = hparams.melo.num_edit_per_block
-    eval_ds = VQADataset(file_path, size = 16, config=hparams)
+    eval_ds = VQADataset(file_path, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset_batch(
         ds=eval_ds,
         keep_original_weight=True,

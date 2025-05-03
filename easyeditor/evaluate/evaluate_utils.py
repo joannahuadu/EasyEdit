@@ -219,7 +219,7 @@ def test_prediction_acc_real(model, tok, hparams, prompt, target, device, locali
             EM_Score = float(exact_match_score(gen_content, target))
             return EM_Score, gen_content
 
-def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device, locality=False):
+def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device, locality=False, router=None):
 
     if 'noise' in edit_prompt and edit_prompt['noise']:
         edit_prompt['noise'] = False
@@ -244,15 +244,30 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
     if effective_pad_token_id is None and eos_token_id is None:
             raise ValueError("Cannot proceed with generation: Both pad_token_id and eos_token_id are None.")
     model.eval()
-    gen_tokens = model.generate_tokens(
-        edit_prompt,
-        max_new_tokens=50,           # Max tokens to generate *after* the prompt
-        eos_token_id=eos_token_id,   # Token ID(s) to stop generation
-        pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
-        do_sample=False,             # Deterministic output for evaluation
-        use_cache=True,              # Standard optimization for generation
-        # Removed stop_strings, relying on eos_token_id and max_new_tokens
-    )
+    if hasattr(model, 'generate_tokens'):
+        gen_tokens = model.generate_tokens(
+            edit_prompt,
+            max_new_tokens=50,           # Max tokens to generate *after* the prompt
+            eos_token_id=eos_token_id,   # Token ID(s) to stop generation
+            pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
+            do_sample=False,             # Deterministic output for evaluation
+            use_cache=True,              # Standard optimization for generation
+            # Removed stop_strings, relying on eos_token_id and max_new_tokens
+        )
+    else:
+        assert(hparams.alg_name.lower() == 'mmelo')
+        assert(router is not None)
+        lora_block_mapping = router.get_lora_mapping(edit_prompt)
+        model.set_lora_mapping(lora_block_mapping)
+        gen_tokens = model.model.generate_tokens(
+            edit_prompt,
+            max_new_tokens=50,           # Max tokens to generate *after* the prompt
+            eos_token_id=eos_token_id,   # Token ID(s) to stop generation
+            pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
+            do_sample=False,             # Deterministic output for evaluation
+            use_cache=True,              # Standard optimization for generation
+            # Removed stop_strings, relying on eos_token_id and max_new_tokens
+        )
     # --- 4. Output Processing & Truncation ---
     # LLaVA is decoder-only, output includes prompt tokens. Slice them off.
     prompt_len = edit_prompt['prompts_len']

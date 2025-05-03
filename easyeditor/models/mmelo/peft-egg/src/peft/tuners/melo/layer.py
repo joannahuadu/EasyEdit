@@ -59,7 +59,7 @@ class Dynamic(nn.Module):
         assert len(self.LORA_BLOCK_MAPPING) != 0, "No element in LORA_BLOCK_MAPPING"
         for block_id in self.LORA_BLOCK_MAPPING:
             if block_id == self.NO_LORA:
-                zero_tensor = torch.zeros((self.num_rank_per_block,inputs.shape[1]),device=inputs.device)
+                zero_tensor = torch.zeros((self.num_rank_per_block,inputs.shape[1]),device=inputs.device).to(inputs.dtype)
                 block_list.append(zero_tensor)
             else:
                 start, end = self.block_rank_mapping(block_id)

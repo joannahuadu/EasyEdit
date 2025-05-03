@@ -17,17 +17,16 @@ from .database.tools import NO_LORA
 LOG = logging.getLogger(__name__)
 
 class vqa_trainer:
-    def __init__(self, config, alg, batch, i):
-        self.config = config
+    def __init__(self, router, alg, batch, i):
         self.alg = alg
         self.batch = batch
         self.i = i
-        self.router = Router(self.config)
+        self.router = router
 
     def run_edit(self):    
         self.alg.enable_melo()
         batch_query, batch_query_vision = self.router.batch_embed(self.batch["edit_inner"])
-        self.router.database_batch_add(batch_query, batch_query_vision)
+        self.router.database_batch_add(batch_query, batch_query_vision, self.i)
         self.alg.set_lora_mapping([self.i] * len(self.batch["edit_inner"]["answer"]))
         self.alg.edit(self.batch["edit_inner"], self.i)
 
