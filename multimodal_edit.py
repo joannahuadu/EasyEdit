@@ -200,6 +200,7 @@ def edit_RoseLoRA_LLaVA_VQA(args):
         ds=eval_ds,
         train_ds=eval_ds,
         keep_original_weight=True,
+        copy=True,
         task='vqa',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
     )
