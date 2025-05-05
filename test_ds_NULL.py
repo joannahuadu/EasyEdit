@@ -125,24 +125,25 @@ if __name__ == "__main__":
             self.caption_train_annotation_path = caption_train_annotation_path
             self.train_annotation_path = train_annotation_path
             self.coco_image = coco_image
-
     hparams = HParams(
         caption_train_annotation_path="/data/lishichao/data/model_edit/editing-data/caption/caption_train_edit.json",
         train_annotation_path="/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json",
-        coco_image="/data/lishichao/data/model_edit/"
+        coco_image="/public/home/wang_mq22/edit_data"
     )
     name = "null_ds"
     model_id = "llava"
-    nsamples = ???
-    seqlen=???
+    nsamples = 256
+    seqlen = 2048
     seed=233
+    prompt = '<image>\n{}'
+    
     # dataset = load_dataset("nq_open", split="train")
     # dataset.save_to_disk("/mnt/data2/wmq/EasyEdit/np_open_train")
     print(f" get_data_from: {name}, nsamples={nsamples}, seqlen={seqlen}, {seed}")
     cache_file = (
-        f"/mnt/data2/wmq/EasyEdit/np_open_train/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
+        f"/data/lishichao/data/model_edit/LoRANULL/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
     )
-    raw_ds = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336)
+    raw_ds = get_LoRANuLL_ds(hparams=hparams, prompt=prompt, template=None, size_VQA=0, size_Caption=512, size_nq=2048, size_caption_m_loc=512,size_vqa_loc=512, image_size=336)
     torch.save(raw_ds, cache_file)
     data_loader = DataLoader(
         raw_ds,

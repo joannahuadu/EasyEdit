@@ -1,7 +1,7 @@
 from datasets import load_dataset # For NQ example
 from torch.utils.data import ConcatDataset
 from torch.utils.data import DataLoader
-from typing import List
+from typing import List, Union
 import os
 import torch
 from torch.utils.data import Dataset
@@ -10,6 +10,15 @@ from PIL import Image
 from typing import Dict, Any, Optional, Callable
 from .vqa import VQADataset_X
 from .coco_caption import COCOCaptionDataset_X
+
+# def process_nq_answer(raw_answer_list):
+# # NQ answers are lists, take the first if available
+#     return raw_answer_list[0] if raw_answer_list else ""
+
+
+def save_dataset_as_list(dataset, save_path):
+    dataset_list = [example for example in dataset]
+    torch.save(dataset_list, save_path)
 
 class StandardizedDatasetWrapper(Dataset):
     """
@@ -33,10 +42,10 @@ class StandardizedDatasetWrapper(Dataset):
              answer value (e.g., take the first element of a list).
     """
     def __init__(self,
-                 underlying_dataset: Dataset,
+                 underlying_dataset: Union[Dataset, List],
                  key_mapping: Dict[str, Optional[str]],
                  image_root: Optional[str] = None,
-                 answer_processor: Optional[Callable] = None):
+                 answer_processor: Optional[bool] = False):
 
         self.underlying_dataset = underlying_dataset
         self.key_mapping = key_mapping
@@ -68,15 +77,15 @@ class StandardizedDatasetWrapper(Dataset):
         if answer_key:
             answer = raw_item.get(answer_key)
         if self.answer_processor:
-            answer = self.answer_processor(answer)
+            answer = answer[0] if answer else ""
         else:
             answer = answer if answer is not None else ""
 
         # --- Return Standardized Dict ---
         return {
-            "image": image,
-            "text_input": text_input,
-            "answer": answer
+            "image": [image],
+            "text_input": [text_input],
+            "answer": [answer]
         }
 def custom_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -93,7 +102,7 @@ def custom_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         "answer": answers
     }
 
-def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336):
+def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, size_vqa_loc=500, size_caption_m_loc=500, image_size=336):
     caption_train_annotation_path = hparams.caption_train_annotation_path
     train_annotation_path = hparams.train_annotation_path
     coco_image = hparams.coco_image
@@ -101,17 +110,23 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     VQA_SAMPLE_SIZE = size_VQA
     CAPTION_SAMPLE_SIZE = size_Caption
     NQ_SAMPLE_SIZE = size_nq
+    VQA_LOC_SAMPLE_SIZE = size_vqa_loc
+    CAPTION_M_LOC_SAMPLE_SIZE = size_caption_m_loc
+    
     IMAGE_SIZE = image_size
-    def process_nq_answer(raw_answer_list):
-    # NQ answers are lists, take the first if available
-        return raw_answer_list[0] if raw_answer_list else ""
-
     original_vqa_dataset = VQADataset_X(
         prompt = prompt,
         template = template,
         annotation_file = train_annotation_path,
         image_root = coco_image,
         size=VQA_SAMPLE_SIZE
+    )
+    original_vqa_loc_dataset = VQADataset_X(
+        prompt = prompt,
+        template = template,
+        annotation_file = train_annotation_path,
+        image_root = coco_image,
+        size=VQA_LOC_SAMPLE_SIZE
     )
     original_caption_dataset = COCOCaptionDataset_X(
         prompt = prompt,
@@ -121,22 +136,46 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         size=CAPTION_SAMPLE_SIZE
     )
 
+    original_caption_m_loc_dataset = COCOCaptionDataset_X(
+        prompt = prompt,
+        template = template,
+        annotation_file = caption_train_annotation_path,
+        image_root = coco_image,
+        size=CAPTION_M_LOC_SAMPLE_SIZE
+    )
+
     nq_hf_dataset = load_dataset("nq_open", split="train")
+    
+    
     if NQ_SAMPLE_SIZE:
         nq_hf_dataset = nq_hf_dataset.select(range(NQ_SAMPLE_SIZE))
 
+    save_dataset_as_list(nq_hf_dataset, "/data/lishichao/data/model_edit/LoRANULL/nq_hf_dataset.pt")
+    
     vqa_mapping = {
         "text_input": "text_input",      
         "image": "image",          
         "answer": "answer"       
     }
-
+    
+    vqa_loc_mapping = {
+        "text_input": "loc_prompt",
+        "image": "loc_image",
+        "answer": "loc_answer"
+    }
+    
     caption_mapping = {
         "text_input": "text_input",           
         "image": "image",          
         "answer": "answer"                     
     }
-
+    
+    caption_m_loc_mapping = {
+        "text_input": "m_loc_prompt",           
+        "image": "m_loc_image",          
+        "answer": "m_loc_answer"
+    }
+    
     nq_mapping = {
         "text_input": "question",           
         "image": None, 
@@ -149,19 +188,30 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         key_mapping=vqa_mapping,
     )
 
+    wrapped_vqa_loc = StandardizedDatasetWrapper(
+        underlying_dataset=original_vqa_loc_dataset,
+        key_mapping=vqa_loc_mapping,
+    )
+    
     wrapped_caption = StandardizedDatasetWrapper(
         underlying_dataset=original_caption_dataset,
         key_mapping=caption_mapping,
     )
+    
+    wrapped_caption_m_loc = StandardizedDatasetWrapper(
+        underlying_dataset=original_caption_m_loc_dataset,
+        key_mapping=caption_m_loc_mapping,
+    )
 
     wrapped_nq = StandardizedDatasetWrapper(
-        underlying_dataset=nq_hf_dataset,
+        # underlying_dataset=nq_hf_dataset,
+        underlying_dataset=torch.load("/data/lishichao/data/model_edit/LoRANULL/nq_hf_dataset.pt"),
         key_mapping=nq_mapping,
-        answer_processor=process_nq_answer
+        answer_processor=True
     )
     
     # --- Combine Wrapped Datasets ---
-    combined_dataset = ConcatDataset([wrapped_vqa, wrapped_caption, wrapped_nq])
+    combined_dataset = ConcatDataset([wrapped_caption, wrapped_nq, wrapped_caption_m_loc, wrapped_vqa_loc])
     
     return combined_dataset
 
@@ -179,6 +229,7 @@ if __name__ == "__main__":
 
     VQA_SAMPLE_SIZE = 20
     CAPTION_SAMPLE_SIZE = 20
+    
     NQ_SAMPLE_SIZE = 200
     IMAGE_SIZE = 336
     BATCH_SIZE = 8
