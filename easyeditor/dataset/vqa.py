@@ -309,15 +309,22 @@ class VQADataset_X(BaseDataset):
         txt = ann["src"]
         img_path = os.path.join(self.image_root, img_name)
         answer = ann["pred"]
+        # m_loc_image = ann[]
         
         image = Image.open(img_path).convert("RGB")
         image = self.transform(image)
-        
         txt = self.prompt.format(txt) if self.prompt else txt
+        
+        loc_prompt = ann['loc']
+        loc_image = None
+        loc_answer = ann["loc_ans"]
         return {
             "image":image.half(),
             "text_input": self.template.format(txt) if self.template else txt,
-            "answer": answer 
+            "answer": answer,
+            "loc_image": None,
+            "loc_prompt": self.template.format(loc_prompt) if self.template else loc_prompt,
+            "loc_answer": loc_answer
         }
     @staticmethod
     def collate_fn(batch):
