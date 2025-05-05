@@ -286,4 +286,67 @@ class VQADataset_Simple(BaseDataset):
     def __len__(self):
         return len(self.annotations)
 
-   
+class VQADataset_X(BaseDataset):
+    def __init__(self, annotation_file, image_root, prompt=None, template=None, size=None, image_size=256):
+        self.image_root = image_root
+        with open(annotation_file,'r',encoding='utf-8') as f:
+            if size:
+                self.annotations = json.load(f)[:size]
+            else: 
+                self.annotations = json.load(f)
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+        ])
+        self.prompt = prompt
+        self.template = template
+    def __len__(self):
+        return len(self.annotations)
+    
+    def __getitem__(self, idx):
+        ann = self.annotations[idx]
+        img_name = ann["image"]
+        txt = ann["src"]
+        img_path = os.path.join(self.image_root, img_name)
+        answer = ann["pred"]
+        
+        image = Image.open(img_path).convert("RGB")
+        image = self.transform(image)
+        
+        txt = self.prompt.format(txt) if self.prompt else txt
+        return {
+            "image":image.half(),
+            "text_input": self.template.format(txt) if self.template else txt,
+            "answer": answer 
+        }
+    @staticmethod
+    def collate_fn(batch):
+        images = [item["image"] for item in batch]
+        texts = [item["text_input"] for item in batch]
+        answers = [item["answer"] for item in batch]
+        # image_tensor = torch.stack(images.unsqueeze(0),dim=0)
+        return {
+            "image":images,
+            "text_input":texts, 
+            "answer": answers
+        }
+    def __len__(self):
+        return len(self.annotations)
+    
+
+
+# def get_VQA_ds(hparams, prompt, template, size=None):
+#     annotation_path = hparams.train_annotation_path
+#     image_root = hparams.coco_image
+#     raw_ds = VQADataset_Simple(size=size, prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
+#     return raw_ds
+
+# from .coco_caption import COCOCaptionDataset_X
+# def get_Caption_ds(hparams, prompt, template, size=None):
+#     annotation_path = hparams.caption_train_annotation_path
+#     image_root = hparams.coco_image
+#     raw_ds = COCOCaptionDataset_X(size=size, prompt=prompt, template=template, annotation_path=annotation_path, image_root=image_root, image_size=336)
+#     return raw_ds
+
+
+
