@@ -79,12 +79,12 @@ class Router:
                 batch_query_vision = F.normalize(self.image_encoder(pixel_values=image_preprocess).pooler_output, p=2, dim=1)
         return batch_query, batch_query_vision
 
-    def database_batch_add(self, batch_query, batch_query_vision):
+    def database_batch_add(self, batch_query, batch_query_vision, idx):
+        self.block_id = idx
         for idx, (query, query_vision) in enumerate(zip(batch_query, batch_query_vision)):
             self.VecDB.add_cluster(query.detach(), self.block_id, None, self.memory_num)
             self.VisionVecDB.add_cluster(query_vision.detach(), self.block_id, None, self.memory_num)
             self.memory_num += 1
-        self.block_id += 1
 
     def search(self, batch_query, batch_query_vision):
         if batch_query_vision is None:

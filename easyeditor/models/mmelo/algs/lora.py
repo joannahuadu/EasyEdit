@@ -51,7 +51,7 @@ class LORA(torch.nn.Module):
         self.log_dict = {}
 
         if not config.check_dir:
-            self.model = get_peft_model(model, self.lora_config)
+            self.model = get_peft_model(model, self.lora_config).to(torch.bfloat16)
         else:
             save_path = os.path.join(config.base_dir, "checkpoint", config.check_dir)
             self.load_from_checkpoint(save_path)
@@ -90,7 +90,7 @@ class LORA(torch.nn.Module):
         optimizer = torch.optim.Adam(params_to_optimize, float(self.config.melo.edit_lr))
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
-        # TODO: rewrite target
+        # rewrite target
         target_ids = batch["target_ids"]
         input_len = len(batch["input_ids"].input_ids[0]) 
         labels = torch.tensor(-100, device=f"cuda:{self.config.device}").repeat(
@@ -131,31 +131,20 @@ class LORA(torch.nn.Module):
         if lora_block_mapping is not None:
             self.set_lora_mapping(lora_block_mapping)
 
-        if isinstance(batch["image"], torch.Tensor):
-            ## TODO: rewrite target
-            labels = []
-            temp = input_ids.tolist()
-            for j, iter in enumerate(temp):
-                for k in range(len(iter)):
-                    if k < batch["prompts_len"][j]:
-                        iter[k] = -100
-                labels.append(iter)
-            labels = torch.tensor(labels)
-            labels = labels.masked_fill(
-                labels == 1, -100
-            )
+        if isinstance(batch["image"], torch.Tensor):          
             samples = {
                 "noise": True,
                 "text_input": batch['text_input'],
                 "image": batch['image'],
-                "labels": labels,
             }
-            ## TODO
+
             outputs = self.model.model(samples)
         else:
-            input_ids = batch["input_ids"]
-            attention_mask = batch["attention_mask"]
-            ## TODO
+            samples = {
+                "noise": True,
+                "text_input": batch['text_input'],
+                "image": None,
+            }
             outputs = self.model.model(samples)
 
         return outputs

@@ -55,7 +55,12 @@ def make_logs():
     LOG.addHandler(f_h)
     LOG.addHandler(s_h)
 
-
+def get_model_config(model):
+        for sub_model_name in ['llama_model', 'opt_model', 'llava_model', '']:
+            sub_model = getattr(model, sub_model_name, model if sub_model_name == '' else None)
+            if sub_model and hasattr(sub_model, 'config'):
+                return sub_model.config 
+        return None
 class MultimodalEditor:
     """Multimodal editor for all methods"""
     
@@ -223,6 +228,46 @@ class MultimodalEditor:
                             n_reset += 1
 
                 LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
+        if self.alg_name.lower() == 'loranull':
+            from ..models.loranull import get_calib_data, calib_cov_distribution, build_model2
+            calib_loader = get_calib_data(self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
+            LOG.info('Collecting covariance data for Singular_aware ...')
+            calib_cov_distribution(self.model, self.hparams.model_name, self.hparams.delete_name, self.hparams.target_modules, self.hparams.layers, calib_loader, self.hparams.use_cache, self.hparams.calib_dataset, self.hparams.calib_loader_size, seed=self.hparams.seed)
+            build_model2(self.model, self.hparams)
+            # if self.hparams.from_save is not None:
+            #     del self.model
+            #     self.model = LLavaModel(
+            #             llava_model=self.hparams.from_save,
+            #             prompt_template=prompt_template,
+            #             device_map="cuda:{}".format(hparams.device),
+            #             cache_dir=hparams.cache_dir,
+            #     )
+            # elif self.hparams.save_model:
+            #     #assert args.cov_aware == True or args.singular_aware == True or args.singular_aware_2 == True
+            #     assert self.hparams.save_path is not None
+            #     save_path = self.hparams.save_path
+            #     if not os.path.exists(self.hparams.save_path):
+            #         os.makedirs(self.hparams.save_path, exist_ok=True)
+            #     self.tok.save_pretrained(save_path)
+            #     self.model.llava_model.save_pretrained(save_path)
+            #     config = get_model_config(model).to_dict()
+            #     config["lora_r"] = self.hparams.rank
+            #     #config["atten_diag"] = args.atten_diag
+            #     config["auto_map"] = {
+            #         "AutoConfig": "llava.configuration_llava.LLavaConfig",
+            #         "AutoModelForCausalLM": "llava.modeling_llava.LLavaForCausalLM",
+            #     }
+            #     config["architectures"] = ["LoRANullLLavaForCausalLM"]
+            #     # os.system(
+            #     #     "cp ./mapping/configuration_oursvd_llama.py ./mapping/modeling_oursvd_llama.py ./"
+            #     #     + save_path
+            #     # )
+            #     import json
+
+            #     json.dump(config, open(save_path + "/config.json", "w"), indent=2)
+
+            #     print(f"Done building huggingface model in {save_path}")
+
     def edit(self,
             prompts: Union[str, List[str]],
             targets: Union[str, List[str]],
@@ -431,10 +476,7 @@ class MultimodalEditor:
         
         eval_loader = DataLoader(ds, batch_size=self.hparams.batch_size, shuffle=False, collate_fn=ds.collate_fn)
         task=kwargs.get('task', None)
-        num_edits = 1
         n_edits = 0
-        # self.model_backup = copy.deepcopy(self.model.cpu())
-        # self.model.cuda()
         all_metrics = []
         reload_weights = True
         local_counter = 0
@@ -451,8 +493,7 @@ class MultimodalEditor:
             LOG.info(f"Loaded metrics from {jsonl_file_path}")
         
         assert local_counter % self.hparams.batch_size == 0, f"Please make sure the local_counter is divisible by {self.hparams.batch_size}."
-        flag = local_counter%self.hparams.batch_size
-        
+        flag = int(local_counter/self.hparams.batch_size)
         # compute the pre-edit results
         pres = []
         cached_path = f'./results/cache/{self.hparams.model_name}_{task}_{len(ds)}.pkl' # model-dataset-specific
@@ -478,8 +519,16 @@ class MultimodalEditor:
                 os.makedirs('./results/cache/')
             save_object(pres, cached_path)
         
+        ## Edit
         self.model.zero_grad()
         batch_history = []
+        editor = self.apply_algo(
+                    self.model,
+                    self.tok,
+                    self.hparams,
+                    copy=False,
+                    return_orig_weights=True,
+                    keep_original_weight=keep_original_weight)
         for i, batch in enumerate(tqdm(eval_loader, desc='Editing dataset', total=len(eval_loader))):
             if i < flag:
                 continue
@@ -497,52 +546,82 @@ class MultimodalEditor:
                 request.update({'ori_image': batch['ori_image'][idx],
                                'ori_rephrase_image': batch['ori_rephrase_image'][idx],
                                'ori_locality_image': batch['ori_multimodal_locality_image'][idx]})
-            
-            if self.alg_name.lower() == 'mmelo':
-                if n_edits < self.hparams.max_n_edits:
-                    n_edits += self.hparams.batch_size
-                    batch_history.append(request_batch)
-                    edited_model, router, weights_copy = self.apply_algo(
-                        self.model,
-                        self.tok,
-                        request_batch,
-                        self.hparams,
-                        copy=False,
-                        return_orig_weights=True,
-                        keep_original_weight=keep_original_weight,
-                        idx = i,
-                    )
-                    exec_time = time() - start
-                    LOG.info(f"Execution {i} editing took {exec_time}")
-                    start = time()
-                    with torch.no_grad():
-                        if (i >= 0 and n_edits % self.hparams.melo.metric_period == 0) or (i == len(eval_loader) - 1):
-                            for k, eval_batch in enumerate(batch_history):
+
+            if n_edits < self.hparams.max_n_edits:
+                n_edits += self.hparams.batch_size
+                batch_history.append(request_batch)
+                edited_model, router, weights_copy = editor.run(request_batch, idx=i)
+                exec_time = time() - start
+                LOG.info(f"Execution {i} editing took {exec_time}")
+                with torch.no_grad():
+                    if (i >= 0 and n_edits % self.hparams.melo.metric_period == 0) or (i == len(eval_loader) - 1):
+                        for k, eval_batch in enumerate(batch_history):
+                            if int((n_edits-self.hparams.batch_size)/self.hparams.batch_size)+k+flag < i:
+                                continue
+                            for j, request in enumerate(eval_batch):
+                                start = time()
                                 batch_post = compute_multimodal_edit_results_for_melo(edited_model, router, eval_batch, self.hparams, self.tok,
-                                                                eval_batch, self.hparams.device, self.hparams.real_world_eval)
+                                                                [request], self.hparams.device, self.hparams.real_world_eval)
+                                pre = pres[n_edits-self.hparams.batch_size+(k+flag)*self.hparams.batch_size+j]
+                                metrics = {
+                                    'batch_id': i,
+                                    'case_id': n_edits-self.hparams.batch_size+(k+flag)*self.hparams.batch_size+j,
+                                    "time": exec_time,
+                                    "post": batch_post,
+                                    "pre": pre                                        
+                                }
+                                # calculate locality
+                                if 'locality_output' in metrics['post'].keys():
+                                    assert len(metrics['post']['locality_output']) == \
+                                            len(metrics['pre']['locality_output'])
+                                    metrics['post']['locality_acc'] = \
+                                        np.mean(np.equal(metrics['post']['locality_output'],
+                                                            metrics['pre']['locality_output']))
+                                    metrics['post'].pop('locality_output')
+                                    metrics['pre'].pop('locality_output')
+                                    
+                                if 'multimodal_locality_output' in metrics['post'].keys():
+                                    assert len(metrics['post']['multimodal_locality_output']) == \
+                                            len(metrics['pre']['multimodal_locality_output'])
+                                    metrics['post']['multimodal_locality_acc'] = \
+                                        np.mean(np.equal(metrics['post']['multimodal_locality_output'],
+                                                            metrics['pre']['multimodal_locality_output']))
+                                    metrics['post'].pop('multimodal_locality_output')
+                                    metrics['pre'].pop('multimodal_locality_output')
+                                    
+                                if 'locality_rel_output' in metrics['post'].keys():
+                                    pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
+                                    post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
 
-                                for j, request in enumerate(request_batch):
-                                    batch_post_j = batch_post[j]
-                                    pre = pres[k*self.hparams.batch_size+j]
-                                    metrics = {
-                                        'case_id': k*self.hparams.batch_size+j,
-                                        "time": exec_time,
-                                        "post": batch_post_j,
-                                        "pre": pre                                        
-                                    }
-                                # TODO locality
+                                    question = request['locality_prompt']
+                                    metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
+                                                                            test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
+                                    metrics['post'].pop('locality_rel_output')
+                                    metrics['pre'].pop('locality_rel_output')
+                                    
+                                if 'multimodal_locality_rel_output' in metrics['post'].keys():
+                                    pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
+                                    post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
 
-                    LOG.info(f"Evaluation took {time() - start}")
+                                    question = request['multimodal_locality_prompt']
+                                    metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
+                                                                            test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
+                                    metrics['post'].pop('multimodal_locality_rel_output')
+                                    metrics['pre'].pop('multimodal_locality_rel_output')
+                                LOG.info(f"Evaluation took {time() - start}")
 
-                    if verbose:
-                        LOG.info(
-                            f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}"
-                        )
-
-                    all_metrics.append(metrics)
-                    torch.cuda.empty_cache()
-            else:
-                raise NotImplementedError(f"Editing method {self.alg_name} not supported yet.")
+                                if verbose:
+                                    LOG.info(
+                                        f"{i} {n_edits-self.hparams.batch_size+(k+flag)*self.hparams.batch_size+j} router: {len(router.VecDB.table)}--{len(router.VisionVecDB.table)} editing: {request['prompt']} -> {request['target']}"
+                                    )
+                                # save the metrics dynamically       
+                                if load_metrics_path is not None:
+                                    with open(jsonl_file_path, 'a') as f:
+                                        json.dump(metrics, f, ensure_ascii=False)
+                                        f.write('\n')
+                                all_metrics.append(metrics)
+                                torch.cuda.empty_cache()
+                        batch_history.clear()
             
             if i == flag:
                 self.weights_copy = weights_copy
@@ -555,7 +634,7 @@ class MultimodalEditor:
                 reload_weights = False
             torch.cuda.empty_cache()
             
-            # TODO reload the weights for melo
+            # No need: reload the weights for melo
             if self.alg_name == 'UNIKE':
                 if reload_weights:
                     self.editor.clear_editors()
@@ -588,12 +667,7 @@ class MultimodalEditor:
                                 # copy the old weights to new model
                                 nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
                         torch.cuda.empty_cache()
-                        
-            # save the metrics dynamically       
-            if load_metrics_path is not None:
-                with open(jsonl_file_path, 'a') as f:
-                    json.dump(metrics, f, ensure_ascii=False)
-                    f.write('\n')
+
             gc.collect()
             torch.cuda.empty_cache()
         return all_metrics, edited_model, weights_copy
@@ -1007,7 +1081,7 @@ class MultimodalEditor:
                             for k, v in self.weights_copy.items():
                                 # copy the old weights to new model
                                 nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
-                        torch.cuda.empty_cache()
+                    torch.cuda.empty_cache()
                         
             # save the metrics dynamically       
             if load_metrics_path is not None:
@@ -1325,7 +1399,7 @@ class MultimodalEditor:
                     self.tok,
                     request_edit,
                     self.hparams,
-                    copy=False,
+                    copy=kwargs['copy'] if 'copy' in kwargs.keys() else False,
                     return_orig_weights=True,
                     keep_original_weight=keep_original_weight,
                     train_ds=None

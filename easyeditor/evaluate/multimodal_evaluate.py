@@ -124,7 +124,8 @@ def compute_rewrite_or_rephrase_quality_multimodal(
     test_rephrase: bool = False,
     eval_metric: str = 'token_em',
     rephrase_image: bool = False,
-    key: str = None
+    key: str = None,
+    router = None
 ) -> typing.Dict:
     if key:
         key = key
@@ -138,7 +139,7 @@ def compute_rewrite_or_rephrase_quality_multimodal(
                 key = 'rephrase'
     # using real-world evaluation: autoregressive decoding, natural stop criteria, LLM-as-a-Judge
     
-    acc, gen_content = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=False)
+    acc, gen_content = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=False, router=router)
     ret = {
         f"{key}_rel_acc": acc,
         f"{key}_gen_content": gen_content
@@ -155,10 +156,11 @@ def compute_locality_quality_multimodal(
     edit_prompt: dict,
     device: int = 0,
     key: str = 'locality',
+    router = None,
 ) -> typing.Dict:
 
     # using real-world evaluation
-    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True)
+    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True, router=router)
     
 
     ret = {
@@ -378,8 +380,7 @@ def compute_multimodal_edit_quality_demo(model, batch, tok):
         return_tensors="pt",
     )
     batch['text_input'] = prompt_target
-    if 'noise' in batch:
-        batch['noise'] = True
+    batch['noise'] = True
     with torch.no_grad():
         outputs = model(batch)
         if isinstance(outputs, torch.Tensor):
@@ -433,6 +434,37 @@ def compute_multimodal_edit_quality_demo_mmke(model, batch, tok):
             return res, answers, batch
         else:
             return [np.mean(np.equal(answers, labels))], answers, batch
+
+def compute_multimodal_edit_quality_for_melo(alg, router, batch):
+    prompts = [batch['prompt_template'].format(prompt) for prompt in batch['text_input']]
+    targets = batch['answer']
+    prompt_target = [prompt_ + ' ' + target_ for prompt_, target_ in zip(prompts, targets)]
+    batch['text_input'] = prompt_target
+    batch['noise'] = True
+    lora_block_mapping = router.get_lora_mapping(batch)
+
+    '''Inference'''
+    with torch.no_grad():
+        outputs = alg.get_output(batch, lora_block_mapping)
+
+        if isinstance(outputs, torch.Tensor):
+            logits = outputs.detach().cpu()
+        else:
+            logits = outputs.logits.detach().cpu()
+        targ = torch.tensor(batch["target_ids"])
+
+    if logits.dim() == 3:
+        logits = logits[:, :-1]
+        logits = logits[:, -targ.shape[1]:]
+    mask = targ != 1
+    targ[~mask] = 0
+    pred_ids = logits.argmax(-1).masked_fill(~mask, 0).detach().cpu()
+
+    correct = pred_ids == targ
+    correct = correct & mask
+    num_non_padding = mask.sum().float().item()
+    acc = correct.sum() / num_non_padding
+    return acc.tolist(), pred_ids[0].tolist()
 
 # def compute_multimodal_edit_quality_demo(model, batch):
 #     with torch.no_grad():
@@ -1406,7 +1438,6 @@ def prepare_multimodal_edit_batch(hparams,
     target = [item['target'] for item in batch]
     image = torch.stack([item['image'] for item in batch])
     ori_image = [item['ori_image'] for item in batch]
-    image_toks = [item['image_toks'] if 'image_toks' in item else None for item in batch]
     text_input = [prompt_template.format(prompt_) + ' ' + target_ for prompt_, target_ in zip(prompts, target)]
     
     if hparams.model_name == 'minigpt4':
@@ -1439,6 +1470,52 @@ def prepare_multimodal_edit_batch(hparams,
     }
     return ret
 
+def prepare_multimodal_edit_batch_eval(hparams,
+                            tok,
+                            batch,
+                            prompt_template="{}", 
+                            ori_prompts_key='ori_prompt', 
+                            prompts_key='prompt', 
+                            target_key='target',
+                            image_key='image',
+                            ori_image_key='ori_image'  
+                            ):
+    ori_prompts = [item[ori_prompts_key] for item in batch]
+    prompts = [item[prompts_key] for item in batch]
+    target = [item[target_key] for item in batch]
+    image = torch.stack([item[image_key] for item in batch]) if image_key is not None else None
+    ori_image = [item[ori_image_key] for item in batch] if ori_image_key is not None else None
+    # text_input = [prompt_template.format(prompt_) + ' ' + target_ for prompt_, target_ in zip(prompts, target)]
+    text_input = prompts
+    
+    if hparams.model_name == 'minigpt4':
+        # input_ids = tok(text_input, padding=True)
+        prompts_len = [len(tok.encode(prompt, add_special_tokens=False)) for prompt in prompts]
+        target_ids = [tok.encode(target_, add_special_tokens=False) for target_ in target]
+        # for target_id in target_ids:
+        #     if target_id[0] == tok.bos_token_id or target_id[0] == tok.unk_token_id:
+        #         target_id = target_id[1:]
+    else:
+        # input_ids = tok(text_input, padding=True)
+        prompts_len = [len(tok.encode(prompt, add_special_tokens=False)) for prompt in prompts]
+        target_ids = [tok.encode(target_, add_special_tokens=False) for target_ in target]
+        # for target_id in target_ids:
+        #     if target_id[0] == tok.bos_token_id or target_id[0] == tok.unk_token_id:
+        #         target_id = target_id[1:]
+
+    ret = {
+        'prompt': ori_prompts,
+        'text_input': text_input,
+        'ori_text_input': text_input,
+        'ori_image': ori_image,
+        'image': image,
+        'answer': target,
+        'target_ids': target_ids,
+        'prompts_len': prompts_len,
+        'prompt_template': prompt_template,
+    }
+    return ret
+
 
 def compute_multimodal_edit_results_for_melo(
         model,
@@ -1452,107 +1529,59 @@ def compute_multimodal_edit_results_for_melo(
 ) -> typing.Dict:
     ret = {}
     # First, unpack rewrite evaluation record.
-
-    target = record["target"]
-    rewrite_prompts = record["prompt"]
-    if record["image"] is not None:
-        image = record["image"] if record["image"].is_cuda else record["image"].to(f"cuda:{hparams.device}")
-    else:
-        image = record["image"]
-    prompt_template = record["prompt_template"] if "prompt_template" in record else "{}"
+    prompt_template = record[0]["prompt_template"] if "prompt_template" in record[0] else "{}"
     
-    edit_inner = prepare_multimodal_edit_batch(hparams, tok, target, rewrite_prompts, image, prompt_template=prompt_template)
+    edit_inner = prepare_multimodal_edit_batch_eval(hparams, tok, record, prompt_template=prompt_template)
     if real_world_eval:
-        ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False)
-        ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
+        ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False, router=router)
+        ret['rewrite_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_inner)
     else:
-        ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
+        ret['rewrite_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_inner)
         # ret['rewrite_gen'] = test_generation_quality(model, edit_inner)
 
-    if "rephrase_prompt" in record.keys():
-        rephrase_prompts = record["rephrase_prompt"]
-        edit_outer = prepare_multimodal_edit_batch(hparams, tok, target, rephrase_prompts, image, prompt_template=prompt_template)
+    if "rephrase_prompt" in record[0].keys():
+        edit_outer = prepare_multimodal_edit_batch_eval(hparams, tok, record, prompt_template=prompt_template, ori_prompts_key='ori_rephrase_prompt', prompts_key='rephrase_prompt')
         if real_world_eval:
             ret.update(
-                compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False)
+                compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False, router=router)
             )
-            ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
+            ret['rephrase_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_outer)
         else:
-            ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
+            ret['rephrase_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_outer)
             # ret['rephrase_gen'] = test_generation_quality(model, edit_outer)
         
-    if "image_rephrase" in record.keys():
-        rephrase_image = record["image_rephrase"]
-        rephrase_image = rephrase_image if rephrase_image.is_cuda else rephrase_image.to(f"cuda:{hparams.device}")
-        edit_image_outer = prepare_multimodal_edit_batch(hparams, tok, target, rewrite_prompts, rephrase_image, prompt_template=prompt_template)
+    if "image_rephrase" in record[0].keys():
+        edit_image_outer = prepare_multimodal_edit_batch_eval(hparams, tok, record, prompt_template=prompt_template, image_key='image_rephrase', ori_image_key='ori_rephrase_image')
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True, router=router)
         )
-            ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
+            ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_image_outer)
         else:   
-            ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
+            ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_for_melo(model, router, edit_image_outer)
             # ret['image_rephrase_gen'] = test_generation_quality(model, edit_image_outer)
 
-    if 'locality_prompt' in record.keys():
-        locality_prompt = record["locality_prompt"]
-        locality_ground_truth = record["locality_ground_truth"]
-        locality = prepare_multimodal_edit_batch(hparams, tok, locality_ground_truth, locality_prompt, None, prompt_template=prompt_template)
+    if 'locality_prompt' in record[0].keys():
+        locality = prepare_multimodal_edit_batch_eval(hparams, tok, record, prompt_template=prompt_template, ori_prompts_key='ori_locality_prompt', prompts_key='locality_prompt', target_key='locality_ground_truth', image_key=None, ori_image_key=None)
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality, device=device, key='locality')
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality, device=device, key='locality', router=router)
         )
-            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_for_melo(model, router, locality)
         else:
-            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality, tok)
+            ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_for_melo(model, router, locality)
             # ret['locality_gen'] = test_generation_quality(model, locality)
 
-    if 'multimodal_locality_prompt' in record.keys():
-        m_loc_prompt = record["multimodal_locality_prompt"]
-        m_loc_ground_truth = record["multimodal_locality_ground_truth"]
-        m_loc_image = record["multimodal_locality_image"]
-        if m_loc_image is not None:
-            m_loc_image = m_loc_image if m_loc_image.is_cuda else m_loc_image.to(f"cuda:{hparams.device}")
-        m_locality = prepare_multimodal_edit_batch(hparams, tok, m_loc_ground_truth, m_loc_prompt, m_loc_image, prompt_template=prompt_template)
+    if 'multimodal_locality_prompt' in record[0].keys():
+        m_locality = prepare_multimodal_edit_batch_eval(hparams, tok, record, prompt_template=prompt_template, ori_prompts_key='ori_multimodal_locality_prompt', prompts_key='multimodal_locality_prompt', target_key='multimodal_locality_ground_truth', image_key='multimodal_locality_image', ori_image_key='ori_locality_image')
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality', router=router)
         )
-            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
+            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_for_melo(model, router, m_locality)
             
         else:
-            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, m_locality, tok)
-            # ret['multimodal_locality_gen'] = test_generation_quality(model, m_locality)
+            ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_for_melo(model, router, m_locality)
 
-    if 'portability_prompt' in record.keys():
-        portability_prompt = record["portability_prompt"]
-        portability_ground_truth = record["portability_ground_truth"]
-        portability_image = record["portability_image"]
-        if portability_image is not None:
-            portability_image = portability_image if portability_image.is_cuda else portability_image.to(f"cuda:{hparams.device}")
-        portability = prepare_multimodal_edit_batch(hparams, tok, portability_ground_truth, portability_prompt, portability_image, prompt_template=prompt_template)
-        # _, ret['portability_output'] = compute_multimodal_edit_quality_demo(model, portability, tok)
-        if real_world_eval:
-            ret.update(
-            compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=portability, device=device, key='portability')
-        )
-        else:
-            ret['portability_gen'] = test_generation_quality(model, portability)
-
-    if 'multimodal_portability_prompt' in record.keys():
-        m_port_prompt = record["multimodal_portability_prompt"]
-        m_port_ground_truth = record["multimodal_portability_ground_truth"]
-        m_port_image = record["multimodal_portability_image"]
-        if m_port_image is not None:
-            m_port_image = m_port_image if m_port_image.is_cuda else m_port_image.to(f"cuda:{hparams.device}")
-        m_portability = prepare_multimodal_edit_batch(hparams, tok, m_port_ground_truth, m_port_prompt, m_port_image, prompt_template=prompt_template)
-        # _, ret['multimodal_portability_output'] = compute_multimodal_edit_quality_demo(model, m_portability, tok)
-        if real_world_eval:
-            ret.update(
-            compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=portability, device=device, key='multimodal_portability')
-        )
-        else:
-            ret['multimodal_portability_gen'] = test_generation_quality(model, m_portability)
-    # Form a list of lists of prefixes to test.
 
     return ret

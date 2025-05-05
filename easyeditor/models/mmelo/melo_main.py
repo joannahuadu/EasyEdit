@@ -10,39 +10,43 @@ from .algs.lora import LORA
 from .multimodal_trainer import vqa_trainer, caption_trainer
 from ...evaluate import prepare_multimodal_edit_batch
 
-def apply_mmelo_to_model(        
-    model: AutoModelForCausalLM,
-    tok: AutoTokenizer,
-    requests: List[Dict],
-    hparams: MELOMultimodalHyperParams,
-    copy=False,
-    return_orig_weights=False,
-    keep_original_weight=False,
-    **kwargs: Any,
-)-> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
-    
-    # alg_module = importlib.import_module(f'algs.{hparams.alg}')
-    # AlgClass = getattr(alg_module, hparams.alg.upper())
-    alg = LORA(model, hparams)
-    alg.to(hparams.device)
-    
-    weights_copy = {}
-    if copy:
-        model = deepcopy(model)
-    if "idx" in kwargs:
-        idx = kwargs.get("idx", 0)
-    else:
-        raise ValueError("idx not found in kwargs")
-    edit_inner = prepare_multimodal_edit_batch(hparams, tok, batch=requests, prompt_template=requests[0]['prompt_template'])
-    if hparams.task == "caption":
-        trainer = caption_trainer(hparams, alg, dict_to({"edit_inner": edit_inner}, hparams.device), idx)
-    elif hparams.task == "vqa":
-        trainer = vqa_trainer(hparams, alg, dict_to({"edit_inner": edit_inner}, hparams.device), idx)
+from .database.router import Router
+
+class MMelo:
+    def __init__(self,       
+            model: AutoModelForCausalLM,
+            tok: AutoTokenizer,
+            hparams: MELOMultimodalHyperParams,
+            copy=False,
+            **kwargs: Any) -> None:
+        self.hparams = hparams
+        if copy:
+            model = deepcopy(model)
+        self.tok = tok
+        self.alg = LORA(model, hparams)
+        self.alg.to(hparams.device)
+        self.router = Router(self.hparams)
+
+    def run(
+        self,        
+        requests: List[Dict],
+        **kwargs: Any
+    )-> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
+        if "idx" in kwargs:
+            idx = kwargs.get("idx", 0)
+        else:
+            raise ValueError("idx not found in kwargs")
+        weights_copy = {}
+        edit_inner = prepare_multimodal_edit_batch(self.hparams, self.tok, batch=requests, prompt_template=requests[0]['prompt_template'])
+        if self.hparams.task == "caption":
+            trainer = caption_trainer(self.router, self.alg, dict_to({"edit_inner": edit_inner}, self.hparams.device), idx)
+        elif self.hparams.task == "vqa":
+            trainer = vqa_trainer(self.router, self.alg, dict_to({"edit_inner": edit_inner}, self.hparams.device), idx)
+            
+        torch.cuda.empty_cache()
+        trainer.run_edit()
         
-    torch.cuda.empty_cache()
-    trainer.run_edit()
-    
-    return trainer.alg, trainer.router, weights_copy
+        return self.alg, self.router, weights_copy
 
 
 def dict_to(d, device):
