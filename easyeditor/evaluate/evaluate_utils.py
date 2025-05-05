@@ -247,7 +247,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
     if hasattr(model, 'generate_tokens'):
         gen_tokens = model.generate_tokens(
             edit_prompt,
-            max_new_tokens=50,           # Max tokens to generate *after* the prompt
+            max_new_tokens=150,           # Max tokens to generate *after* the prompt
             eos_token_id=eos_token_id,   # Token ID(s) to stop generation
             pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
             do_sample=False,             # Deterministic output for evaluation
@@ -261,7 +261,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         model.set_lora_mapping(lora_block_mapping)
         gen_tokens = model.model.generate_tokens(
             edit_prompt,
-            max_new_tokens=50,           # Max tokens to generate *after* the prompt
+            max_new_tokens=150,           # Max tokens to generate *after* the prompt
             eos_token_id=eos_token_id,   # Token ID(s) to stop generation
             pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
             do_sample=False,             # Deterministic output for evaluation

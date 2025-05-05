@@ -380,8 +380,7 @@ def compute_multimodal_edit_quality_demo(model, batch, tok):
         return_tensors="pt",
     )
     batch['text_input'] = prompt_target
-    if 'noise' in batch:
-        batch['noise'] = True
+    batch['noise'] = True
     with torch.no_grad():
         outputs = model(batch)
         if isinstance(outputs, torch.Tensor):
