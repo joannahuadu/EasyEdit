@@ -149,6 +149,7 @@ def calib_cov_distribution(model, model_name, delete_name, target_modules, layer
                 module.register_forward_hook(hook)
     
     for batch in tqdm(calib_loader):
+        batch['text_input'] = [f"{p} {l}" for p, l in zip([batch['text_input']], [batch['answer']])]
         # batch = {k: v.to(model.device) for k,v in batch.items()}
         model(batch)
 

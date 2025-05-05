@@ -107,7 +107,7 @@ def jload(f, mode="r"):
     f.close()
     return jdict
 
-def get_calib_data(name, tokenizer, model_id, nsamples, seqlen=2048, seed=3):
+def get_calib_data(hparams, name, tokenizer, model_id, nsamples, seqlen=2048, seed=3):
     print(f" get_data_from: {name}, nsamples={nsamples}, seqlen={seqlen}, {seed}")
     cache_file = (
         f"/public/home/wang_mq22/EasyEdit/results/loranull/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
@@ -116,10 +116,16 @@ def get_calib_data(name, tokenizer, model_id, nsamples, seqlen=2048, seed=3):
     if not os.path.exists("cache"):
         os.makedirs("cache")
     if os.path.exists(cache_file):
+        from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
         print(f"found data file: {cache_file}")
         traindataset = torch.load(cache_file)
         print("loaded ...")
         return traindataset
+    if name == "null_ds":
+        from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
+        traindataset = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336)
+        torch.save(traindataset, cache_file)
+        return traindataset    
     if name == "c4":
         traindata = load_dataset(
             "allenai/c4",

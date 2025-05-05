@@ -230,7 +230,7 @@ class MultimodalEditor:
                 LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
         if self.alg_name.lower() == 'loranull':
             from ..models.loranull import get_calib_data, calib_cov_distribution, build_model2
-            calib_loader = get_calib_data(self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
+            calib_loader = get_calib_data(self.hparams, self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
             LOG.info('Collecting covariance data for Singular_aware ...')
             calib_cov_distribution(self.model, self.hparams.model_name, self.hparams.delete_name, self.hparams.target_modules, self.hparams.layers, calib_loader, self.hparams.use_cache, self.hparams.calib_dataset, self.hparams.calib_loader_size, seed=self.hparams.seed)
             build_model2(self.model, self.hparams)
