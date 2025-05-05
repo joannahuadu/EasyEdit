@@ -131,7 +131,19 @@ if __name__ == "__main__":
         train_annotation_path="/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json",
         coco_image="/data/lishichao/data/model_edit/"
     )
+    name = "null_ds"
+    model_id = "llava"
+    nsamples = ???
+    seqlen=???
+    seed=233
+    # dataset = load_dataset("nq_open", split="train")
+    # dataset.save_to_disk("/mnt/data2/wmq/EasyEdit/np_open_train")
+    print(f" get_data_from: {name}, nsamples={nsamples}, seqlen={seqlen}, {seed}")
+    cache_file = (
+        f"/mnt/data2/wmq/EasyEdit/np_open_train/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
+    )
     raw_ds = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336)
+    torch.save(raw_ds, cache_file)
     data_loader = DataLoader(
         raw_ds,
         batch_size=8,
