@@ -88,11 +88,11 @@ def edit_UNIKE_LLaVA_MMKE(args):
     pprint(metrics)
 
 def edit_LoRA_LLaVA_VQA(args):
-    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava_corda.yaml')
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, size=5, config=hparams)
+    eval_ds = VQADataset(file_path, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,

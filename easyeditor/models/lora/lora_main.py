@@ -70,6 +70,10 @@ def execute_lora(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
+    if hasattr(hparams, 'exclude_modules'):
+        exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
@@ -89,7 +93,8 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
     elif hparams.lora_type == "adalora":
         Config = AdaLoraConfig
@@ -100,7 +105,8 @@ def execute_lora(
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules,
-            total_step=hparams.num_steps
+            total_step=hparams.num_steps,
+            exclude_modules=exclude_modules,
         )
     elif hparams.lora_type == "corda":
         # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
@@ -152,7 +158,8 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
         preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
