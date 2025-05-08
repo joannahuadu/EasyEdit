@@ -18,6 +18,7 @@ import torch
 import transformers
 from transformers import AutoTokenizer
 from tqdm import tqdm
+from transformers import AutoProcessor
 
 class VQADataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
@@ -29,13 +30,17 @@ class VQADataset(BaseDataset):
         if config.model_name == "Blip2OPT":
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
-            vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
             # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
         elif config.model_name ==  "qwen-vl":
             vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
         elif "owl-2" in config.model_name.lower():
             from transformers.models.clip.image_processing_clip import CLIPImageProcessor
             vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
+        elif "qwen2.5_vl" in config.model_name.lower():
+            #from transformers import Qwen2VLImageProcessor
+            #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
+            vis_processor = None
         else:
             raise NotImplementedError("unknown model class")
         
@@ -81,11 +86,18 @@ class VQADataset(BaseDataset):
             image = Image.open(image_path).convert("RGB")
             rephrase_image = Image.open(rephrase_image_path).convert("RGB")
             locality_image = Image.open(locality_image_path).convert("RGB")
-
-            image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
-            rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
-            locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)  
-                      
+            
+            ori_image = image
+            ori_rephrase_image = rephrase_image
+            ori_locality_image = locality_image
+            if self.vis_processor is not None:
+                image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
+                rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+                locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+            else:
+                image = [image]
+                rephrase_image = [rephrase_image]
+                locality_image = [locality_image]     
             item = {
                 'prompt': record['src'],
                 'pred': record['pred'],
@@ -93,6 +105,8 @@ class VQADataset(BaseDataset):
                 'rephrase_prompt': record['rephrase'],
                 'image': image,
                 'image_rephrase': rephrase_image,
+                'ori_image': ori_image,
+                'ori_rephrase_image': ori_rephrase_image,
                 'cond': "{} >> {} || {}".format(
                     record['pred'],
                     record['alt'],
@@ -104,6 +118,7 @@ class VQADataset(BaseDataset):
             item['locality_ground_truth'] = record['loc_ans']
             
             item['multimodal_locality_image'] = locality_image
+            item['ori_multimodal_locality_image'] = ori_locality_image
             item['multimodal_locality_prompt'] = record['m_loc_q']
             item['multimodal_locality_ground_truth'] = record['m_loc_a']
             data.append(item)
@@ -118,7 +133,7 @@ class VQADataset(BaseDataset):
     def __len__(self):
         return len(self._data)
 
-    def collate_fn(self, batch):
+    def collate_fn_bp(self, batch):
         src = [b['prompt'] for b in batch]
         trg = [" " + b['target'] for b in batch]
         cond = [b['cond'] for b in batch]
@@ -210,14 +225,34 @@ class VQADataset(BaseDataset):
         }
         return dict_to(batch, self.config.device)
     
+    def collate_fn(self, batch):
+        elem = batch[0]
+        collated = {}
+
+        for key in elem:
+            if isinstance(elem[key], torch.Tensor):
+                collated[key] = torch.stack([d[key] for d in batch])
+            elif isinstance(elem[key], (int, float, str)):
+                collated[key] = [d[key] for d in batch]
+            elif isinstance(elem[key], Image.Image):
+                collated[key] = [d[key] for d in batch]
+            elif isinstance(elem[key], list):
+                collated[key] = [d[key] for d in batch]
+            else:
+                raise TypeError(f"Unsupported type in batch for key '{key}': {type(elem[key])}")
+        return collated
+    
 import json
 from torchvision import transforms
 # To compute cov for ROME, MEMIT、 AlphaEdit
 class VQADataset_Simple(BaseDataset):
-    def __init__(self, prompt, template, annotation_file, image_root, image_size=256):
+    def __init__(self, prompt, template, annotation_file, image_root, size=None, image_size=256):
         self.image_root = image_root
         with open(annotation_file,'r',encoding='utf-8') as f:
-            self.annotations = json.load(f)
+            if size:
+                self.annotations = json.load(f)[:size]
+            else: 
+                self.annotations = json.load(f)
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
@@ -251,4 +286,74 @@ class VQADataset_Simple(BaseDataset):
     def __len__(self):
         return len(self.annotations)
 
-   
+class VQADataset_X(BaseDataset):
+    def __init__(self, annotation_file, image_root, prompt=None, template=None, size=None, image_size=256):
+        self.image_root = image_root
+        with open(annotation_file,'r',encoding='utf-8') as f:
+            if size:
+                self.annotations = json.load(f)[:size]
+            else: 
+                self.annotations = json.load(f)
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+        ])
+        self.prompt = prompt
+        self.template = template
+    def __len__(self):
+        return len(self.annotations)
+    
+    def __getitem__(self, idx):
+        ann = self.annotations[idx]
+        img_name = ann["image"]
+        txt = ann["src"]
+        img_path = os.path.join(self.image_root, img_name)
+        answer = ann["pred"]
+        # m_loc_image = ann[]
+        
+        image = Image.open(img_path).convert("RGB")
+        image = self.transform(image)
+        txt = self.prompt.format(txt) if self.prompt else txt
+        
+        loc_prompt = ann['loc']
+        loc_image = None
+        loc_answer = ann["loc_ans"]
+        return {
+            "image":image.half(),
+            "text_input": self.template.format(txt) if self.template else txt,
+            "answer": answer,
+            "loc_image": None,
+            "loc_prompt": self.template.format(loc_prompt) if self.template else loc_prompt,
+            "loc_answer": loc_answer
+        }
+    @staticmethod
+    def collate_fn(batch):
+        images = [item["image"] for item in batch]
+        texts = [item["text_input"] for item in batch]
+        answers = [item["answer"] for item in batch]
+        # image_tensor = torch.stack(images.unsqueeze(0),dim=0)
+        return {
+            "image":images,
+            "text_input":texts, 
+            "answer": answers
+        }
+    def __len__(self):
+        return len(self.annotations)
+    
+
+
+# def get_VQA_ds(hparams, prompt, template, size=None):
+#     annotation_path = hparams.train_annotation_path
+#     image_root = hparams.coco_image
+#     raw_ds = VQADataset_Simple(size=size, prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
+#     return raw_ds
+
+# from .coco_caption import COCOCaptionDataset_X
+# def get_Caption_ds(hparams, prompt, template, size=None):
+#     annotation_path = hparams.caption_train_annotation_path
+#     image_root = hparams.coco_image
+#     raw_ds = COCOCaptionDataset_X(size=size, prompt=prompt, template=template, annotation_path=annotation_path, image_root=image_root, image_size=336)
+#     return raw_ds
+
+
+

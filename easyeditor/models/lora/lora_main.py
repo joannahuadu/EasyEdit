@@ -13,8 +13,14 @@ from ...trainer.losses import masked_log_probs
 
 from tqdm import tqdm
 
+# Multimodal dataset for Corda 
+from ...dataset import VQADataset_Simple
+from torch.utils.data import DataLoader
+
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
+
+
 def apply_lora_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
@@ -36,7 +42,7 @@ def apply_lora_to_model(
         model = deepcopy(model)
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model"):
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -64,11 +70,21 @@ def execute_lora(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
-    llava_model = model.llava_model if hasattr(model, "llava_model") else model
-    llava_model.config.use_cache = False
-    llava_model.supports_gradient_checkpointing = True  #
-    llava_model.gradient_checkpointing_enable()
-    llava_model.enable_input_require_grads()
+    if hasattr(hparams, 'exclude_modules'):
+        exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
+
+    if hasattr(model, "llava_model"):
+        sub_model = model.llava_model
+    elif hasattr(model, "qwen_model"):
+        sub_model = model.qwen_model
+    else:
+        sub_model = model
+    sub_model.config.use_cache = False
+    sub_model.supports_gradient_checkpointing = True  #
+    sub_model.gradient_checkpointing_enable()
+    sub_model.enable_input_require_grads()
     if hparams.lora_type == "lora":
         Config = LoraConfig
         peft_config = Config(
@@ -77,7 +93,8 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
     elif hparams.lora_type == "adalora":
         Config = AdaLoraConfig
@@ -89,44 +106,68 @@ def execute_lora(
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules,
             total_step=hparams.num_steps,
+            exclude_modules=exclude_modules,
         )
     elif hparams.lora_type == "corda":
         # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
-        sampled_dataset = load_dataset("wikipedia", '20200501.en', split="train[:256]")
-        
+        # sampled_dataset = load_dataset("wikipedia", '20200501.en', split="train[:256]")
+        if hparams.model_name == 'llava':
+            from ...trainer.llava_models.constants import DEFAULT_IMAGE_TOKEN
+            prompt = DEFAULT_IMAGE_TOKEN + "\n{}"
+            template = requests[0]["prompt_template"]
+        if prompt:
+            ds = get_VQA_ds(hparams,prompt,template,size=30) 
+        else:
+            assert "No prompt is defined for multimodal text inputs"
+        dataloader = DataLoader(
+            ds,
+            batch_size=1,  # You can change this depending on your batch size requirement
+            shuffle=False,  # Shuffle the data to ensure randomness in training
+            collate_fn=ds.collate_fn  # Pass the custom collate_fn defined in the dataset
+        )
         # dataset = load_dataset("imdb", split="train[:256]")
+        # def run_model():
+            # for batch in tqdm(sampled_dataset):
+            #     samples = [
+            #         {
+            #             "text_input": [batch["text"]],
+            #             "image": None,
+            #         }
+            #     ][0]
+            #     with torch.no_grad():
+            #         model(samples)
         def run_model():
-            for batch in tqdm(sampled_dataset):
-                # input_ids = batch["text"]
-                # input_ids = input_ids.to(model.device)
-                samples = [
-                    {
-                        "text_input": [batch["text"]],
-                        "image": None,
+            for batch in tqdm(dataloader):
+                samples = {
+                        "text_input": batch["text_input"],
+                        "image": batch["image"],
                     }
-                ][0]
+            
                 with torch.no_grad():
                     model(samples)
         corda_config = CordaConfig(
-            corda_method="kpm"
+            corda_method="kpm",
+            covariance_file="/home/lishichao/project/EasyEdit/results/cache/corda/cov_rank8.pt",
+            cache_file="/home/lishichao/project/EasyEdit/results/cache/corda/cache_file_rank8.pt",
         )
         peft_config = LoraConfig(
             init_lora_weights="corda",
             corda_config=corda_config,
-            # task_type=TaskType.CAUSAL_LM,
-            # inference_mode=False,
-            # r=hparams.rank,
-            # lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
-            # layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=hparams.rank,
+            lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
+            layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
-        preprocess_corda(llava_model, lora_config=peft_config, run_model=run_model)
+        preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
         raise NotImplementedError
     if not keep_original_weight and hasattr(model, 'peft_config'):
-        peft_model = llava_model
+        peft_model = sub_model
     else:
-        peft_model = get_peft_model(llava_model, peft_config).to(torch.bfloat16)
+        peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
 
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
@@ -281,3 +322,9 @@ def chunks(arr, n):
             chunk = []
     if len(chunk) > 0:
         yield chunk
+
+def get_VQA_ds(hparams, prompt, template, size=None):
+    annotation_path = hparams.train_annotation_path
+    image_root = hparams.coco_image
+    raw_ds = VQADataset_Simple(size=size, prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
+    return raw_ds

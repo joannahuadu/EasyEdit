@@ -34,7 +34,7 @@ class CaptionDataset(BaseDataset):
         if config.model_name == "Blip2OPT":
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
-            vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
             # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
         elif config.model_name ==  "qwen-vl":
             vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
@@ -600,3 +600,89 @@ class CaptionDataset(BaseDataset):
         ##################################################################################################
             
         return dict_to(batch, self.config.device)
+
+import json
+from torchvision import transforms
+class COCOCaptionDataset_X(BaseDataset):
+    def __init__(self, annotation_file, image_root, prompt=None, template=None, size=None, image_size=256):
+        """
+        Simple COCO Caption Dataset class that reads images and captions.
+        
+        Args:
+            prompt (str): The format string for the text input.
+            template (str): An optional template for the text input.
+            annotation_file (str): Path to the annotation JSON file.
+            image_root (str): Path to the root directory of the images.
+            size (int, optional): Number of samples to load. Defaults to None (loads all).
+            image_size (int, optional): The image size to resize the images to. Defaults to 256.
+        """
+        self.image_root = image_root
+        with open(annotation_file, 'r', encoding='utf-8') as f:
+            annotations = json.load(f)
+            self.annotations = annotations[:size] if size else annotations
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+        ])
+        
+        self.prompt = prompt
+        self.template = template
+
+    def __len__(self):
+        return len(self.annotations)
+
+    def __getitem__(self, idx):
+        ann = self.annotations[idx]
+        img_name = ann["image"]
+        txt = ann["src"] 
+        answer = ann['pred']
+        m_loc_image_name = ann["m_loc"]
+        m_loc_question = ann['m_loc_q']
+        m_loc_answer = ann['m_loc_a']
+        img_path = os.path.join(self.image_root, img_name)
+        m_loc_img_path = os.path.join(self.image_root, m_loc_image_name)
+        image = Image.open(img_path).convert("RGB")
+        image = self.transform(image)
+        m_loc_image = Image.open(m_loc_img_path).convert("RGB")
+        m_loc_image = self.transform(m_loc_image)
+        
+        txt = self.prompt.format(txt) if self.prompt else txt
+        m_loc_question = self.prompt.format(m_loc_question) if self.prompt else m_loc_question
+        
+        return {
+            "image": image.half(),
+            "text_input": self.template.format(txt) if self.template else txt,
+            "answer": answer,
+            "m_loc_image": m_loc_image.half(),
+            "m_loc_prompt": self.template.format(m_loc_question) if self.template else m_loc_question,
+            "m_loc_answer": m_loc_answer
+        }
+
+    @staticmethod
+    def collate_fn(batch):
+        """
+        Collates the batch by stacking images and concatenating text inputs.
+        
+        Args:
+            batch (list): A list of dictionary items with keys 'image' and 'text_input'.
+        
+        Returns:
+            dict: A dictionary with the stacked images and a list of text inputs.
+        """
+        images = [item["image"] for item in batch]
+        texts = [item["text_input"] for item in batch]
+        answers = [item["answer"] for item in batch]
+        
+        m_loc_images = [item["m_loc_image"] for item in batch]
+        m_loc_prompts = [item["m_loc_prompt"] for item in batch]
+        m_loc_answers = [item["m_loc_answer"] for item in batch]
+        
+        return {
+            "image": images, 
+            "text_input": texts,
+            "answer": answers,
+            "m_loc_image": m_loc_images,
+            "m_loc_prompt": m_loc_prompts,
+            "m_loc_answers": m_loc_answers,
+            
+        }
