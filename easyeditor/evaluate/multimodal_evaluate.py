@@ -158,10 +158,11 @@ def compute_locality_quality_multimodal(
     device: int = 0,
     key: str = 'locality',
     router = None,
+    max_token_len = 50
 ) -> typing.Dict:
 
     # using real-world evaluation
-    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True, router=router)
+    loc_tokens = test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt=edit_prompt, device=device, locality=True, router=router, max_token_len=max_token_len)
     
 
     ret = {
@@ -1238,7 +1239,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_samples, device=device, key='locality')
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_samples, device=device, key='locality', max_token_len=150)
         )
             ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
         else:
@@ -1249,7 +1250,7 @@ def compute_mmke_multimodal_edit_quality_rel(
 
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_image_samples, key='multimodal_locality')
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_image_samples, key='multimodal_locality', max_token_len=150)
         )
             ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, locality_image_samples, tok)
             
@@ -1353,42 +1354,42 @@ def compute_mmke_multimodal_edit_quality_rel(
     ######### portability #########
 
 
-    if "portability_prompt" in record.keys():
-        # assert len(record['portability_prompt'])==1, "Portability evaluation only has one prompt at a time"
-        port_acc = 0
-        port_acc_rel = 0
-        if knowledge_type ==0 or knowledge_type ==1:
-            for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
-                if real_world_eval:
-                    port_samples = prepare_multimodal_edit(hparams, tok, port_a, [port_q], image, prompt_template=prompt_template)
-                    port_acc_i_rel = compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=port_samples, device=device, key='portability')['portability_rel_acc']
-                    port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
-                    port_acc += port_acc_i[0]
-                    port_acc_rel += port_acc_i_rel
-                else:   
-                    port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
-                    port_acc += port_acc_i[0]
-            if real_world_eval:
-                ret['portability_rel_acc'] = port_acc_rel/len(record['portability_prompt'])
-                ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
-            else:
-                ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
-        elif knowledge_type ==2:
-            for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
-                if real_world_eval:
-                    port_samples = prepare_multimodal_edit(hparams, tok, port_a, [port_q], one_hop_img, prompt_template=prompt_template)
-                    port_acc_i_rel = compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=port_samples, device=device, key='portability')['portability_rel_acc']
-                    port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
-                    port_acc += port_acc_i[0]
-                    port_acc_rel += port_acc_i_rel
-                else:   
-                    port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
-                    port_acc += port_acc_i[0]
-            if real_world_eval:
-                ret['portability_rel_acc'] = port_acc_rel/len(record['portability_prompt'])
-                ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
-            else:
-                ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+    # if "portability_prompt" in record.keys():
+    #     # assert len(record['portability_prompt'])==1, "Portability evaluation only has one prompt at a time"
+    #     port_acc = 0
+    #     port_acc_rel = 0
+    #     if knowledge_type ==0 or knowledge_type ==1:
+    #         for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
+    #             if real_world_eval:
+    #                 port_samples = prepare_multimodal_edit(hparams, tok, port_a, [port_q], image, prompt_template=prompt_template)
+    #                 port_acc_i_rel = compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=port_samples, device=device, key='portability')['portability_rel_acc']
+    #                 port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
+    #                 port_acc += port_acc_i[0]
+    #                 port_acc_rel += port_acc_i_rel
+    #             else:   
+    #                 port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
+    #                 port_acc += port_acc_i[0]
+    #         if real_world_eval:
+    #             ret['portability_rel_acc'] = port_acc_rel/len(record['portability_prompt'])
+    #             ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+    #         else:
+    #             ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+    #     elif knowledge_type ==2:
+    #         for port_q, port_a in zip(record['portability_prompt'], record['portability_ground_truth']):
+    #             if real_world_eval:
+    #                 port_samples = prepare_multimodal_edit(hparams, tok, port_a, [port_q], one_hop_img, prompt_template=prompt_template)
+    #                 port_acc_i_rel = compute_portability_quality_multimodal(model, model_name, hparams, tok, edit_prompt=port_samples, device=device, key='portability')['portability_rel_acc']
+    #                 port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
+    #                 port_acc += port_acc_i[0]
+    #                 port_acc_rel += port_acc_i_rel
+    #             else:   
+    #                 port_acc_i, _ = compute_multimodal_edit_quality_demo(model, port_samples, tok)
+    #                 port_acc += port_acc_i[0]
+    #         if real_world_eval:
+    #             ret['portability_rel_acc'] = port_acc_rel/len(record['portability_prompt'])
+    #             ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
+    #         else:
+    #             ret['portability_acc'] = [port_acc/len(record['portability_prompt'])]
     import json
     import os
     
