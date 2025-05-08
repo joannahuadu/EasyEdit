@@ -52,6 +52,10 @@ def execute_roselora(
     Executes the RoseLora update algorithm for the specified update at the specified layer
     Invariant: model at beginning of function == model at end of function
     """
+    if hasattr(hparams, 'exclude_modules'):
+        exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
     sparsity = 0.05
     full_iter = 3
@@ -81,7 +85,8 @@ def execute_roselora(
             lora_alpha=hparams.lora_alpha, 
             lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
         if hparams.model_name == 'llava':
             peft_model = get_peft_model(llava_model, peft_config)
