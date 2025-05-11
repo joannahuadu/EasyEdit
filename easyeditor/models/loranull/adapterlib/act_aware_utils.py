@@ -97,7 +97,15 @@ def calib_input_distribution(model, calib_loader, method, use_cache=True):
     torch.save(all_scaling_diag_matrix, cache_file)
 
 @torch.no_grad()
-def calib_cov_distribution(model, model_name, delete_name, target_modules, layers, calib_loader, use_cache=True, calib_dataset="wiki", calib_size=256, seed=None):
+def calib_cov_distribution(model, hparams, calib_loader):
+    model_name = hparams.model_name
+    delete_name = hparams.delete_name
+    target_modules = hparams.target_modules
+    layers = hparams.layers
+    use_cache = hparams.use_cache
+    calib_dataset = hparams.calib_dataset
+    calib_size = hparams.calib_loader_size
+    seed = hparams.seed
     model_id = model_name
     cache_file = (
         f"/public/home/wang_mq22/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
@@ -113,6 +121,27 @@ def calib_cov_distribution(model, model_name, delete_name, target_modules, layer
                         module.weight.device
                     )
         return
+    
+    from easyeditor.dataset.processor.blip_processors import BlipImageEvalProcessor
+    import transformers
+    # get tokenizer and vis_processor
+    if hparams.model_name == "Blip2OPT":
+        vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
+    elif hparams.model_name == "llava":
+        vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
+        # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
+    elif hparams.model_name ==  "qwen-vl":
+        vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
+    elif "owl-2" in hparams.model_name.lower():
+        from transformers.models.clip.image_processing_clip import CLIPImageProcessor
+        vis_processor = CLIPImageProcessor.from_pretrained(hparams.name, trust_remote_code=True)
+    elif "qwen2.5_vl" in hparams.model_name.lower():
+        #from transformers import Qwen2VLImageProcessor
+        #vis_processor = Qwen2VLImageProcessor.from_pretrained(hparams.name)
+        vis_processor = None
+    else:
+        raise NotImplementedError("unknown model class")
+
     model.eval()
 
     print(f"building covariance file: {cache_file}")
@@ -139,7 +168,7 @@ def calib_cov_distribution(model, model_name, delete_name, target_modules, layer
         if torch.isinf(covariance).any():
             print("inf detected")
             raise Exception("inf in covariance, break")        
-        module.covariance_matrix += covariance/256 
+        module.covariance_matrix += covariance 
         del covariance, input
 
     for name, module in model.named_modules():
@@ -148,7 +177,11 @@ def calib_cov_distribution(model, model_name, delete_name, target_modules, layer
                 module.covariance_matrix = 0
                 module.register_forward_hook(hook)
     
-    for batch in tqdm(calib_loader):
+    for i, batch in enumerate(tqdm(calib_loader)):
+        batch['text_input'] = [f"{p} {l}" for p, l in zip(batch['text_input'], batch['answer'])]
+        batch['noise']=True
+        if vis_processor is not None:
+            batch['image'] = [vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) if image is not None else image for image in batch['image']]
         # batch = {k: v.to(model.device) for k,v in batch.items()}
         model(batch)
 
@@ -164,7 +197,7 @@ def calib_cov_distribution(model, model_name, delete_name, target_modules, layer
                     print("inf detected")
                     raise Exception("inf in covariance")
                 # module.covariance_matrix = module.covariance_matrix     #/ 256
-                all_covariance_matrix[name] = module.covariance_matrix
+                all_covariance_matrix[name] = module.covariance_matrix / len(calib_loader)
     torch.save(all_covariance_matrix, cache_file)  # this file would be large
     print("covariance matrices saved")
 

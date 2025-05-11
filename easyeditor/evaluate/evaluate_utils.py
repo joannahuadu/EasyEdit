@@ -219,7 +219,7 @@ def test_prediction_acc_real(model, tok, hparams, prompt, target, device, locali
             EM_Score = float(exact_match_score(gen_content, target))
             return EM_Score, gen_content
 
-def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device, locality=False, router=None):
+def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device, locality=False, router=None, max_token_len=50):
 
     if 'noise' in edit_prompt and edit_prompt['noise']:
         edit_prompt['noise'] = False
@@ -247,7 +247,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
     if hasattr(model, 'generate_tokens'):
         gen_tokens = model.generate_tokens(
             edit_prompt,
-            max_new_tokens=150,           # Max tokens to generate *after* the prompt
+            max_new_tokens=max_token_len,           # Max tokens to generate *after* the prompt
             eos_token_id=eos_token_id,   # Token ID(s) to stop generation
             pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
             do_sample=False,             # Deterministic output for evaluation
@@ -261,7 +261,7 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         model.set_lora_mapping(lora_block_mapping)
         gen_tokens = model.model.generate_tokens(
             edit_prompt,
-            max_new_tokens=150,           # Max tokens to generate *after* the prompt
+            max_new_tokens=max_token_len,           # Max tokens to generate *after* the prompt
             eos_token_id=eos_token_id,   # Token ID(s) to stop generation
             pad_token_id=effective_pad_token_id, # Pad token for generation (often same as EOS for decoder-only)
             do_sample=False,             # Deterministic output for evaluation
