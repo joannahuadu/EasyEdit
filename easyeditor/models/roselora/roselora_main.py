@@ -220,12 +220,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-3e-3, 3e-3)
+                            p.data.clamp_(-5e-2, 5e-2)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-3e-3, 3e-3)
+                            p.data.clamp_(-5e-2, 5e-2)
 
             
         progress_bar.set_description(
