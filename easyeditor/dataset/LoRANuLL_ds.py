@@ -102,16 +102,20 @@ def custom_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         "answer": answers
     }
 
-def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, size_vqa_loc=500, size_caption_m_loc=500, image_size=336):
+def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, size_vqa_loc=500, size_caption_m_loc=500, size_mmke_m_loc=500, size_mmke_loc=500, image_size=336):
     caption_train_annotation_path = hparams.caption_train_annotation_path
     train_annotation_path = hparams.train_annotation_path
     coco_image = hparams.coco_image
+    mmke_train_annotation_path = hparams.mmke_train_annotation_path
+    mmke_image = hparams.mmke_image
 
     VQA_SAMPLE_SIZE = size_VQA
     CAPTION_SAMPLE_SIZE = size_Caption
     NQ_SAMPLE_SIZE = size_nq
     VQA_LOC_SAMPLE_SIZE = size_vqa_loc
     CAPTION_M_LOC_SAMPLE_SIZE = size_caption_m_loc
+    MMKE_M_LOC_SAMPLE_SIZE = size_mmke_m_loc
+    MMKE_LOC_SAMPLE_SIZE = size_mmke_loc
     
     IMAGE_SIZE = image_size
     original_vqa_dataset = VQADataset_X(
@@ -142,6 +146,22 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = caption_train_annotation_path,
         image_root = coco_image,
         size=CAPTION_M_LOC_SAMPLE_SIZE
+    )
+    
+    original_mmke_loc_dataset = COCOCaptionDataset_X(
+        prompt = prompt,
+        template = template,
+        annotation_file = mmke_train_annotation_path,
+        image_root = mmke_image,
+        size=MMKE_LOC_SAMPLE_SIZE
+    )
+    
+    original_mmke_m_loc_dataset = COCOCaptionDataset_X(
+        prompt = prompt,
+        template = template,
+        annotation_file = mmke_train_annotation_path,
+        image_root = mmke_image,
+        size=MMKE_M_LOC_SAMPLE_SIZE
     )
 
     nq_hf_dataset = load_dataset("nq_open", split="train")
@@ -176,6 +196,18 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         "answer": "m_loc_answer"
     }
     
+    mmke_m_loc_mapping = {
+        "text_input": "m_loc_prompt",
+        "image": "m_loc_image",
+        "answer":  "m_loc_answer"
+    }
+    
+    mmke_loc_mapping = {
+        "text_input": "loc_prompt",
+        "image": None,
+        "answer": "loc_answer"
+    }
+    
     nq_mapping = {
         "text_input": "question",           
         "image": None, 
@@ -203,6 +235,16 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         key_mapping=caption_m_loc_mapping,
     )
 
+    wrapped_mmke_m_loc = StandardizedDatasetWrapper(
+        underlying_dataset=original_mmke_m_loc_dataset,
+        key_mapping=mmke_m_loc_mapping,
+    )
+    
+    wrapped_mmke_loc = StandardizedDatasetWrapper(
+        underlying_dataset=original_mmke_m_loc_dataset,
+        key_mapping=mmke_m_loc_mapping,
+    )
+    
     wrapped_nq = StandardizedDatasetWrapper(
         # underlying_dataset=nq_hf_dataset,
         underlying_dataset=torch.load("/data/lishichao/data/model_edit/LoRANULL/nq_hf_dataset.pt"),
@@ -211,7 +253,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     )
     
     # --- Combine Wrapped Datasets ---
-    combined_dataset = ConcatDataset([wrapped_caption, wrapped_nq, wrapped_caption_m_loc, wrapped_vqa_loc])
+    combined_dataset = ConcatDataset([wrapped_caption, wrapped_nq, wrapped_caption_m_loc, wrapped_vqa_loc, wrapped_mmke_m_loc, wrapped_mmke_loc])
     
     return combined_dataset
 
@@ -226,6 +268,7 @@ if __name__ == "__main__":
     caption_train_annotation_path = "/data/lishichao/data/model_edit/editing-data/caption/caption_train_edit.json"
     train_annotation_path = "/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json"
     coco_image = "/data/lishichao/data/model_edit/"
+    
 
     VQA_SAMPLE_SIZE = 20
     CAPTION_SAMPLE_SIZE = 20
