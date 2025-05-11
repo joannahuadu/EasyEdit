@@ -52,6 +52,10 @@ def execute_roselora(
     Executes the RoseLora update algorithm for the specified update at the specified layer
     Invariant: model at beginning of function == model at end of function
     """
+    if hasattr(hparams, 'exclude_modules'):
+        exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
     sparsity = 0.05
     full_iter = 3
@@ -81,7 +85,8 @@ def execute_roselora(
             lora_alpha=hparams.lora_alpha, 
             lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
         )
         if hparams.model_name == 'llava':
             peft_model = get_peft_model(llava_model, peft_config)
@@ -215,12 +220,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-3e-3, 3e-3)
+                            p.data.clamp_(-5e-2, 5e-2)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-3e-3, 3e-3)
+                            p.data.clamp_(-5e-2, 5e-2)
 
             
         progress_bar.set_description(

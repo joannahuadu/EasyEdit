@@ -121,29 +121,43 @@ if __name__ == "__main__":
     from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
     
     class HParams:
-        def __init__(self, caption_train_annotation_path, train_annotation_path, coco_image):
+        def __init__(self, caption_train_annotation_path, train_annotation_path, mmke_train_annotation_path, coco_image, mmke_image):
             self.caption_train_annotation_path = caption_train_annotation_path
             self.train_annotation_path = train_annotation_path
+            self.mmke_train_annotation_path = mmke_train_annotation_path
             self.coco_image = coco_image
+            self.mmke_image = mmke_image
     hparams = HParams(
         caption_train_annotation_path="/data/lishichao/data/model_edit/editing-data/caption/caption_train_edit.json",
         train_annotation_path="/data/lishichao/data/model_edit/editing-data/vqa/vqa_train.json",
-        coco_image="/public/home/wang_mq22/edit_data"
+        mmke_train_annotation_path="/data/lishichao/data/model_edit/MMKE/data_json/entity_train.json",
+        # coco_image="/public/home/wang_mq22/edit_data",
+        # mmke_image="/public/home/wang_mq22/edit_data/MMKE/data_image"
+        coco_image="/root/autodl-tmp/model_edit",
+        mmke_image="/root/autodl-tmp/model_edit/MMKE/data_image"
+        
     )
     name = "null_ds"
     model_id = "llava"
     nsamples = 256
     seqlen = 2048
     seed=233
+    size_Caption = 512
+    size_nq = 2048
+    size_caption_m_loc=512
+    size_vqa_loc=512
+    size_mmke_m_loc=512
+    size_mmke_loc=512
+    
     prompt = '<image>\n{}'
     
     # dataset = load_dataset("nq_open", split="train")
     # dataset.save_to_disk("/mnt/data2/wmq/EasyEdit/np_open_train")
     print(f" get_data_from: {name}, nsamples={nsamples}, seqlen={seqlen}, {seed}")
     cache_file = (
-        f"/data/lishichao/data/model_edit/LoRANULL/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
+        f"/data/lishichao/data/model_edit/LoRANULL/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}_{size_Caption}_{size_nq}_{size_caption_m_loc}_{size_vqa_loc}_{size_mmke_m_loc}_{size_mmke_loc}_mmke_for_L20.pt"
     )
-    raw_ds = get_LoRANuLL_ds(hparams=hparams, prompt=prompt, template=None, size_VQA=0, size_Caption=512, size_nq=2048, size_caption_m_loc=512,size_vqa_loc=512, image_size=336)
+    raw_ds = get_LoRANuLL_ds(hparams=hparams, prompt=prompt, template=None, size_VQA=0, size_Caption=size_Caption, size_nq=size_nq, size_caption_m_loc=size_caption_m_loc,size_vqa_loc=size_vqa_loc, size_mmke_m_loc=size_mmke_m_loc, size_mmke_loc=size_mmke_loc, image_size=336)
     torch.save(raw_ds, cache_file)
     data_loader = DataLoader(
         raw_ds,
