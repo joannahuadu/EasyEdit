@@ -86,7 +86,7 @@ def execute_lora(
     if hasattr(hparams, 'exclude_modules'):
         exclude_modules = hparams.exclude_modules
     else:
-        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.v_proj"]
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
