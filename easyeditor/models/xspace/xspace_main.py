@@ -85,7 +85,7 @@ def apply_xspace_to_model(
     proj_layername = layername(model, 0, "proj")
     base_pca = {}
     reserved = {}
-    def embed_hook(module, input, output):
+    def embed_hook_ori(module, input, output):
         N, dim = output.shape
         wS = hparams.wS
         out = output.clone()
@@ -105,22 +105,73 @@ def apply_xspace_to_model(
                 noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
                 out += noise_tensor
             return out
-
-    def proj_hook(module, input, output):
-        B, N, dim = output.shape
-        wL = hparams.wL
-        assert B == 1
+    def embed_hook(module, input, output):
+        wS = hparams.wS
+        noise_scale = hparams.noise
         out = output.clone()
         if count == 0:
             return out
-        if count == 1:
-            out[:,:,:] = 0
+        # Case 1: 2D input (N, dim)
+        if out.dim() == 2:
+            N, dim = out.shape
+            if count == 2:
+                out += torch.randn(N, dim, device=out.device) * noise_scale
+            elif count % 2 == 0:
+                if N > wS:
+                    start = torch.randint(1, N - wS + 1, (1,)).item()
+                    end = start + wS
+                    out[start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                else:
+                    out += torch.randn(N, dim, device=out.device) * noise_scale
             return out
-        elif count%2:
-            start = torch.randint(0, N - wL + 1, (1,)).item()
-            end = start + wL
-            out[:, start:end, :] = 0
+
+        # Case 2: 3D input (B, N, dim)
+        elif out.dim() == 3:
+            B, N, dim = out.shape
+            for b in range(B):
+                if count == 2:
+                    out[b] += torch.randn(N, dim, device=out.device) * noise_scale
+                elif count % 2 == 0:
+                    if N > wS:
+                        start = torch.randint(1, N - wS + 1, (1,)).item()
+                        end = start + wS
+                        out[b, start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                    else:
+                        out[b] += torch.randn(N, dim, device=out.device) * noise_scale
             return out
+
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
+
+    def proj_hook(module, input, output):
+        wL = hparams.wL
+        out = output.clone()
+        if out.dim() == 3:
+            B, N, dim = output.shape
+            if count == 0:
+                return out
+            if count == 1:
+                out[:,:,:] = 0
+                return out
+            elif count%2:
+                start = torch.randint(0, N - wL + 1, (1,)).item()
+                end = start + wL
+                out[:, start:end, :] = 0
+                return out
+        elif out.dim() == 2:
+            N, dim = output.shape
+            if count == 0:
+                return out
+            if count == 1:
+                out[:,:] = 0
+                return out
+            elif count%2:
+                start = torch.randint(N - wL + 1, (1,)).item()
+                end = start + wL
+                out[start:end, :] = 0
+                return out
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
 
     def cov_hook(module, input, output, name):
         global base_pca, reserved
@@ -153,8 +204,8 @@ def apply_xspace_to_model(
     for name, module in model.named_modules():
         if name == proj_layername:
             module.register_forward_hook(proj_hook)
-        if name == embed_layername:
-            module.register_forward_hook(embed_hook)
+        # if name == embed_layername:
+            # module.register_forward_hook(embed_hook)
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
                 module.covariance_matrix = 0
@@ -170,12 +221,22 @@ def apply_xspace_to_model(
                 chunks(targets, hparams.batch_size),
                 chunks(images, hparams.batch_size)
         ))):
-        full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
-        batch = {
-            "noise": True,
-            "text_input": full_prompt,
-            "image": img,
-        }
+        if "qwen2.5_vl" in hparams.model_name:
+            full_prompt = [p for p in txt]
+            answer = [l for l in tgt]
+            batch = {
+                "noise": True,
+                "text_input": full_prompt,
+                "image": img,
+                "answer": answer
+            }
+        else:    
+            full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
+            batch = {
+                "noise": True,
+                "text_input": full_prompt,
+                "image": img,
+            }
         count = i
         model(batch)
 
@@ -398,11 +459,16 @@ def execute_xspace(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                    if "qwen2.5_vl" in hparams.model_name:
+                        full_prompt = [p for p in txt]
+                        answer = [l for l in tgt]
+                    else:    
+                        full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
                     samples = {
                         "noise": True,
                         "text_input": full_prompt,
                         "image": img,
+                        "answer": answer
                     }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
@@ -412,7 +478,6 @@ def execute_xspace(
                     loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
                     # loss = pred.loss
                 else:
-                    
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
                     num_prompt_toks = [int((i != tok.pad_token_id).sum()) for i in prompt_ids]
@@ -527,6 +592,15 @@ def layername(model, num, kind=None):
         if kind == "attn":
             kind = "self_attn"
         return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "qwen_model"):
+        if kind == "proj":
+            return "qwen_model.visual"
+        if kind == "embed":
+            return "qwen_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'qwen_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    
     assert False, "unknown transformer structure"
 
 
@@ -536,7 +610,10 @@ def init_model_optimizer(model, config):
     ) if not bool(re.match('last', n)) and 'bn' not in n and "q_proj" not in n and "v_proj" not in n]
 
     qv_params = [p for n, p in model.named_parameters(
-    ) if "q_proj" in n or "v_proj" in n]
+    ) if ("q_proj" in n or "v_proj" in n) and 'bias' not in n]
+    
+    qv_bias = [p for n, p in model.named_parameters(
+    ) if ("q_proj" in n or "v_proj" in n) and 'bias' in n]
     # cls_params_all = list(
     #     p for n, p in model.named_children() if bool(re.match('last', n)))[0]
     # cls_params = list(cls_params_all[str(task_count+1)].parameters())
@@ -544,6 +621,8 @@ def init_model_optimizer(model, config):
     model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
                                         'thres': config.svd_thres},
                                         {'params': qv_params, 'svd': True, 'lr': config.bn_lr,
+                                        'thres': config.svd_thres},
+                                        {'params': qv_bias, 'svd': False, 'lr': config.bn_lr,
                                         'thres': config.svd_thres},
                                         # {'params': cls_params, 'weight_decay': 0.0,
                                         #     'lr': config.head_lr},

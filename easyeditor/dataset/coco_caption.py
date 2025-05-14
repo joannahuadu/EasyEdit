@@ -41,6 +41,10 @@ class CaptionDataset(BaseDataset):
         elif "owl-2" in config.model_name.lower():
             from transformers.models.clip.image_processing_clip import CLIPImageProcessor
             vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
+        elif "qwen2.5_vl" in config.model_name.lower():
+            #from transformers import Qwen2VLImageProcessor
+            #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
+            vis_processor = None
         else:
             raise NotImplementedError("unknown model class")
 
@@ -255,6 +259,12 @@ class CaptionDataset(BaseDataset):
             locality_image = os.path.join(locality_image_path)
             if'one_hop_img' in data and one_hop_img is not None:
                 one_hop_img = os.path.join(one_hop_img_path)
+        elif "qwen2.5_vl" in self.config.model_name.lower():
+            image = [image]
+            rephrase_image = [rephrase_image]
+            locality_image = [locality_image]
+            if "one_hop_img" in data and one_hop_img is not None:
+                one_hop_img = [one_hop_img]
 
 
         elif self.config.model_name == "owl-2":

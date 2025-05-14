@@ -107,9 +107,13 @@ def calib_cov_distribution(model, hparams, calib_loader):
     calib_size = hparams.calib_loader_size
     seed = hparams.seed
     model_id = model_name
+    # cache_file = (
+    #     f"/public/home/wang_mq22/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
+    # )
     cache_file = (
-        f"/public/home/wang_mq22/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
+        f"/home/lishichao/project/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
     )
+    
     if os.path.exists(cache_file) and use_cache:
         print(f"covariance cache file found: {cache_file}")
         all_covariance_matrix = torch.load(cache_file, map_location="cpu")

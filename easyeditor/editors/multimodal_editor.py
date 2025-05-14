@@ -1108,8 +1108,15 @@ class MultimodalEditor:
         # num_edits = self.hparams.batch_size
         all_metrics = []
         
+        # if isinstance(self.hparams.device, str):
+        #     self.hparams.device = str(self.model.llava_model.device).split(":")[1]
         if isinstance(self.hparams.device, str):
-            self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+            if self.hparams.model_name == "llava":
+                self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+            elif self.hparams.model_name == "qwen2.5_vl":
+                self.hparams.device = str(self.model.qwen_model.device).split(":")[1]
+            else:
+                self.hparams.device = str(self.model.device).split(":")[1]
         
         # load all metrics
         task = kwargs.get('task', None)

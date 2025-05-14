@@ -47,28 +47,41 @@ class QwenVLModel(nn.Module):
     def _device(self):
         return list(self.parameters())[-1].device
 
-    def forward(self, samples, output_attentions=False):
+    def forward(self, samples, output_attentions=False, prompt_template=True):
         image = samples["image"]
         prompts = samples["text_input"]
         targets = samples["answer"] if "answer" in samples else [None]*len(prompts)
         if isinstance(image, List):
             num_images = len(image)
+            if image[0] is None:
+                image = None
         else:
             num_images = 1
             
-        # do not append the target in the end in generation
-        text_input = [self.processor.apply_chat_template([
-                        {
+        if prompt_template:
+            # do not append the target in the end in generation
+            text_input = [self.processor.apply_chat_template([
+                            {
 
-                            "role": "user",
-                            "content": [
-                                {"type": "image"}
-                            ] * num_images + [{"type": "text", "text": p}],
-                        },
-                    ],
-                    add_generation_prompt=True,
-                    tokenize=False) + (' ' + l if l else "")
-                for p, l in zip(prompts, targets)] 
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"}
+                                ] * num_images + [{"type": "text", "text": p}],
+                            },
+                        ],
+                        add_generation_prompt=True,
+                        tokenize=False) + (' ' + l if l else "")
+                    for p, l in zip(prompts, targets)] 
+        else:
+            text_input = [
+                            {
+
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"}
+                                ] * num_images + [{"type": "text", "text": p}],
+                            } for p in prompts
+            ]
         multimodal_inputs = self.processor(images=image, text=text_input, return_tensors="pt").to(self._device(), dtype=torch.bfloat16)
         outputs = self.qwen_model(
                 **multimodal_inputs,

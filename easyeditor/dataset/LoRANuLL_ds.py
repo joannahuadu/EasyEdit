@@ -242,7 +242,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     
     wrapped_mmke_loc = StandardizedDatasetWrapper(
         underlying_dataset=original_mmke_m_loc_dataset,
-        key_mapping=mmke_m_loc_mapping,
+        key_mapping=mmke_loc_mapping,
     )
     
     wrapped_nq = StandardizedDatasetWrapper(

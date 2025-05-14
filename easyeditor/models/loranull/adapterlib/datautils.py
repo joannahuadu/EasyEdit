@@ -109,9 +109,10 @@ def jload(f, mode="r"):
 
 def get_calib_data(hparams, name, tokenizer, model_id, nsamples, seqlen=2048, seed=3):
     print(f" get_data_from: {name}, nsamples={nsamples}, seqlen={seqlen}, {seed}")
-    cache_file = (
-        f"/public/home/wang_mq22/EasyEdit/results/loranull/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
-    )
+    # cache_file = (
+    #     f"/public/home/wang_mq22/EasyEdit/results/loranull/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
+    # )
+    cache_file = '/home/lishichao/project/EasyEdit/results/loranull/null_ds_llava_256_2048_233_512_2048_512_512_512_512_mmke_for_L20.pt'
     random.seed(seed)
     if not os.path.exists("cache"):
         os.makedirs("cache")
