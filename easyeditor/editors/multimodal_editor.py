@@ -739,6 +739,9 @@ class MultimodalEditor:
             save_object(pres, cached_path)
 
         self.model.zero_grad()
+        self.model.cpu()
+        gc.collect()
+        torch.cuda.empty_cache()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
@@ -1038,6 +1041,9 @@ class MultimodalEditor:
                     )
 
                 all_metrics.append(metrics)
+                del edited_model
+                gc.collect()  
+                torch.cuda.empty_cache() 
             
             if i == flag:
                 self.weights_copy = weights_copy
@@ -1090,7 +1096,7 @@ class MultimodalEditor:
                     f.write('\n')
             gc.collect()
             torch.cuda.empty_cache()
-        return all_metrics, edited_model, weights_copy
+        return all_metrics, weights_copy
 
     def edit_MMKE_dataset(self,
                      ds: Dataset,

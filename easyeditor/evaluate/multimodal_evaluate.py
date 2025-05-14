@@ -371,28 +371,40 @@ def compute_multimodal_edit_quality(model, batch, exact_match=False):
     return acc, logits_copy,targ_copy
 
 def compute_multimodal_edit_quality_demo(model, batch, tok):
-    prompts = [batch['prompt_template'].format(prompt) if 'prompt_template' in batch else prompt for prompt in batch['text_input']]
-    targets = batch['answer']
-    target_ids = [tok.encode(target, return_tensors="pt", add_special_tokens=False)[0] for target in targets]
-    prompt_target = [prompt + ' ' + tok.decode(target) for prompt, target in zip(prompts, target_ids)]
-    prompt_target_tok = tok(
-        prompt_target,
-        padding=True,
-        truncation=True,
-        return_tensors="pt",
-    )
-    batch['text_input'] = prompt_target
-    batch['noise'] = True
+    if hasattr(model, 'qwen_model'):
+        prompts = [prompt for prompt in batch['text_input']]
+        targets = batch['answer']
+        target_ids = [tok.encode(target, return_tensors="pt", add_special_tokens=False)[0] for target in targets]
+        batch['text_input'] = prompts
+        batch['noise'] = True
+    else:  
+        prompts = [batch['prompt_template'].format(prompt) if 'prompt_template' in batch else prompt for prompt in batch['text_input']]
+        targets = batch['answer']
+        target_ids = [tok.encode(target, return_tensors="pt", add_special_tokens=False)[0] for target in targets]
+        prompt_target = [prompt + ' ' + tok.decode(target) for prompt, target in zip(prompts, target_ids)]
+        prompt_target_tok = tok(
+            prompt_target,
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+        )
+        batch['text_input'] = prompt_target
+        batch['noise'] = True
     with torch.no_grad():
         outputs = model(batch)
         if isinstance(outputs, torch.Tensor):
             logits = outputs.detach().cpu()
         else:
             logits = outputs.logits.detach().cpu()
-        answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
-        labels = prompt_target_tok['input_ids'].squeeze()[1:].detach().cpu().numpy().tolist()
-        answers = answers[-len(target_ids[0]):]
-        labels = labels[-len(target_ids[0]):]
+        if hasattr(model, 'qwen_model'):
+            answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
+            answers = answers[-len(target_ids[0]):]
+            labels = target_ids
+        else:   
+            answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
+            labels = prompt_target_tok['input_ids'].squeeze()[1:].detach().cpu().numpy().tolist()
+            answers = answers[-len(target_ids[0]):]
+            labels = labels[-len(target_ids[0]):]
         if isinstance(answers[0], list):
             res = []
             for ans,label in zip(answers,labels):

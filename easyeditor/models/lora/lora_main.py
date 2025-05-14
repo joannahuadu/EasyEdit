@@ -16,6 +16,7 @@ from tqdm import tqdm
 # Multimodal dataset for Corda 
 from ...dataset import VQADataset_Simple
 from torch.utils.data import DataLoader
+import gc
 
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
@@ -38,8 +39,20 @@ def apply_lora_to_model(
     :return: (1) the updated model, (2) the weights that changed
     """
     weights_copy = {}
+    # if copy:
+    #     model = deepcopy(model).cpu()
+    # torch.cuda.empty_cache()
     if copy:
         model = deepcopy(model)
+        # 3. 把 copy 放回 CUDA，原模型不动
+        model = model.to("cuda")
+
+        # # 4. 如果 model_cpu 不再用，彻底释放
+        # del model_copy
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    model = model.to("cuda")
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
     if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
@@ -73,7 +86,7 @@ def execute_lora(
     if hasattr(hparams, 'exclude_modules'):
         exclude_modules = hparams.exclude_modules
     else:
-        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.v_proj"]
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
@@ -196,7 +209,7 @@ def execute_lora(
         images = [r["image"] for r in requests]
     # if torch.__version__ >= "2" and sys.platform != "win32":
     # model = torch.compile(model)
-    loss_meter = AverageMeter()
+    loss_meter = AverageMeter() 
     for it in range(hparams.num_steps):
         print(20 * "=")
         print(f"Epoch: {it}")
@@ -238,12 +251,17 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                    if "qwen2.5_vl" in hparams.model_name:
+                        full_prompt = [p for p in txt]
+                        answer = [l for l in tgt]
+                    else:    
+                        full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
                     samples = {
                         "noise": True,
                         "text_input": full_prompt,
                         "image": img,
-                        "train": True
+                        "train": True,
+                        "answer": answer
                     }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
