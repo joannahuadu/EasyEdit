@@ -9,7 +9,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from torch.nn import CrossEntropyLoss
 from .roselora_hparams import RoseLoRAHyperParams, RoseLoRAMultimodalHyperParams
 from ...trainer.losses import masked_log_probs
-
+import gc
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
 
@@ -29,11 +29,18 @@ def apply_roselora_to_model(
     :return: (1) the updated model, (2) the weights that changed
     """
     weights_copy = {}
+    # if copy:
+    #    model = deepcopy(model)
     if copy:
-       model = deepcopy(model)
+        model = deepcopy(model)
+        model = model.to("cuda")
+        gc.collect()
+        torch.cuda.empty_cache()
+    model = model.to("cuda")
+        
 
     edited_model = execute_roselora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model"):
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -60,12 +67,17 @@ def execute_roselora(
     sparsity = 0.05
     full_iter = 3
     burnin_iter = 20
-    if hparams.model_name == 'llava':
-        llava_model = model.llava_model if hasattr(model, "llava_model") else model
-        llava_model.config.use_cache = False
-        llava_model.supports_gradient_checkpointing = True  #
-        llava_model.gradient_checkpointing_enable()
-        llava_model.enable_input_require_grads()
+    if hasattr(model, "llava_model"):
+        sub_model = model.llava_model
+    elif hasattr(model, "qwen_model"):
+        sub_model = model.qwen_model
+    else:
+        sub_model = model
+
+    sub_model.config.use_cache = False
+    sub_model.supports_gradient_checkpointing = True  #
+    sub_model.gradient_checkpointing_enable()
+    sub_model.enable_input_require_grads()
     # model.config.use_cache = False
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
@@ -76,7 +88,7 @@ def execute_roselora(
         raise NotImplementedError
     
     if not keep_original_weight and hasattr(model,'peft_config'):
-        peft_model = model
+        peft_model = sub_model
     else:
         peft_config = Config(
             task_type=TaskType.CAUSAL_LM,
@@ -88,10 +100,8 @@ def execute_roselora(
             target_modules=hparams.target_modules,
             exclude_modules=exclude_modules,
         )
-        if hparams.model_name == 'llava':
-            peft_model = get_peft_model(llava_model, peft_config)
-        else:
-            peft_model = get_peft_model(model, peft_config)
+
+        peft_model = get_peft_model(sub_model, peft_config)
 
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
@@ -154,12 +164,18 @@ def execute_roselora(
             else:
                 rate = sparsity
             if img:
-                full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                if "qwen2.5_vl" in hparams.model_name:
+                    full_prompt = [p for p in txt]
+                    answer = [l for l in tgt]
+                else:
+                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                    answer = None
                 samples = {
                     "noise": True,
                     "text_input": full_prompt,
                     "image": img,
-                    "train": True
+                    "train": True,
+                    "answer": answer
                 }
                 # pred = model(samples, output_attentions=False)
                 if isinstance(tgt, list):
@@ -220,12 +236,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-5e-2, 5e-2)
+                            p.data.clamp_(-5e-3, 5e-3)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-5e-2, 5e-2)
+                            p.data.clamp_(-2e-2, 2e-2)
 
             
         progress_bar.set_description(
