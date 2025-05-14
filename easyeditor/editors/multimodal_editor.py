@@ -228,7 +228,7 @@ class MultimodalEditor:
                             n_reset += 1
 
                 LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
-        if self.alg_name.lower() == 'loranull':
+        if self.alg_name.lower() == 'loranull' or self.alg_name.lower() == 'xspace':
             from ..models.loranull import get_calib_data, calib_cov_distribution, build_model2
             calib_loader = get_calib_data(self.hparams, self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
             LOG.info('Collecting covariance data for Singular_aware ...')
@@ -739,6 +739,9 @@ class MultimodalEditor:
             save_object(pres, cached_path)
 
         self.model.zero_grad()
+        self.model.cpu()
+        gc.collect()
+        torch.cuda.empty_cache()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
@@ -1038,6 +1041,9 @@ class MultimodalEditor:
                     )
 
                 all_metrics.append(metrics)
+                del edited_model
+                gc.collect()  
+                torch.cuda.empty_cache() 
             
             if i == flag:
                 self.weights_copy = weights_copy
@@ -1090,7 +1096,7 @@ class MultimodalEditor:
                     f.write('\n')
             gc.collect()
             torch.cuda.empty_cache()
-        return all_metrics, edited_model, weights_copy
+        return all_metrics, weights_copy
 
     def edit_MMKE_dataset(self,
                      ds: Dataset,
@@ -1189,10 +1195,10 @@ class MultimodalEditor:
                                 "multimodal_locality_prompt":self.prompt.format(request["multimodal_locality_prompt"]),
                                 "m_rel_prompt":self.prompt.format(request["m_rel_prompt"]),
                                 })
-            if "portability_prompt" in request.keys():
-                request.update({
-                    "portability_prompt":self.prompt.format(request["portability_prompt"])
-                })
+            # if "portability_prompt" in request.keys():
+            #     request.update({
+            #         "portability_prompt":[self.prompt.format(prompt) for prompt in request["portability_prompt"]]
+            #     })
 
             # Edit model with different algs
 

@@ -639,6 +639,8 @@ class COCOCaptionDataset_X(BaseDataset):
         m_loc_image_name = ann["m_loc"]
         m_loc_question = ann['m_loc_q']
         m_loc_answer = ann['m_loc_a']
+        loc_question = ann["loc"]
+        loc_answer = ann["loc_ans"]
         img_path = os.path.join(self.image_root, img_name)
         m_loc_img_path = os.path.join(self.image_root, m_loc_image_name)
         image = Image.open(img_path).convert("RGB")
@@ -655,7 +657,9 @@ class COCOCaptionDataset_X(BaseDataset):
             "answer": answer,
             "m_loc_image": m_loc_image.half(),
             "m_loc_prompt": self.template.format(m_loc_question) if self.template else m_loc_question,
-            "m_loc_answer": m_loc_answer
+            "m_loc_answer": m_loc_answer,
+            "loc_prompt": self.template.format(loc_question) if self.template else loc_question,
+            "loc_answer": loc_answer
         }
 
     @staticmethod

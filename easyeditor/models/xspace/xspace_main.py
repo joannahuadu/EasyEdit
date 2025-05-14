@@ -8,7 +8,7 @@ from datasets import load_dataset
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from .lora_hparams import LoRAHyperParams, LoRAMultimodalHyperParams
+from .xspace_hparams import XSpaceMultimodalHyperParams
 from ...trainer.losses import masked_log_probs
 
 from tqdm import tqdm
@@ -16,17 +16,41 @@ from tqdm import tqdm
 # Multimodal dataset for Corda 
 from ...dataset import VQADataset_Simple
 from torch.utils.data import DataLoader
-import gc
 
+import torch.nn as nn
+import torch.nn.functional as F
+from functools import partial
+import numpy as np
+from .optim import Adam
+
+base_pca = {} 
+reserved = {} 
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
 
+def pca_features(x, r=32):
+    np.random.seed(42)  
+    torch.manual_seed(42)
+    U, S, V = torch.pca_lowrank(x, q=r)
+    torch.random.seed() 
+    return V[:, :r]
 
-def apply_lora_to_model(
+def cosine_similarity(A, B):
+    A_norm = F.normalize(A, dim=0)
+    B_norm = F.normalize(B, dim=0)
+    return torch.sum(A_norm * B_norm).item() / A.shape[1]
+
+# def cosine_similarity(A, B):
+#     dot_product = torch.dot(A, B)
+#     norm_v1 = torch.norm(A)
+#     norm_v2 = torch.norm(B)
+#     return  dot_product / (norm_v1 * norm_v2)
+
+def apply_xspace_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
         requests: List[Dict],
-        hparams: LoRAHyperParams,
+        hparams: XSpaceMultimodalHyperParams,
         copy=False,
         return_orig_weights=False,
         keep_original_weight=False,
@@ -38,23 +62,142 @@ def apply_lora_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) the weights that changed
     """
+    global base_pca, reserved
     weights_copy = {}
-    # if copy:
-    #     model = deepcopy(model).cpu()
-    # torch.cuda.empty_cache()
     if copy:
         model = deepcopy(model)
-        # 3. 把 copy 放回 CUDA，原模型不动
-        model = model.to("cuda")
+    requests = deepcopy(requests)
+    for request in requests:
+        if "target_new" not in request and "target" in request:
+            request.update({"target_new": request["target"]})
+        print(
+            f"Executing LoRA algo for: "
+            f"[{request['prompt']}] -> [{request['target_new']}]"
+        )
+    # image_tok = requests[0]['image_toks']
+    texts = [r["prompt"] for r in requests]
+    targets = [r["target_new"] for r in requests]
+    if "image" in requests[0]:
+        images = [r["image"] for r in requests]
+    # text_lens = [len(tok.encode(prompt+" "+target, add_special_tokens=False)) for prompt, target in zip(texts, targets)]
+    # B = (image_tok - hparams.wL) // hparams.wS + 1 + 1 + len(hparams.nS)
+    embed_layername = layername(model, 0, "embed")
+    proj_layername = layername(model, 0, "proj")
+    base_pca = {}
+    reserved = {}
+    def embed_hook(module, input, output):
+        N, dim = output.shape
+        wS = hparams.wS
+        out = output.clone()
+        if count == 0:
+            return out
+        if count == 2:
+            noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
+            out += noise_tensor
+            return out
+        elif count%2==0:
+            if N > wS:
+                start = torch.randint(1, N - wS + 1, (1,)).item()
+                end = start + wS
+                noise_tensor = torch.randn(wS, dim, device=output.device) * hparams.noise
+                out[start:end, :] += noise_tensor
+            else:
+                noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
+                out += noise_tensor
+            return out
 
-        # # 4. 如果 model_cpu 不再用，彻底释放
-        # del model_copy
-        gc.collect()
-        torch.cuda.empty_cache()
+    def proj_hook(module, input, output):
+        B, N, dim = output.shape
+        wL = hparams.wL
+        assert B == 1
+        out = output.clone()
+        if count == 0:
+            return out
+        if count == 1:
+            out[:,:,:] = 0
+            return out
+        elif count%2:
+            start = torch.randint(0, N - wL + 1, (1,)).item()
+            end = start + wL
+            out[:, start:end, :] = 0
+            return out
 
-    model = model.to("cuda")
+    def cov_hook(module, input, output, name):
+        global base_pca, reserved
+        input = input[0].detach().squeeze(0).data  ## (2048, dim)
+        input = input
+        input = input/torch.max(input).abs()
+        if torch.isnan(input).any():
+            print("nan detected")
+            raise Exception("nan in input, break")
+        if torch.isinf(input).any():
+            print("inf detected")
+            raise Exception("inf in input, break")
+        covariance = input.t().matmul(input)
+        pca = pca_features(covariance.float())
+        if base_pca[name] is None:
+            base_pca[name] = pca
+        else:
+            sim = cosine_similarity(base_pca[name], pca)
+            if sim > hparams.sim:
+                if torch.isnan(covariance).any():
+                    print("nan detected")
+                    raise Exception("nan in covariance, break")
+                if torch.isinf(covariance).any():
+                    print("inf detected")
+                    raise Exception("inf in covariance, break")        
+                module.covariance_matrix += covariance
+                reserved[name]+=1
+        del input, covariance
+    
+    for name, module in model.named_modules():
+        if name == proj_layername:
+            module.register_forward_hook(proj_hook)
+        if name == embed_layername:
+            module.register_forward_hook(embed_hook)
+        if isinstance(module, nn.Linear):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+                module.covariance_matrix = 0
+                module.register_forward_hook(partial(cov_hook, name=name))
+                base_pca[name] = None
+                reserved[name] = 0
 
-    edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
+    texts = texts*hparams.num_samples
+    targets = targets*hparams.num_samples
+    images = images*hparams.num_samples
+    for i, (txt, tgt, img) in enumerate(tqdm(zip(
+                chunks(texts, hparams.batch_size), 
+                chunks(targets, hparams.batch_size),
+                chunks(images, hparams.batch_size)
+        ))):
+        full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
+        batch = {
+            "noise": True,
+            "text_input": full_prompt,
+            "image": img,
+        }
+        count = i
+        model(batch)
+
+    all_covariance_matrix = {}
+    for name, module in model.named_modules():
+        if name == proj_layername:
+            module._forward_hooks.clear()
+        if name == embed_layername:
+            module._forward_hooks.clear()
+        if isinstance(module, nn.Linear):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+                module._forward_hooks.clear()
+                if torch.isnan(module.covariance_matrix).any():
+                    print("nan detected")
+                    raise Exception("nan in covariance")
+                if torch.isinf(module.covariance_matrix).any():
+                    print("inf detected")
+                    raise Exception("inf in covariance")
+                module.covariance_matrix = module.covariance_matrix/reserved[name]
+                all_covariance_matrix[module.weight] = module.covariance_matrix
+        
+    edited_model = execute_xspace(model, tok, requests, hparams, all_covariance_matrix, keep_original_weight)
     if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
         # model.llava_model = edited_model
         return model, weights_copy
@@ -62,11 +205,12 @@ def apply_lora_to_model(
         return edited_model, weights_copy
 
 
-def execute_lora(
+def execute_xspace(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
         requests: List[Dict],
-        hparams: LoRAHyperParams,
+        hparams: XSpaceMultimodalHyperParams,
+        all_covariance_matrix: Dict,
         keep_original_weight=False,
         **kwargs: Any,
 ) -> Dict[str, Tuple[torch.Tensor]]:
@@ -83,10 +227,6 @@ def execute_lora(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
-    if hasattr(hparams, 'exclude_modules'):
-        exclude_modules = hparams.exclude_modules
-    else:
-        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.15.self_attn.v_proj"]
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
@@ -98,7 +238,15 @@ def execute_lora(
     sub_model.supports_gradient_checkpointing = True  #
     sub_model.gradient_checkpointing_enable()
     sub_model.enable_input_require_grads()
-    if hparams.lora_type == "lora":
+    if hparams.Null_mode:
+        for n, p in sub_model.named_parameters():
+            ## freeze BLinaer
+            # and "BLinear" not in n 
+            if "ALinear" not in n and p.requires_grad:
+                p.requires_grad = False
+            if ("PALinear" in n or "PBLinear"in n )and p.requires_grad:
+                p.requires_grad = False
+    elif hparams.lora_type == "lora":
         Config = LoraConfig
         peft_config = Config(
             task_type=TaskType.CAUSAL_LM,
@@ -106,8 +254,7 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules,
-            exclude_modules=exclude_modules,
+            target_modules=hparams.target_modules
         )
     elif hparams.lora_type == "adalora":
         Config = AdaLoraConfig
@@ -118,8 +265,7 @@ def execute_lora(
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules,
-            total_step=hparams.num_steps,
-            exclude_modules=exclude_modules,
+            total_step=hparams.num_steps
         )
     elif hparams.lora_type == "corda":
         # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
@@ -160,8 +306,8 @@ def execute_lora(
                     model(samples)
         corda_config = CordaConfig(
             corda_method="kpm",
-            covariance_file="/public/home/wang_mq22/EasyEdit/results/corda/cov_rank8.pt",
-            cache_file="/public/home/wang_mq22/EasyEdit/results/corda/cache_file_rank8.pt",
+            covariance_file="/home/lishichao/project/EasyEdit/results/cache/corda/cov_rank8.pt",
+            cache_file="/home/lishichao/project/EasyEdit/results/cache/corda/cache_file_rank8.pt",
         )
         peft_config = LoraConfig(
             init_lora_weights="corda",
@@ -171,13 +317,15 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules,
-            exclude_modules=exclude_modules,
+            target_modules=hparams.target_modules
         )
         preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
         raise NotImplementedError
-    if not keep_original_weight and hasattr(model, 'peft_config'):
+
+    if hparams.Null_mode:
+        peft_model = sub_model
+    elif not keep_original_weight and hasattr(model, 'peft_config'):
         peft_model = sub_model
     else:
         peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
@@ -200,16 +348,14 @@ def execute_lora(
     targets = [r["target_new"] for r in requests]
     prompt_template = "{}" if requests[0]["prompt_template"] is None else requests[0]["prompt_template"]
     # Configure optimizer / gradients
-    opt = torch.optim.Adam(
-        peft_model.parameters(),
-        lr=hparams.lr,
-        weight_decay=hparams.weight_decay,
-    )
+    ## Adam-nscl
+    opt, scheduler= init_model_optimizer(model, hparams)
+
     if "image" in requests[0]:
         images = [r["image"] for r in requests]
     # if torch.__version__ >= "2" and sys.platform != "win32":
     # model = torch.compile(model)
-    loss_meter = AverageMeter() 
+    loss_meter = AverageMeter()
     for it in range(hparams.num_steps):
         print(20 * "=")
         print(f"Epoch: {it}")
@@ -223,6 +369,7 @@ def execute_lora(
         ):
             mask_token = -100
             opt.zero_grad()
+            scheduler.step(it)
             if 't5' in hparams.model_name.lower():
                 inputs = tok(txt, return_tensors="pt", padding=True).to(device)
                 bs = inputs["input_ids"].shape[0]
@@ -251,17 +398,11 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    if "qwen2.5_vl" in hparams.model_name:
-                        full_prompt = [p for p in txt]
-                        answer = [l for l in tgt]
-                    else:    
-                        full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
                     samples = {
                         "noise": True,
                         "text_input": full_prompt,
                         "image": img,
-                        "train": True,
-                        "answer": answer
                     }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
@@ -302,6 +443,11 @@ def execute_lora(
 
             # if loss.item() >= 1e-3:
             loss.backward()
+            if it==0:
+                with torch.no_grad():
+                    opt.get_eigens(all_covariance_matrix)
+                    opt.get_transforms()
+            torch.cuda.empty_cache()
             opt.step()
 
         print(f"Total loss {loss_meter.avg}")
@@ -346,3 +492,75 @@ def get_VQA_ds(hparams, prompt, template, size=None):
     image_root = hparams.coco_image
     raw_ds = VQADataset_Simple(size=size, prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
     return raw_ds
+
+
+def layername(model, num, kind=None):
+    if hasattr(model, "transformer"):
+        if kind == "embed":
+            return "transformer.wte"
+        return f'transformer.h.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "gpt_neox"):
+        if kind == "embed":
+            return "gpt_neox.embed_in"
+        if kind == "attn":
+            kind = "attention"
+        return f'gpt_neox.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "opt_model"):
+        if kind == "embed":
+            return "opt_model.model.decoder.embed_tokens"
+        if kind == "mlp":
+            kind = "fc2"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'opt_model.model.decoder.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llama_model"):
+        if kind == "embed":
+            return "llama_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llava_model"):
+        if kind == "proj":
+            return "llava_model.model.mm_projector"
+        if kind == "embed":
+            return "llava_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    assert False, "unknown transformer structure"
+
+
+def init_model_optimizer(model, config):
+    import re
+    fea_params = [p for n, p in model.named_parameters(
+    ) if not bool(re.match('last', n)) and 'bn' not in n and "q_proj" not in n and "v_proj" not in n]
+
+    qv_params = [p for n, p in model.named_parameters(
+    ) if "q_proj" in n or "v_proj" in n]
+    # cls_params_all = list(
+    #     p for n, p in model.named_children() if bool(re.match('last', n)))[0]
+    # cls_params = list(cls_params_all[str(task_count+1)].parameters())
+    bn_params = [p for n, p in model.named_parameters() if 'bn' in n]
+    model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
+                                        'thres': config.svd_thres},
+                                        {'params': qv_params, 'svd': True, 'lr': config.bn_lr,
+                                        'thres': config.svd_thres},
+                                        # {'params': cls_params, 'weight_decay': 0.0,
+                                        #     'lr': config.head_lr},
+                                        {'params': bn_params, 'lr': config.bn_lr}],
+                            'lr': config.lr,
+                            'weight_decay': config.weight_decay}
+    if config.model_optimizer in ['SGD', 'RMSprop']:
+        model_optimizer_arg['momentum'] = config.momentum
+    elif config.model_optimizer in ['Rprop']:
+        model_optimizer_arg.pop('weight_decay')
+    elif config.model_optimizer in ['amsgrad']:
+        if config.model_optimizer == 'amsgrad':
+            model_optimizer_arg['amsgrad'] = True
+        config.model_optimizer= 'Adam'
+
+    model_optimizer = Adam(**model_optimizer_arg)
+    model_scheduler = torch.optim.lr_scheduler.MultiStepLR(model_optimizer,
+                                                                milestones=config.schedule,
+                                                                gamma=config.gamma)
+    return model_optimizer, model_scheduler

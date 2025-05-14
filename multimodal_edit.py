@@ -11,6 +11,7 @@ from easyeditor import UnKEMultimodalHyperParams
 from easyeditor import RoseLoRAMultimodalHyperParams
 from easyeditor import LoRANULLMultimodalHyperParams
 from easyeditor import CaptionDataset, VQADataset
+from easyeditor import XSpaceMultimodalHyperParams
 
 import os
 from statistics import mean
@@ -88,7 +89,7 @@ def edit_UNIKE_LLaVA_MMKE(args):
     pprint(metrics)
 
 def edit_LoRA_LLaVA_VQA(args):
-    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava.yaml')
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava_corda.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
@@ -129,14 +130,14 @@ def edit_LoRA_Qwen_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, size=5, config=hparams)
-    metrics, edited_model, _ = editor.edit_dataset(
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
         keep_original_weight=True,
         task='vqa',
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA'),
-        copy=False,
+        copy=True,
     )
     pprint(metrics)
 
@@ -193,6 +194,22 @@ def edit_MELO_LLaVA_VQA(args):
 
 def edit_RoseLoRA_LLaVA_VQA(args):
     hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/llava.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+    
+def edit_RoseLoRA_Qwen_VQA(args):
+    hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/qwen2_5.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
@@ -273,9 +290,69 @@ def edit_LoRANULL_LLaVA_MMKE(args):
     )
     pprint(metrics)
 
+def edit_XSpace_LLaVA_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava_updownqv_1.yaml')
+    # random.seed(hparams.seed)
+    # np.random.seed(hparams.seed)
+    # torch.manual_seed(hparams.seed)
+    # torch.cuda.manual_seed_all(hparams.seed)
+    # torch.backends.cudnn.deterministic = True
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
+def edit_XSpace_LLaVA_VQA_1(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava_updownqv.yaml')
+    # random.seed(hparams.seed)
+    # np.random.seed(hparams.seed)
+    # torch.manual_seed(hparams.seed)
+    # torch.cuda.manual_seed_all(hparams.seed)
+    # torch.backends.cudnn.deterministic = True
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
+def edit_XSpace_Qwen_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/Xspace/qwen_updownqv_1.yaml')
+    # random.seed(hparams.seed)
+    # np.random.seed(hparams.seed)
+    # torch.manual_seed(hparams.seed)
+    # torch.cuda.manual_seed_all(hparams.seed)
+    # torch.backends.cudnn.deterministic = True
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Choose which model to edit using MEMIT.")
-    parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4'],
+    parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4','qwen'],
                         help="Specify the model to edit: 'gpt2', 'llama', or 'qwen'.")
     parser.add_argument('--function_name', required=True, type=str, default='test_FT_Blip2OPT')
     parser.add_argument('--hop', type=int, default=1)
