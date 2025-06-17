@@ -25,6 +25,7 @@ from .batch_editor import BatchEditor
 from ..evaluate import (compute_icl_multimodal_edit_quality, 
                         compute_multimodal_edit_results,
                         compute_multimodal_edit_results_qwen,
+                        compute_multimodal_edit_results_phi,
                         compute_multimodal_edit_results_demo,
                         compute_mmke_multimodal_edit_quality_rel,
                         test_locality_real_multimodal,
@@ -82,7 +83,7 @@ class MultimodalEditor:
         make_logs()
 
         LOG.info("Instantiating model")
-
+        self.tok = None
         if type(self.model_name) is str:
             if hparams.model_name == "blip2":
                 from ..trainer.blip2_models import Blip2OPT
@@ -162,10 +163,12 @@ class MultimodalEditor:
                     model = QwenVLModel(
                         qwen_model=hparams.name, 
                         device_map="auto",
+                        cache_dir=hparams.cache_dir
                         )
                 else:
                     model = QwenVLModel(
                         qwen_model=hparams.name, 
+                        cache_dir=hparams.cache_dir,
                         device_map="cuda:{}".format(hparams.device),
                         )
                 # self.tok = AutoProcessor.from_pretrained(hparams.model_name)
@@ -175,21 +178,46 @@ class MultimodalEditor:
                 self.prompt_template = None
                 self.image_toks = None
                 self.model_name = "qwen2.5_vl"
-                
+                self.tok = getattr(transformers, hparams.tokenizer_class).from_pretrained(hparams.tokenizer_name).tokenizer            
+            
+            elif hparams.model_name == 'phi3_vl':
+                from ..trainer.phi_models import Phi3VLModel
+                from transformers import AutoProcessor
+                if isinstance(hparams.device, str):
+                    model = Phi3VLModel(
+                        phi3_model_name=hparams.name, # e.g., "microsoft/Phi-3-vision-128k-instruct"
+                        device_map="auto",
+                        cache_dir=hparams.cache_dir
+                    )
+                else:
+                    model = Phi3VLModel(
+                        phi3_model_name=hparams.name,
+                        cache_dir=hparams.cache_dir,
+                        device_map="cuda:{}".format(hparams.device),
+                    )
+                vis_processor = None
+                self.prompt = None
+                self.prompt_template = None
+                self.image_toks = None
+                self.model_name = "phi3"
+                self.tok = getattr(transformers, hparams.tokenizer_class).from_pretrained(hparams.tokenizer_name, trust_remote_code=True).tokenizer            
+                if self.tok.pad_token == None or self.tok.pad_token == '':
+                    self.tok.pad_token = self.tok.eos_token    
             self.model = model
             self.vis_tok = vis_processor
-            if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
-                tok_name = (
-                    hparams.tokenizer_name
-                    if hparams.tokenizer_name is not None
-                    else hparams.name
-                )
-                tokenizer = getattr(transformers, hparams.tokenizer_class).from_pretrained(
-                    tok_name
-                )            
-                if tokenizer.pad_token == None or tokenizer.pad_token == '':
-                    tokenizer.pad_token = tokenizer.eos_token    
-                self.tok = tokenizer                         
+            if self.tok is None:
+                if (hparams is not None and hasattr(hparams, 'tokenizer_name')):
+                    tok_name = (
+                        hparams.tokenizer_name
+                        if hparams.tokenizer_name is not None
+                        else hparams.name
+                    )
+                    tokenizer = getattr(transformers, hparams.tokenizer_class).from_pretrained(
+                        tok_name
+                    )            
+                    if tokenizer.pad_token == None or tokenizer.pad_token == '':
+                        tokenizer.pad_token = tokenizer.eos_token    
+                    self.tok = tokenizer                         
         else:
             self.model, self.tok = self.model_name
         
@@ -730,6 +758,9 @@ class MultimodalEditor:
                 if self.hparams.model_name == "qwen2.5_vl":
                     pre = compute_multimodal_edit_results_qwen(self.model, self.model_name, self.hparams, self.tok,
                                                     request[0], self.hparams.device, self.hparams.real_world_eval)
+                elif self.hparams.model_name == "phi3_vl":
+                    pre = compute_multimodal_edit_results_phi(self.model, self.model_name, self.hparams, self.tok,
+                                                    request[0], self.hparams.device, self.hparams.real_world_eval)
                 else:
                     pre = compute_multimodal_edit_results(self.model, self.model_name, self.hparams, self.tok,
                                                     request[0], self.hparams.device, self.hparams.real_world_eval)
@@ -874,7 +905,7 @@ class MultimodalEditor:
                                                         request[0], self.hparams.device),
                     }
                 else:
-                    if self.hparams.model_name == "qwen2.5_vl":
+                    if self.hparams.model_name == "qwen2.5_vl" :
                         metrics = {
                             'case_id': i,
                             "time": exec_time,

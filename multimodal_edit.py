@@ -130,7 +130,7 @@ def edit_LoRA_Qwen_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, config=hparams)
+    eval_ds = VQADataset(file_path, config=hparams,size=5)
     metrics, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
@@ -140,7 +140,22 @@ def edit_LoRA_Qwen_VQA(args):
         copy=True,
     )
     pprint(metrics)
+
+def edit_LoRA_Phi_VQA(args):
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/phi3.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
     
+    eval_ds = VQADataset(file_path, config=hparams,size=5)
+    metrics, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA'),
+        copy=True,
+    )
+    pprint(metrics)
 def edit_LoRA_Qwen_MMKE(args):
     hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/qwen_mmke.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
@@ -216,7 +231,7 @@ def edit_RoseLoRA_LLaVA_VQA(args):
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, config=hparams)
+    eval_ds = VQADataset(file_path, config=hparams,size=5)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,

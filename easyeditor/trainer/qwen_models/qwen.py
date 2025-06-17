@@ -70,8 +70,28 @@ class QwenVLModel(nn.Module):
                             },
                         ],
                         add_generation_prompt=True,
-                        tokenize=False) + (' ' + l if l else "")
+                        tokenize=False) + (' ' + l if l else "") + self.tokenizer.eos_token
                     for p, l in zip(prompts, targets)] 
+            # add assistent's content
+            # text_input = [self.processor.apply_chat_template([
+            #         {"role": "system", "content": "You are a helpful assistant."},
+            #         {
+
+            #             "role": "user",
+            #             "content": [
+            #                 {"type": "image"}
+            #             ] * num_images + [{"type": "text", "text": p}],
+            #         },
+            #         {
+            #             "role": "assistant",
+            #             "content": l # 将答案作为 assistant 的内容
+            #         }
+            #     ],
+            #     add_generation_prompt=False,
+            #     tokenize=False)
+            # for p, l in zip(prompts, targets)] 
+            # 
+            
         else:
             text_input = [
                             {

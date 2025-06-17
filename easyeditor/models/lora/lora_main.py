@@ -92,7 +92,9 @@ def execute_lora(
         sub_model = model.llava_model
     elif hasattr(model, "qwen_model"):
         sub_model = model.qwen_model
-    else:
+    elif hasattr(model, "phi_model"):
+        sub_model = model.phi_model
+    else:   
         sub_model = model
     sub_model.config.use_cache = False
     sub_model.supports_gradient_checkpointing = True  #
@@ -271,7 +273,6 @@ def execute_lora(
                     loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
                     # loss = pred.loss
                 else:
-                    
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
                     num_prompt_toks = [int((i != tok.pad_token_id).sum()) for i in prompt_ids]

@@ -310,6 +310,8 @@ def test_prediction_acc_real_multimodal(model, tok, hparams, edit_prompt, device
         return score, gen_content
 
 def test_locality_real_multimodal(tok, hparams, question, pre_tokens, post_tokens):
+        pre_tokens = pre_tokens.detach().clone().long()
+        post_tokens = post_tokens.detach().clone().long()
         pre_gen_content = tok.decode(pre_tokens, skip_special_tokens=True)
         pre_gen_content = pre_gen_content.strip()
         post_gen_content = tok.decode(post_tokens, skip_special_tokens=True)

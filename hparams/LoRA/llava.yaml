@@ -9,7 +9,7 @@ tokenizer_name: /root/autodl-tmp/model/4481d270cc22fd5c4d1bb5df129622006ccd9234
 cache_dir: /root/.cache/huggingface/hub/
 device: 0
 
-lora_type: "corda"
+lora_type: "lora"
 layers: [7]
 num_steps: 70
 batch_size: 1
@@ -32,7 +32,7 @@ train_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_train.js
 eval_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_eval.json
 
 # Evaluation
-all_metrics_name: 'all_metrics_corda_layer7_updown.jsonl'
+all_metrics_name: 'all_metrics_lora_layer7_updown_debug.jsonl'
 json_dir: /root/code/EasyEdit/results/jsonl
 continuous_sample: 1
 

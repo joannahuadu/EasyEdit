@@ -100,8 +100,10 @@ def execute_roselora(
             target_modules=hparams.target_modules,
             exclude_modules=exclude_modules,
         )
-
-        peft_model = get_peft_model(sub_model, peft_config)
+        if hparams.model_name == 'llava':
+            peft_model = get_peft_model(sub_model, peft_config)
+        else:
+            peft_model = get_peft_model(model, peft_config)
 
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
@@ -236,12 +238,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-5e-3, 5e-3)
+                            p.data.clamp_(-3e-2, 3e-2)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-2e-2, 2e-2)
+                            p.data.clamp_(-3e-2, 3e-2)
 
             
         progress_bar.set_description(

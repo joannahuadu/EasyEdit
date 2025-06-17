@@ -27,6 +27,7 @@ class VQADataset(BaseDataset):
         ann_root (string): directory to store the annotation file
         """
         # get tokenizer and vis_processor
+        tokenizer = None
         if config.model_name == "Blip2OPT":
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
@@ -37,29 +38,32 @@ class VQADataset(BaseDataset):
         elif "owl-2" in config.model_name.lower():
             from transformers.models.clip.image_processing_clip import CLIPImageProcessor
             vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
-        elif "qwen2.5_vl" in config.model_name.lower():
+        elif "qwen2.5_vl" in config.model_name.lower() or "phi3_vl" in config.model_name.lower():
             #from transformers import Qwen2VLImageProcessor
             #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
             vis_processor = None
+            tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(config.tokenizer_name, trust_remote_code=True).tokenizer            
+            if tokenizer.pad_token == None or tokenizer.pad_token == '':
+                tokenizer.pad_token = tokenizer.eos_token    
         else:
             raise NotImplementedError("unknown model class")
-        
-        if (config is not None and hasattr(config, 'tokenizer_name')):
-            tok_name = (
-                config.tokenizer_name
-                if config.tokenizer_name is not None
-                else config.name
-            )
-            if config.tokenizer_class == "QWenTokenizer":
-                tokenizer = AutoTokenizer.from_pretrained(config.name, trust_remote_code=True, pad_token='<|endoftext|>')
-            elif config.model_name == "owl-2":
-                tokenizer = AutoTokenizer.from_pretrained(config.name, use_fast=False, trust_remote_code=True)
-            else:
-                tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(
-                    tok_name, trust_remote_code=True
-                )            
-            if tokenizer.pad_token == None or tokenizer.pad_token == '':
-                tokenizer.pad_token = tokenizer.eos_token  
+        if tokenizer is None:
+            if (config is not None and hasattr(config, 'tokenizer_name')):
+                tok_name = (
+                    config.tokenizer_name
+                    if config.tokenizer_name is not None
+                    else config.name
+                )
+                if config.tokenizer_class == "QWenTokenizer":
+                    tokenizer = AutoTokenizer.from_pretrained(config.name, trust_remote_code=True, pad_token='<|endoftext|>')
+                elif config.model_name == "owl-2":
+                    tokenizer = AutoTokenizer.from_pretrained(config.name, use_fast=False, trust_remote_code=True)
+                else:
+                    tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(
+                        tok_name, trust_remote_code=True
+                    )            
+                if tokenizer.pad_token == None or tokenizer.pad_token == '':
+                    tokenizer.pad_token = tokenizer.eos_token  
                 
         vis_root = config.coco_image
         rephrase_root = config.rephrase_image

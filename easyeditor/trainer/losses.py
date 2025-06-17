@@ -131,7 +131,7 @@ def masked_log_probs(config, pred, targ, shift=False, exact_match=False, **kwarg
     if not (pred.dim() == 2 or pred.dim() == 3):
         raise RuntimeError(f"Expected pred to have 2 or 3 dimensions, got {pred.shape}")
 
-    if pred.shape[-1] == 1:
+    if pred.shape[-1] == 1: 
         return binary_log_probs(pred, targ)
     else:
         return multiclass_log_probs(config, pred, targ, shift=shift, exact_match=exact_match, **kwargs)
