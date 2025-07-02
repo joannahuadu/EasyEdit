@@ -79,20 +79,21 @@ class Phi3VLModel(nn.Module):
 
     def forward(self, samples: Dict[str, Any], output_attentions: bool = False) -> Phi3VOutput:
         # phi3.5 does not support multiple prompts
-        images = samples["image"]
-        prompts = samples["text_input"]
-        targets = samples["answer"]
+        if samples["image"] is not None:
+            images = samples["image"][0]
+        else:
+            images = None
+        prompts = samples["text_input"][0]
+        targets = samples["answer"][0]
         
         if isinstance(images, List):
             num_images = len(images)
-            if images[0] is None:
-                images = None
         else:
             num_images = 1
         messages = []
         messages = [
-                    {"role": "user", "content": f"<|image_1|>\n{prompts[0]}"},
-                    {"role": "assistant", "content": targets[0]}
+                    {"role": "user", "content": f"<|image_1|>\n{prompts}"},
+                    {"role": "assistant", "content": targets}
                 ]
     
         text_inputs = self.processor.tokenizer.apply_chat_template(
@@ -115,7 +116,7 @@ class Phi3VLModel(nn.Module):
         # 一个更稳健的方法是找到 assistant 标记
         # 找到 assistant 回答的起始位置
         prompt_part = self.processor.tokenizer.apply_chat_template(
-            [{"role": "user", "content": f"<|image_1|>\n{prompts[0]}"}], 
+            [{"role": "user", "content": f"<|image_1|>\n{prompts}"}], 
             tokenize=False, 
             add_generation_prompt=True
         )
@@ -169,10 +170,13 @@ class Phi3VLModel(nn.Module):
         return cleaned_responses
 
     def generate_tokens(self, samples: Dict[str, Any], **kwargs) -> torch.Tensor:
-        images = samples["image"]
-        prompts = samples["text_input"]
+        if samples["image"] is not None:
+            images = samples["image"][0]
+        else:
+            images = None
+        prompts = samples["text_input"][0]
 
-        messages = [{"role": "user", "content": f"<|image_1|>\n{prompts[0]}"}]
+        messages = [{"role": "user", "content": f"<|image_1|>\n{prompts}"}]
         prompt = self.processor.tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,

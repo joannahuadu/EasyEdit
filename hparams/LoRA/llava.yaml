@@ -22,6 +22,7 @@ lora_alpha: 32
 lora_dropout: 0
 norm_constraint: false
 target_modules: ["up_proj", "down_proj"] #["q_proj", "v_proj"]  #["up_proj", "down_proj"] #["q_proj", "v_proj"]
+exclude_modules: []
 model_parallel: false
 
 # image

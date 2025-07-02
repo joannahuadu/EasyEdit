@@ -55,7 +55,7 @@ def apply_lora_to_model(
     model = model.to("cuda")
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -162,8 +162,8 @@ def execute_lora(
                     model(samples)
         corda_config = CordaConfig(
             corda_method="kpm",
-            covariance_file="/public/home/wang_mq22/EasyEdit/results/corda/cov_rank8.pt",
-            cache_file="/public/home/wang_mq22/EasyEdit/results/corda/cache_file_rank8.pt",
+            covariance_file="/home/lishichao/project/EasyEdit/results/cache/corda/cov_rank8.pt",
+            cache_file="/home/lishichao/project/EasyEdit/results/cache/corda/cache_file_rank8.pt",
         )
         peft_config = LoraConfig(
             init_lora_weights="corda",
@@ -253,18 +253,24 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    if "qwen2.5_vl" in hparams.model_name:
+                    if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                         full_prompt = [p for p in txt]
                         answer = [l for l in tgt]
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                            "answer": answer
+                        }
                     else:    
                         full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
-                    samples = {
-                        "noise": True,
-                        "text_input": full_prompt,
-                        "image": img,
-                        "train": True,
-                        "answer": answer
-                    }
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                        }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]

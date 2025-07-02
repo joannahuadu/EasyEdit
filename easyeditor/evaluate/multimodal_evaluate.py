@@ -388,7 +388,7 @@ def compute_multimodal_edit_quality(model, batch, exact_match=False):
     return acc, logits_copy,targ_copy
 
 def compute_multimodal_edit_quality_demo(model, batch, tok):
-    if hasattr(model, 'qwen_model'):
+    if hasattr(model, 'qwen_model') or hasattr(model, 'phi_model'):
         prompts = [prompt for prompt in batch['text_input']]
         targets = batch['answer']
         target_ids = [tok.encode(target, return_tensors="pt", add_special_tokens=False)[0] for target in targets]
@@ -413,7 +413,7 @@ def compute_multimodal_edit_quality_demo(model, batch, tok):
             logits = outputs.detach().cpu()
         else:
             logits = outputs.logits.detach().cpu()
-        if hasattr(model, 'qwen_model'):
+        if hasattr(model, 'qwen_model') or hasattr(model,'phi_model'):
             answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
             answers = answers[-len(target_ids[0]):]
             labels = target_ids

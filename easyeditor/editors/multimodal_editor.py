@@ -784,7 +784,7 @@ class MultimodalEditor:
                     rephrase_prompts = [request['rephrase_prompt']],
                     rephrase_image = [request['image_rephrase']],
                     locality_inputs = {"text":{"prompt":request['locality_prompt'],"ground_truth":request["locality_ground_truth"]},
-                                       "vision":{"prompt": request["multimodal_locality_prompt"], "ground_truth":request["multimodal_locality_ground_truth"], "image":request["multimodal_locality_image"]}
+                                       "vision":{"prompt": request["multimodal_locality_prompt"], "ground_truth":request["multimodal_locality_ground_truth"], "image":[request["multimodal_locality_image"]]}
                                     },
                     **kwargs)
 
@@ -1017,6 +1017,13 @@ class MultimodalEditor:
                         "post": compute_multimodal_edit_results_qwen(edited_model, self.model_name, self.hparams, self.tok,
                                                             request[0], self.hparams.device, self.hparams.real_world_eval),
                     }
+                elif self.hparams.model_name == "phi3_vl":
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results_phi(edited_model, self.model_name, self.hparams, self.tok,
+                                                    request[0], self.hparams.device, self.hparams.real_world_eval)
+                    }                 
                 else:
                     metrics = {
                         'case_id': i,
@@ -2040,7 +2047,7 @@ class MultimodalEditor:
                 multimodal_locality_prompts = [multimodal_locality_prompts, ]
             if isinstance(multimodal_locality_ground_truth, str):
                 multimodal_locality_ground_truth = [multimodal_locality_ground_truth, ]
-            if isinstance(multimodal_locality_image, (str, np.ndarray)):
+            if isinstance(multimodal_locality_image, (str, np.ndarray, Image.Image)):
                 multimodal_locality_image = [multimodal_locality_image, ]
             assert len(multimodal_locality_prompts) == len(multimodal_locality_ground_truth) \
                 == len(multimodal_locality_image) == len(requests) or print('One Edit instance needs one locality input.....')
