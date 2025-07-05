@@ -75,9 +75,9 @@ class QwenVLModel(nn.Module):
     
         if prompt_template:
             # do not append the target in the end in generation
-            text_input = [[self.processor.apply_chat_template(message,
+            text_input = [self.processor.apply_chat_template(message,
                         add_generation_prompt=False,
-                        tokenize=False)] for message in messages]
+                        tokenize=False) for message in messages]
             # text_input = [self.processor.apply_chat_template([
             #                 {
             #                     "role": "user",
@@ -114,9 +114,9 @@ class QwenVLModel(nn.Module):
         multimodal_inputs.input_ids[multimodal_inputs.input_ids == -1] = self.processor.tokenizer.pad_token_id
         labels = multimodal_inputs.input_ids.clone()
         if image is None:
-            messages_wo_target = [[
-                    {"role": "user", "content": [{"type": "text", "text": p}]},
-                ] for p, t in zip(prompts, targets)]
+            messages_wo_target = [
+                    {"role": "user", "content": [{"type": "text", "text": p}]}
+                 for p, t in zip(prompts, targets)]
             prompt_part = self.processor.tokenizer.apply_chat_template(
                 messages_wo_target,
                 add_generation_prompt=True,
