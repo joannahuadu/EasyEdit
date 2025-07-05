@@ -38,10 +38,11 @@ class VQADataset(BaseDataset):
         elif "owl-2" in config.model_name.lower():
             from transformers.models.clip.image_processing_clip import CLIPImageProcessor
             vis_processor = CLIPImageProcessor.from_pretrained(config.name, trust_remote_code=True)
-        elif "qwen2.5_vl" in config.model_name.lower() or "phi3_vl" in config.model_name.lower():
+        elif "qwen2.5_vl" in config.model_name.lower() or "phi3_vl" in config.model_name.lower() or "phi4_vl" in config.model_name.lower():
             #from transformers import Qwen2VLImageProcessor
             #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
             vis_processor = None
+
             tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(config.tokenizer_name, trust_remote_code=True).tokenizer            
             if tokenizer.pad_token == None or tokenizer.pad_token == '':
                 tokenizer.pad_token = tokenizer.eos_token    

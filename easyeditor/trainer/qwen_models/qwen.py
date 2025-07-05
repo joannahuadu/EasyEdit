@@ -43,6 +43,8 @@ class QwenVLModel(nn.Module):
             device_map=device_map
         )
         self.processor = Qwen2_5_VLProcessor.from_pretrained(qwen_model, cache_dir=cache_dir)
+        if self.processor.tokenizer.pad_token is None:
+            self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
         self.max_context_len = max_context_len
     def _device(self):
         return list(self.parameters())[-1].device
@@ -57,40 +59,40 @@ class QwenVLModel(nn.Module):
                 image = None
         else:
             num_images = 1
-            
+        if image is None:
+            messages = [[
+                    {"role": "user", "content": [{"type": "text", "text": p}]},
+                    {"role": "assistant", "content": [{"type": "text", "text": t}]}
+                ] for p, t in zip(prompts, targets)]
+        else:
+            # TODO support multiple images in a single sample
+            messages = [[
+                        {"role": "user", "content": [
+                                    {"type": "image"}
+                                ] + [{"type": "text", "text": p}]},
+                        {"role": "assistant", "content": t}
+                    ] for p, t in zip(prompts, targets)]
+    
         if prompt_template:
             # do not append the target in the end in generation
-            text_input = [self.processor.apply_chat_template([
-                            {
-
-                                "role": "user",
-                                "content": [
-                                    {"type": "image"}
-                                ] * num_images + [{"type": "text", "text": p}],
-                            },
-                        ],
-                        add_generation_prompt=True,
-                        tokenize=False) + (' ' + l if l else "") + self.tokenizer.eos_token
-                    for p, l in zip(prompts, targets)] 
-            # add assistent's content
+            text_input = [[self.processor.apply_chat_template(message,
+                        add_generation_prompt=False,
+                        tokenize=False)] for message in messages]
             # text_input = [self.processor.apply_chat_template([
-            #         {"role": "system", "content": "You are a helpful assistant."},
-            #         {
+            #                 {
+            #                     "role": "user",
+            #                     "content": [
+            #                         {"type": "image"}
+            #                     ] * num_images + [{"type": "text", "text": p}],
+            #                 },
+            #             ],
+            #             add_generation_prompt=True,
+            #             tokenize=False) + (' ' + l if l else "") + self.tokenizer.eos_token
+            #         for p, l in zip(prompts, targets)] 
+            
+            # add assistent's content
+            
 
-            #             "role": "user",
-            #             "content": [
-            #                 {"type": "image"}
-            #             ] * num_images + [{"type": "text", "text": p}],
-            #         },
-            #         {
-            #             "role": "assistant",
-            #             "content": l # 将答案作为 assistant 的内容
-            #         }
-            #     ],
-            #     add_generation_prompt=False,
-            #     tokenize=False)
-            # for p, l in zip(prompts, targets)] 
-            # 
             
         else:
             text_input = [
@@ -102,9 +104,48 @@ class QwenVLModel(nn.Module):
                                 ] * num_images + [{"type": "text", "text": p}],
                             } for p in prompts
             ]
-        multimodal_inputs = self.processor(images=image, text=text_input, return_tensors="pt").to(self._device(), dtype=torch.bfloat16)
+        
+        multimodal_inputs = self.processor(
+            images=image, 
+            text=text_input, 
+            return_tensors="pt",
+            padding=True).to(self._device(), dtype=torch.bfloat16)
+        
+        multimodal_inputs.input_ids[multimodal_inputs.input_ids == -1] = self.processor.tokenizer.pad_token_id
+        labels = multimodal_inputs.input_ids.clone()
+        if image is None:
+            messages_wo_target = [[
+                    {"role": "user", "content": [{"type": "text", "text": p}]},
+                ] for p, t in zip(prompts, targets)]
+            prompt_part = self.processor.tokenizer.apply_chat_template(
+                messages_wo_target,
+                add_generation_prompt=True,
+                tokenize=False
+            )
+        else:
+            messages_wo_target = [[
+                    {"role": "user", "content": [
+                                {"type": "image"}
+                            ] + [{"type": "text", "text": p}]},
+                ] for p, t in zip(prompts, targets)]
+            prompt_part = self.processor.tokenizer.apply_chat_template(
+                messages_wo_target,
+                add_generation_prompt=True,
+                tokenize=False
+            )
+        only_prompt_inputs = self.processor(
+            text=prompt_part,
+            images=image,
+            return_tensors="pt",
+            padding=True,
+        ).to(self._device(), dtype=torch.bfloat16)
+        
+        prompt_len = len(only_prompt_inputs.input_ids[0])
+        labels[:, :prompt_len] = -100 
+         
         outputs = self.qwen_model(
                 **multimodal_inputs,
+                labels=labels,
                 use_cache=True,
                 output_attentions=output_attentions)
         

@@ -183,7 +183,6 @@ def execute_lora(
         peft_model = sub_model
     else:
         peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
-
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
     if hasattr(peft_model, 'print_trainable_parameters'):
@@ -253,7 +252,7 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                    if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
                         full_prompt = [p for p in txt]
                         answer = [l for l in tgt]
                         samples = {
@@ -274,10 +273,12 @@ def execute_lora(
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
-                    logits = _logits(model(samples))
-                    loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
-                    # loss = pred.loss
+                    if "phi4_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False).loss
+                    else:
+                        labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
+                        logits = _logits(model(samples))
+                        loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
                 else:
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]

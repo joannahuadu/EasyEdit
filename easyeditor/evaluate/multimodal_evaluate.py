@@ -415,7 +415,9 @@ def compute_multimodal_edit_quality_demo(model, batch, tok):
             logits = outputs.logits.detach().cpu()
         if hasattr(model, 'qwen_model') or hasattr(model,'phi_model'):
             answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()
-            answers = answers[-len(target_ids[0]):]
+            # remove end tokens in the template
+            answers = answers[-len(target_ids[0])-2:-2]
+            # answers = answers[-len(target_ids[0]):]
             labels = target_ids
         else:   
             answers = torch.argmax(logits, dim=-1).squeeze()[:-1].detach().cpu().numpy().tolist()

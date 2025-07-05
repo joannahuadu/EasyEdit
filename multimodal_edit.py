@@ -142,11 +142,11 @@ def edit_LoRA_Qwen_VQA(args):
     pprint(metrics)
 
 def edit_LoRA_Phi_VQA(args):
-    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/phi3.yaml')
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/phi4.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
-    eval_ds = VQADataset(file_path, config=hparams,size=5)
+    eval_ds = VQADataset(file_path, config=hparams)
     metrics, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,

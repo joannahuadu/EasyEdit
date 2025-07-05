@@ -203,6 +203,29 @@ class MultimodalEditor:
                 self.tok = getattr(transformers, hparams.tokenizer_class).from_pretrained(hparams.tokenizer_name, trust_remote_code=True).tokenizer            
                 if self.tok.pad_token == None or self.tok.pad_token == '':
                     self.tok.pad_token = self.tok.eos_token    
+            elif hparams.model_name == 'phi4_vl':
+                from ..trainer.phi_models import Phi4VLModel
+                from transformers import AutoProcessor
+                if isinstance(hparams.device, str):
+                    model = Phi4VLModel(
+                        phi3_model_name=hparams.name, # e.g., "microsoft/Phi-3-vision-128k-instruct"
+                        device_map="auto",
+                        cache_dir=hparams.cache_dir
+                    )
+                else:
+                    model = Phi4VLModel(
+                        phi3_model_name=hparams.name,
+                        cache_dir=hparams.cache_dir,
+                        device_map="cuda:{}".format(hparams.device),
+                    )
+                vis_processor = None
+                self.prompt = None
+                self.prompt_template = None
+                self.image_toks = None
+                self.model_name = "phi3"
+                self.tok = getattr(transformers, hparams.tokenizer_class).from_pretrained(hparams.tokenizer_name, trust_remote_code=True).tokenizer         
+                if self.tok.pad_token == None or self.tok.pad_token == '':
+                    self.tok.pad_token = self.tok.eos_token            
             self.model = model
             self.vis_tok = vis_processor
             if self.tok is None:
@@ -758,7 +781,7 @@ class MultimodalEditor:
                 if self.hparams.model_name == "qwen2.5_vl":
                     pre = compute_multimodal_edit_results_qwen(self.model, self.model_name, self.hparams, self.tok,
                                                     request[0], self.hparams.device, self.hparams.real_world_eval)
-                elif self.hparams.model_name == "phi3_vl":
+                elif self.hparams.model_name in ["phi3_vl","phi4_vl"]:
                     pre = compute_multimodal_edit_results_phi(self.model, self.model_name, self.hparams, self.tok,
                                                     request[0], self.hparams.device, self.hparams.real_world_eval)
                 else:
@@ -1017,7 +1040,7 @@ class MultimodalEditor:
                         "post": compute_multimodal_edit_results_qwen(edited_model, self.model_name, self.hparams, self.tok,
                                                             request[0], self.hparams.device, self.hparams.real_world_eval),
                     }
-                elif self.hparams.model_name == "phi3_vl":
+                elif self.hparams.model_name in ["phi3_vl","phi4_vl"]:
                     metrics = {
                         'case_id': i,
                         "time": exec_time,
