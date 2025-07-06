@@ -273,7 +273,7 @@ def execute_lora(
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    if "phi4_vl" in hparams.model_name:
+                    if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                         loss = model(samples, output_attentions=False).loss
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)

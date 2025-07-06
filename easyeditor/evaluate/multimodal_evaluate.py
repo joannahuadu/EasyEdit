@@ -537,6 +537,7 @@ def compute_multimodal_edit_results(
         tok: AutoTokenizer,
         record: typing.Dict,
         device,
+
         real_world_eval: bool = False
 ) -> typing.Dict:
     """
