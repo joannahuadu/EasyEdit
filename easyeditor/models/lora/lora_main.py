@@ -84,7 +84,28 @@ def execute_lora(
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
     if hasattr(hparams, 'exclude_modules'):
-        exclude_modules = hparams.exclude_modules
+        if hparams.model_name in ['qwen2.5_vl']:
+            exclude_modules = [
+                f"visual.blocks.{layer}.mlp.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['phi3_vl', 'phi4_vl']:
+            exclude_modules = [
+                f"model.embed_tokens_extend.image_embed.img_processor.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['llava']:
+            assert False,"TODO"
+            exclude_modules = [
+                f"vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        else:
+            assert False, f"Unsupported model {hparams.model_name} for LoRA"
+        # exclude_modules = hparams.exclude_modules
     else:
         exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
