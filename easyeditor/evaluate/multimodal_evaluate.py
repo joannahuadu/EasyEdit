@@ -1356,7 +1356,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         hparams, tok, target, prompt, image, prompt_template=prompt_template)
     
     if real_world_eval:
-        ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False, max_token_len=150)
+        ret = compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_inner, device=device, test_rephrase=False, max_token_len=80)
         ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
     else:
         ret['rewrite_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_inner, tok)
@@ -1365,7 +1365,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         edit_outer = prepare_multimodal_edit(hparams, tok, target, rephrase, image, prompt_template=prompt_template)
         if real_world_eval:
             ret.update(
-                compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False, max_token_len=150)
+                compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_outer, device=device, test_rephrase=True, rephrase_image=False, max_token_len=80)
             )
             ret['rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_outer, tok)
         else:
@@ -1376,7 +1376,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         edit_image_outer = prepare_multimodal_edit(hparams, tok, target, prompt, rephrase_image, prompt_template=prompt_template)
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True, max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=edit_image_outer, device=device, test_rephrase=True, rephrase_image=True, max_token_len=80)
         )
             ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, edit_image_outer, tok)
         else:   
@@ -1392,7 +1392,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_samples, device=device, key='locality', max_token_len=150)
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_samples, device=device, key='locality', max_token_len=80)
         )
             ret['locality_acc'], ret['locality_output'] = compute_multimodal_edit_quality_demo(model, locality_samples, tok)
         else:
@@ -1403,7 +1403,7 @@ def compute_mmke_multimodal_edit_quality_rel(
 
         if real_world_eval:
             ret.update(
-            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_image_samples, key='multimodal_locality', max_token_len=150)
+            compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=locality_image_samples, key='multimodal_locality', max_token_len=80)
         )
             ret['multimodal_locality_acc'], ret['multimodal_locality_output'] = compute_multimodal_edit_quality_demo(model, locality_image_samples, tok)
             
@@ -1420,7 +1420,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         rel_prompt_1_samples = prepare_multimodal_edit(hparams, tok, rel_ground_truth_1, [rel_prompt_1], None, prompt_template=prompt_template)
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_1_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt_1', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_1_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt_1', max_token_len=80)
         )
             ret['rel_prompt_1_acc'], _ = compute_multimodal_edit_quality_demo(model, rel_prompt_1_samples, tok)
         else:   
@@ -1429,7 +1429,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         rel_prompt_2_samples = prepare_multimodal_edit(hparams, tok, rel_ground_truth_2, [rel_prompt_2], None, prompt_template=prompt_template)
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_2_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt_2', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_2_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt_2', max_token_len=80)
         )
             ret['rel_prompt_2_acc'], _ = compute_multimodal_edit_quality_demo(model, rel_prompt_2_samples, tok)
         else:   
@@ -1439,7 +1439,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_1_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth_1, [m_rel_prompt_1], image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_1_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_1', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_1_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_1', max_token_len=80)
         )
             ret['m_rel_prompt_1_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_1_samples, tok)
         else:   
@@ -1448,7 +1448,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_2_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth_2, [m_rel_prompt_2], image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_2_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_2', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_2_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_2', max_token_len=80)
         )
             ret['m_rel_prompt_2_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_2_samples, tok)
         else:   
@@ -1457,7 +1457,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_1_image_rephrase_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth_1, [m_rel_prompt_1], rephrase_image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_1_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_1_image_rephrase', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_1_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_1_image_rephrase', max_token_len=80)
         )
             ret['m_rel_1_image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_1_samples, tok)
         else:   
@@ -1466,7 +1466,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_2_image_rephrase_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth_2, [m_rel_prompt_2], rephrase_image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_2_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_2_image_rephrase', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_2_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_2_image_rephrase', max_token_len=80)
         )
             ret['m_rel_2_image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_2_samples, tok)
         else:   
@@ -1479,7 +1479,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         rel_prompt_samples = prepare_multimodal_edit(hparams, tok, rel_ground_truth, [rel_prompt], None, prompt_template=prompt_template)
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=rel_prompt_samples, device=device, test_rephrase=True, rephrase_image=True, key='rel_prompt', max_token_len=80)
         )
             ret['rel_prompt_acc'], _ = compute_multimodal_edit_quality_demo(model, rel_prompt_samples, tok)
         else:   
@@ -1489,7 +1489,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth, [m_rel_prompt], image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_samples, device=device, test_rephrase=True, rephrase_image=True, key=m_rel_prompt, max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_samples, device=device, test_rephrase=True, rephrase_image=True, key=m_rel_prompt, max_token_len=80)
         )
             ret['m_rel_prompt_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_samples, tok)
         else:   
@@ -1498,7 +1498,7 @@ def compute_mmke_multimodal_edit_quality_rel(
         m_rel_prompt_image_rephrase_samples = prepare_multimodal_edit(hparams, tok, m_rel_ground_truth, [m_rel_prompt], rephrase_image, prompt_template=prompt_template) 
         if real_world_eval:
             ret.update(
-            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_image_rephrase', max_token_len=150)
+            compute_rewrite_or_rephrase_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_rel_prompt_image_rephrase_samples, device=device, test_rephrase=True, rephrase_image=True, key='m_rel_prompt_image_rephrase', max_token_len=80)
         )
             ret['m_rel_image_rephrase_acc'], _ = compute_multimodal_edit_quality_demo(model, m_rel_prompt_samples, tok)
         else:   

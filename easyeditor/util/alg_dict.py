@@ -25,7 +25,7 @@ from ..models.unike import UniKEHyperParams, apply_unike_to_model_mm
 # from ..models.mmelo import MMelo
 from ..models.roselora import RoseLoRAMultimodalHyperParams, apply_roselora_to_model
 from ..models.loranull import LoRANULLMultimodalHyperParams, apply_loranull_to_model
-from ..models.xspace import XSpaceMultimodalHyperParams, apply_xspace_to_model
+from ..models.xspace import XSpaceMultimodalHyperParams, apply_xspace_to_model, collect_xspace_to_model
 
 ALG_DICT = {
     'ROME': apply_rome_to_model,
@@ -66,6 +66,7 @@ ALG_MULTIMODAL_DICT = {
     'RoseLoRA': apply_roselora_to_model,
     'LoRANULL': apply_loranull_to_model,
     'XSpace':apply_xspace_to_model,
+    'CoXSpace':collect_xspace_to_model,
 }
 
 PER_ALG_DICT = {

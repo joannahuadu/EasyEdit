@@ -1,1 +1,1 @@
-from .xspace_main import XSpaceMultimodalHyperParams, apply_xspace_to_model
+from .xspace_main import XSpaceMultimodalHyperParams, apply_xspace_to_model, collect_xspace_to_model

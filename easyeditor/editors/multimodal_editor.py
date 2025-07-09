@@ -279,7 +279,7 @@ class MultimodalEditor:
                             n_reset += 1
 
                 LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
-        if self.alg_name.lower() == 'loranull' or self.alg_name.lower() == 'xspace':
+        if self.alg_name.lower() == 'loranull' or self.alg_name.lower() == 'xspace' or self.alg_name.lower() == 'coxspace':
             from ..models.loranull import get_calib_data, calib_cov_distribution, build_model2
             calib_loader = get_calib_data(self.hparams, self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
             LOG.info('Collecting covariance data for Singular_aware ...')
@@ -2352,3 +2352,109 @@ class MultimodalEditor:
                     )
 
         return requests
+
+    def collect_dataset(self,
+                     ds: Dataset,
+                     keep_original_weight=False,
+                     verbose=True,               
+                     **kwargs
+                     ):
+        # Make Sure dataset supported
+        assert sum([isinstance(ds, ds_in_dict) for ds_in_dict in MULTIMODAL_DS_DICT.values()]) > 0, \
+        f'DataSet {ds} not supported yet.'
+
+        if isinstance(self.hparams.device, str):
+            if self.hparams.model_name == "llava":
+                self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+            elif self.hparams.model_name == "qwen2.5_vl":
+                self.hparams.device = str(self.model.qwen_model.device).split(":")[1]
+            else:
+                self.hparams.device = str(self.model.device).split(":")[1]
+        
+        all_metrics = []
+        reload_weights = True
+        local_counter = 0
+        self.model.zero_grad()
+        collect_sim = []
+        load_metrics_path = kwargs.get('load_metrics_path', None)
+        if load_metrics_path is not None:
+            os.makedirs(load_metrics_path, exist_ok=True)
+            sim_path = os.path.join(load_metrics_path, self.hparams.all_metrics_name)
+        for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
+            start = time()
+            request = self._prepare_requests_dataset(
+                    prompts = [request['prompt']],
+                    targets = [request['target']],
+                    image = [request['image']],
+                    rephrase_prompts = [request['rephrase_prompt']],
+                    rephrase_image = [request['image_rephrase']],
+                    locality_inputs = {"text":{"prompt":request['locality_prompt'],"ground_truth":request["locality_ground_truth"]},
+                                       "vision":{"prompt": request["multimodal_locality_prompt"], "ground_truth":request["multimodal_locality_ground_truth"], "image":request["multimodal_locality_image"]}
+                                    },
+                    **kwargs)
+
+
+            edited_model, weights_copy, sim = self.apply_algo(
+                self.model,
+                self.tok,
+                request,
+                self.hparams,
+                copy=kwargs['copy'] if 'copy' in kwargs.keys() else False,
+                return_orig_weights=True,
+                keep_original_weight=keep_original_weight
+            )
+            exec_time = time() - start
+            
+            LOG.info(f"Execution {i} editing took {exec_time}")
+            start = time()  
+            collect_sim.extend(sim)
+            
+            if i == 0:
+                self.weights_copy = weights_copy
+            # if do not use continuous edit, restore the edit layers
+            local_counter += 1
+            if local_counter % self.hparams.continuous_sample == 0:
+                local_counter = 0 # restore the counter
+                reload_weights = True
+            else:
+                reload_weights = False
+            torch.cuda.empty_cache()
+                
+            if self.alg_name == 'UNIKE':
+                if reload_weights:
+                    self.editor.clear_editors()
+                    self.editor.clean_cache()
+
+            elif self.alg_name in ['KN']:
+                with torch.no_grad():
+                    if reload_weights:
+                        # weights_copy() # unpatch_fn
+                        self.model.load_state_dict(self.model_backup.state_dict())
+                        self.model.cuda()
+                    else:
+                        self.model.load_state_dict(edited_model.state_dict())
+                        edited_model = edited_model.cpu()
+                        del edited_model
+                        self.model.cuda()
+                torch.cuda.empty_cache()
+            else:
+                with torch.no_grad():
+                    if reload_weights:
+                        for k, v in self.weights_copy.items():
+                            nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                    else:
+                        if self.hparams.alg_name == 'FT_MULTI':
+                            for k, v in self.weights_copy.items():
+                                # copy the old weights to new model
+                                nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model, k).to(f"cuda:{self.hparams.device}")
+                        else:
+                            for k, v in self.weights_copy.items():
+                                # copy the old weights to new model
+                                nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
+                    torch.cuda.empty_cache()
+                        
+            gc.collect()
+            torch.cuda.empty_cache()
+        
+        torch.save(sim, sim_path)
+        return all_metrics, edited_model, weights_copy

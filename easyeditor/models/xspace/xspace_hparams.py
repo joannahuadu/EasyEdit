@@ -91,7 +91,7 @@ class XSpaceMultimodalHyperParams(HyperParams):
             config = yaml.safe_load(stream)
             config = super().construct_float_from_scientific_notation(config)
 
-        assert (config and config['alg_name'] == 'XSpace') or print(
+        assert (config and config['alg_name'] == 'XSpace') or (config and config['alg_name'] == 'CoXSpace') or print(
             f'LoRAHyperParams can not load from {hparams_name_or_path}, '
             f'alg_name is {config["alg_name"]} ')
         return cls(**config)
