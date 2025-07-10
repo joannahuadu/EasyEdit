@@ -40,8 +40,7 @@ def apply_roselora_to_model(
         
 
     edited_model = execute_roselora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
-        # model.llava_model = edited_model
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
         return model, weights_copy
     else:
         return edited_model, weights_copy
@@ -71,6 +70,8 @@ def execute_roselora(
         sub_model = model.llava_model
     elif hasattr(model, "qwen_model"):
         sub_model = model.qwen_model
+    elif hasattr(model, "phi_model"):
+        sub_model = model.phi_model
     else:
         sub_model = model
 
@@ -97,7 +98,7 @@ def execute_roselora(
             target_modules=hparams.target_modules,
             exclude_modules=exclude_modules,
         )
-        if hparams.model_name == 'llava':
+        if hparams.model_name in ['llava',"phi4_vl", "qwen2.5_vl"]:
             peft_model = get_peft_model(sub_model, peft_config)
         else:
             peft_model = get_peft_model(model, peft_config)
@@ -163,26 +164,33 @@ def execute_roselora(
             else:
                 rate = sparsity
             if img:
-                if "qwen2.5_vl" in hparams.model_name:
+                if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
                     full_prompt = [p for p in txt]
                     answer = [l for l in tgt]
-                else:
+                    samples = {
+                        "noise": True,
+                        "text_input": full_prompt,
+                        "image": img,
+                        "train": True,
+                        "answer": answer
+                    }
+                else:    
                     full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
-                    answer = None
-                samples = {
-                    "noise": True,
-                    "text_input": full_prompt,
-                    "image": img,
-                    "train": True,
-                    "answer": answer
-                }
+                    samples = {
+                        "noise": True,
+                        "text_input": full_prompt,
+                        "image": img,
+                        "train": True,
+                    }
                 # pred = model(samples, output_attentions=False)
                 if isinstance(tgt, list):
                     tgt = tgt[0]
-                labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
-                logits = _logits(model(samples))
-                loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
-                bs = logits.shape[0]
+                if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                    loss = model(samples, output_attentions=False).loss
+                else:
+                    labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
+                    logits = _logits(model(samples))
+                    loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
             else:
 
                 inputs = tok(txt, return_tensors="pt", padding=True).to(device)
@@ -210,7 +218,7 @@ def execute_roselora(
                 loss = (loss * label_mask[:,1:]).sum(1) / label_mask[:,1:].sum(1)
                 loss = loss.mean()
 
-            loss_meter.update(loss.item(), n=bs)
+            loss_meter.update(loss.item(), n=len(full_prompt))
 
             loss.backward()
                         
