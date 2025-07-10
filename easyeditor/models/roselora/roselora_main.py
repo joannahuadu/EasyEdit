@@ -74,14 +74,11 @@ def execute_roselora(
     else:
         sub_model = model
 
-    sub_model.config.use_cache = False
-    sub_model.supports_gradient_checkpointing = True  #
-    sub_model.gradient_checkpointing_enable()
-    sub_model.enable_input_require_grads()
-    # model.config.use_cache = False
-    # model.supports_gradient_checkpointing = True  #
-    # model.gradient_checkpointing_enable()
-    # model.enable_input_require_grads()
+    # sub_model.config.use_cache = False
+    # sub_model.supports_gradient_checkpointing = True  #
+    # sub_model.gradient_checkpointing_enable()
+    # sub_model.enable_input_require_grads()
+
     if hparams.lora_type == "lora":
         Config = LoraConfig
     else:

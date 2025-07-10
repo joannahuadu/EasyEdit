@@ -149,7 +149,7 @@ class Phi3VLModel(nn.Module):
             **inputs,
             labels=labels,
             output_attentions=output_attentions,
-            use_cache=False,
+            use_cache=True,
         )
         
         return Phi3VOutput(
@@ -392,7 +392,7 @@ class Phi4VLModel(nn.Module):
             padding=True,
         ).to(self._device())
         
-        outputs = self.phi_model.generate(**inputs, num_logits_to_keep = 0, **kwargs)
+        outputs = self.phi_model.generate(**inputs, num_logits_to_keep = 0, num_beams=1, **kwargs)
 
         input_token_length = inputs["input_ids"].shape[1]
         new_tokens = outputs[:, input_token_length:]

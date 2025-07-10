@@ -14,6 +14,7 @@ class XSpaceMultimodalHyperParams(HyperParams):
     kl_factor: float
     norm_constraint: float
     target_modules: List[str]
+    exclude_modules: List[str]
     rank: int
     lora_alpha: float
     lora_dropout: float

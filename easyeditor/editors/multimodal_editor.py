@@ -208,15 +208,17 @@ class MultimodalEditor:
                 from transformers import AutoProcessor
                 if isinstance(hparams.device, str):
                     model = Phi4VLModel(
-                        phi3_model_name=hparams.name, # e.g., "microsoft/Phi-3-vision-128k-instruct"
+                        phi3_model_name=hparams.name, 
                         device_map="auto",
-                        cache_dir=hparams.cache_dir
+                        cache_dir=hparams.cache_dir,
+                        torch_dtype=torch.bfloat16,
                     )
                 else:
                     model = Phi4VLModel(
                         phi3_model_name=hparams.name,
                         cache_dir=hparams.cache_dir,
                         device_map="cuda:{}".format(hparams.device),
+                        torch_dtype=torch.bfloat16,
                     )
                 vis_processor = None
                 self.prompt = None

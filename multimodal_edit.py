@@ -156,6 +156,21 @@ def edit_LoRA_Phi_VQA(args):
         copy=True,
     )
     pprint(metrics)
+
+def edit_XSpace_Phi_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/Xspace/phi.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
 def edit_LoRA_Qwen_MMKE(args):
     hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/qwen_mmke.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
@@ -258,6 +273,22 @@ def edit_RoseLoRA_Qwen_VQA(args):
     )
     pprint(metrics)
 
+def edit_RoseLoRA_Phi_VQA(args):
+    hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/phi4.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    
+    eval_ds = VQADataset(file_path, config=hparams,size=5)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+    
 def edit_RoseLoRA_LLaVA_MMKE(args):
     hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/llava_mmke.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
@@ -504,7 +535,7 @@ def edit_XSpace_LLaVA_MMKE_2(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Choose which model to edit using MEMIT.")
-    parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4','qwen'],
+    parser.add_argument('--model', type=str, default='blip2', choices=['blip2', 'llava', 'minigpt4','qwen','phi4'],
                         help="Specify the model to edit: 'gpt2', 'llama', or 'qwen'.")
     parser.add_argument('--function_name', required=True, type=str, default='test_FT_Blip2OPT')
     parser.add_argument('--hop', type=int, default=1)
