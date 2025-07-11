@@ -69,7 +69,12 @@ class StandardizedDatasetWrapper(Dataset):
         image_filename_key = self.key_mapping.get("image") # Key that holds the filename
         if image_filename_key:
             image = raw_item.get(image_filename_key, "") # Use .get for safety
-    
+        
+        # --- Process PIL Image ---
+        pil_image = None
+        pil_image_key = self.key_mapping.get("PIL_image")
+        if pil_image_key:
+            pil_image = raw_item.get(pil_image_key, None)
 
         # --- Process Answer ---
         answer = None
@@ -84,6 +89,7 @@ class StandardizedDatasetWrapper(Dataset):
         # --- Return Standardized Dict ---
         return {
             "image": [image],
+            "PIL_image": [pil_image],
             "text_input": [text_input],
             "answer": [answer]
         }
@@ -174,43 +180,50 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     
     vqa_mapping = {
         "text_input": "text_input",      
-        "image": "image",          
+        "image": "image",
+        "PIL_image": "PIL_image", 
         "answer": "answer"       
     }
     
     vqa_loc_mapping = {
         "text_input": "loc_prompt",
         "image": "loc_image",
+        "PIL_image": "loc_image", 
         "answer": "loc_answer"
     }
     
     caption_mapping = {
         "text_input": "text_input",           
-        "image": "image",          
+        "image": "image",
+        "PIL_image": "PIL_image",           
         "answer": "answer"                     
     }
     
     caption_m_loc_mapping = {
         "text_input": "m_loc_prompt",           
-        "image": "m_loc_image",          
+        "image": "m_loc_image",
+        "PIL_image": "m_loc_PIL_image",           
         "answer": "m_loc_answer"
     }
     
     mmke_m_loc_mapping = {
         "text_input": "m_loc_prompt",
         "image": "m_loc_image",
+        "PIL_image": "m_loc_PIL_image", 
         "answer":  "m_loc_answer"
     }
     
     mmke_loc_mapping = {
         "text_input": "loc_prompt",
         "image": None,
+        "PIL_image": None,
         "answer": "loc_answer"
     }
     
     nq_mapping = {
         "text_input": "question",           
         "image": None, 
+        "PIL_image": None, 
         "answer": "answer"
     }
     

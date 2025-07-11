@@ -14,6 +14,7 @@ class LoRANULLMultimodalHyperParams(HyperParams):
     kl_factor: float
     norm_constraint: float
     target_modules: List[str]
+    exclude_modules: List[str]
     rank: int
     lora_alpha: float
     lora_dropout: float
@@ -55,9 +56,11 @@ class LoRANULLMultimodalHyperParams(HyperParams):
     # Multimodal
     coco_image: Optional[str] = None
     rephrase_image: Optional[str] = None
+    mmke_image: Optional[str] = None
     result_dir: Optional[str] = None
     train_annotation_path: Optional[str] = None
     caption_train_annotation_path: Optional[str] = None
+    mmke_train_annotation_path: Optional[str] = None
     eval_annotation_path: Optional[str] = None
     
     # Evaluation

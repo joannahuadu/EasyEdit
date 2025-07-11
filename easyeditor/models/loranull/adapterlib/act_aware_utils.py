@@ -139,7 +139,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
     elif "owl-2" in hparams.model_name.lower():
         from transformers.models.clip.image_processing_clip import CLIPImageProcessor
         vis_processor = CLIPImageProcessor.from_pretrained(hparams.name, trust_remote_code=True)
-    elif "qwen2.5_vl" in hparams.model_name.lower():
+    elif "qwen2.5_vl" in hparams.model_name.lower() or "phi4_vl" in hparams.model_name.lower():
         #from transformers import Qwen2VLImageProcessor
         #vis_processor = Qwen2VLImageProcessor.from_pretrained(hparams.name)
         vis_processor = None
@@ -187,6 +187,8 @@ def calib_cov_distribution(model, hparams, calib_loader):
         if vis_processor is not None:
             batch['image'] = [vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) if image is not None else image for image in batch['image']]
         # batch = {k: v.to(model.device) for k,v in batch.items()}
+        else:
+            batch['image'] = [image if image is not None else image for image in batch['PIL_image']]
         model(batch)
 
     all_covariance_matrix = {}

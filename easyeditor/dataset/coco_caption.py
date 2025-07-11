@@ -662,9 +662,11 @@ class COCOCaptionDataset_X(BaseDataset):
         m_loc_question = self.prompt.format(m_loc_question) if self.prompt else m_loc_question
         
         return {
+            "PIL_image": Image.open(img_path).convert("RGB"),
             "image": image.half(),
             "text_input": self.template.format(txt) if self.template else txt,
             "answer": answer,
+            "m_loc_PIL_image" : Image.open(m_loc_img_path).convert("RGB"),
             "m_loc_image": m_loc_image.half(),
             "m_loc_prompt": self.template.format(m_loc_question) if self.template else m_loc_question,
             "m_loc_answer": m_loc_answer,

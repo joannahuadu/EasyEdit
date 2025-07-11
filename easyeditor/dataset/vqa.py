@@ -324,6 +324,7 @@ class VQADataset_X(BaseDataset):
         loc_image = None
         loc_answer = ann["loc_ans"]
         return {
+            "PIL_image": Image.open(img_path).convert("RGB"),
             "image":image.half(),
             "text_input": self.template.format(txt) if self.template else txt,
             "answer": answer,

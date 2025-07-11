@@ -328,7 +328,25 @@ def edit_LoRANULL_LLaVA_VQA(args):
         load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
     )
     pprint(metrics)
-
+def edit_LoRANULL_Phi_VQA(args):
+    hparams = LoRANULLMultimodalHyperParams.from_hparams('hparams/LoRANULL/phi4.yaml')
+    random.seed(hparams.seed)
+    np.random.seed(hparams.seed)
+    torch.manual_seed(hparams.seed)
+    torch.cuda.manual_seed_all(hparams.seed)
+    torch.backends.cudnn.deterministic = True
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams,size=5)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
 def edit_LoRANULL_LLaVA_MMKE(args):
     hparams = LoRANULLMultimodalHyperParams.from_hparams('hparams/LoRANULL/llava_mmke_1.yaml')
     random.seed(hparams.seed)
