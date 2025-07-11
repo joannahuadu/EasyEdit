@@ -20,6 +20,8 @@ class LoRANULLMultimodalHyperParams(HyperParams):
     lora_dropout: float
     #LoRANull
     calib_dataset: str
+    calib_cache: str
+    nq_open: str
     calib_loader_size: int
     seed: int
     Null_mode: bool

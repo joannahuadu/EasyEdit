@@ -113,11 +113,11 @@ def get_calib_data(hparams, name, tokenizer, model_id, nsamples, seqlen=2048, se
     #     f"/public/home/wang_mq22/EasyEdit/results/loranull/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
     # )
     # cache_file = '/home/lishichao/project/EasyEdit/results/loranull/null_ds_llava_256_2048_233_512_2048_512_512_512_512_mmke_for_L20.pt'
-    cache_file = f"/home/lishichao/project/EasyEdit/results/loranull/cache/{name}_{model_id.replace('/','_')}_{nsamples}_{seqlen}_{seed}.pt"
-    use_cache = False
+    cache_file = os.path.join(hparams.calib_cache, f"{name}_{model_id.replace('/','_')}_dataset.pt")
+    use_cache = True
     random.seed(seed)
-    if not os.path.exists("/home/lishichao/project/EasyEdit/results/loranull/cache/"):
-        os.makedirs("/home/lishichao/project/EasyEdit/results/loranull/cache/")
+    if not os.path.exists(hparams.calib_cache):
+        os.makedirs(hparams.calib_cache)
     if os.path.exists(cache_file) and use_cache:
         from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
         print(f"found data file: {cache_file}")

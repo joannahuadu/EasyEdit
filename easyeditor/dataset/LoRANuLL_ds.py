@@ -169,14 +169,14 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         image_root = mmke_image,
         size=MMKE_M_LOC_SAMPLE_SIZE
     )
-
-    nq_hf_dataset = load_dataset("nq_open", split="train")
     
-    
-    if NQ_SAMPLE_SIZE:
-        nq_hf_dataset = nq_hf_dataset.select(range(NQ_SAMPLE_SIZE))
-
-    save_dataset_as_list(nq_hf_dataset, "/data/lishichao/data/model_edit/LoRANULL/nq_hf_dataset.pt")
+    if os.path.exists(hparams.nq_open):
+        nq_hf_dataset = torch.load(hparams.nq_open)
+    else:
+        nq_hf_dataset = load_dataset("nq_open", split="train")
+        if NQ_SAMPLE_SIZE:
+            nq_hf_dataset = nq_hf_dataset.select(range(NQ_SAMPLE_SIZE))
+        save_dataset_as_list(nq_hf_dataset, hparams.nq_open)
     
     vqa_mapping = {
         "text_input": "text_input",      
@@ -260,7 +260,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     
     wrapped_nq = StandardizedDatasetWrapper(
         # underlying_dataset=nq_hf_dataset,
-        underlying_dataset=torch.load("/data/lishichao/data/model_edit/LoRANULL/nq_hf_dataset.pt"),
+        underlying_dataset=nq_open_dataset,
         key_mapping=nq_mapping,
         answer_processor=True
     )

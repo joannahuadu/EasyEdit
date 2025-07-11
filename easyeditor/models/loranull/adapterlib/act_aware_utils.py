@@ -110,8 +110,8 @@ def calib_cov_distribution(model, hparams, calib_loader):
     # cache_file = (
     #     f"/public/home/wang_mq22/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
     # )
-    cache_file = (
-        f"/home/lishichao/project/EasyEdit/results/loranull/{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
+    cache_file = os.path.join(
+        hparams.calib_cache ,f"{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
     )
     
     if os.path.exists(cache_file) and use_cache:
