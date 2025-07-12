@@ -152,9 +152,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
     print("new new new")
     def hook(module, input, output):
         input = input[0].detach().squeeze(0).data   ## (2048, dim)
-
         input = input
-
         input = input/torch.max(input).abs()
 
         if torch.isnan(input).any():

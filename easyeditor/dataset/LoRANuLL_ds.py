@@ -171,7 +171,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
     )
     
     if os.path.exists(hparams.nq_open):
-        nq_hf_dataset = torch.load(hparams.nq_open)
+        nq_open_dataset = torch.load(hparams.nq_open)
     else:
         nq_hf_dataset = load_dataset("nq_open", split="train")
         if NQ_SAMPLE_SIZE:

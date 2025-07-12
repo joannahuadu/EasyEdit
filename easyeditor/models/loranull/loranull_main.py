@@ -16,6 +16,7 @@ from tqdm import tqdm
 # Multimodal dataset for Corda 
 from ...dataset import VQADataset_Simple
 from torch.utils.data import DataLoader
+import gc
 from .adapterlib.decomposition import build_model2
 from .adapterlib.datautils import get_calib_data
 from .adapterlib.act_aware_utils import calib_cov_distribution
@@ -43,9 +44,12 @@ def apply_loranull_to_model(
     weights_copy = {}
     if copy:
         model = deepcopy(model)
-
+        model = model.to("cuda")
+        gc.collect()
+        torch.cuda.empty_cache()
+    model = model.to("cuda")
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
-    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -73,11 +77,40 @@ def execute_lora(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
+    if hasattr(hparams, 'exclude_modules'):
+        if hparams.model_name in ['qwen2.5_vl']:
+            exclude_modules = [
+                f"visual.blocks.{layer}.mlp.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['phi3_vl', 'phi4_vl']:
+            exclude_modules = [
+                f"model.embed_tokens_extend.image_embed.img_processor.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['llava']:
+            assert False,"TODO"
+            exclude_modules = [
+                f"vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        else:
+            assert False, f"Unsupported model {hparams.model_name} for LoRA"
+        # exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
+
+    
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
     elif hasattr(model, "qwen_model"):
         sub_model = model.qwen_model
+    elif hasattr(model, "phi_model"):
+        sub_model = model.phi_model
     else:
         sub_model = model
     sub_model.config.use_cache = False
@@ -163,7 +196,8 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules
         )
         preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
@@ -245,21 +279,34 @@ def execute_lora(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
-                    samples = {
-                        "noise": True,
-                        "text_input": full_prompt,
-                        "image": img,
-                    }
+                    if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
+                        full_prompt = [p for p in txt]
+                        answer = [l for l in tgt]
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                            "answer": answer
+                        }
+                    else:    
+                        full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                        }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
-                    logits = _logits(model(samples))
-                    loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
-                    # loss = pred.loss
+                    if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False).loss
+                    else:
+                        labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
+                        logits = _logits(model(samples))
+                        loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
                 else:
-                    
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
                     num_prompt_toks = [int((i != tok.pad_token_id).sum()) for i in prompt_ids]
