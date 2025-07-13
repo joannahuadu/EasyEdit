@@ -473,6 +473,22 @@ def edit_XSpace_LLaVA_VQA_3(args):
     )
     pprint(metrics)
 
+def edit_XSpace_Phi_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/phi4.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, size=200, config=hparams)
+    metrics, edited_model, _ = editor.collect_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
+
 def edit_XSpace_LLaVA_MMKE(args):
     hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava_mmke.yaml')
     # random.seed(hparams.seed)

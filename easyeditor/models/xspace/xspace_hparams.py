@@ -21,6 +21,8 @@ class XSpaceMultimodalHyperParams(HyperParams):
     #LoRANull
     calib_dataset: str
     calib_loader_size: int
+    calib_cache: str
+    nq_open: str
     seed: int
     Null_mode: bool
     mode: str

@@ -602,6 +602,14 @@ def layername(model, num, kind=None):
             kind = "self_attn"
         return f'qwen_model.model.layers.{num}{"" if kind is None else "." + kind}'
     
+    if hasattr(model, "phi_model"):
+        if kind == "proj":
+            return "qwen_model.visual"
+        if kind == "embed":
+            return "qwen_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'qwen_model.model.layers.{num}{"" if kind is None else "." + kind}'
     assert False, "unknown transformer structure"
 
 
