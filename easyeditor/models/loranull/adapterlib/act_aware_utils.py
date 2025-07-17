@@ -4,7 +4,16 @@ import torch.nn as nn
 from tqdm import tqdm
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 import torch.nn.functional as F
-
+def resolve_path(obj, path_str):
+    parts = path_str.split('.')
+    for part in parts:
+        if '[' in part and ']' in part:
+            attr, idx = part[:-1].split('[')
+            obj = getattr(obj, attr)
+            obj = obj[int(idx)]
+        else:
+            obj = getattr(obj, part)
+    return obj
 def calib_fisher_info(model, calib_loader, use_cache=True):
     model_id = model.config._name_or_path
     cache_file = f"cache/{model_id.replace('/','_')}_calib_fisher_info.pt"
@@ -170,13 +179,18 @@ def calib_cov_distribution(model, hparams, calib_loader):
         if torch.isinf(covariance).any():
             print("inf detected")
             raise Exception("inf in covariance, break")        
-        module.covariance_matrix += covariance 
+        module.covariance_matrix += covariance.cpu() 
         del covariance, input
-
-    for name, module in model.named_modules():
+        torch.cuda.empty_cache()
+    if hparams.null_target_modules is not None:
+        target_modules = resolve_path(model, hparams.null_target_modules)
+    else:
+        target_modules = model
+    for name, module in target_modules.named_modules():
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in delete_name):
-                module.covariance_matrix = 0
+                # module.covariance_matrix = 0
+                module.covariance_matrix = torch.zeros(module.in_features, module.in_features, device='cpu')
                 module.register_forward_hook(hook)
     
     for i, batch in enumerate(tqdm(calib_loader)):

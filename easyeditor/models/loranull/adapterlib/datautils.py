@@ -121,7 +121,7 @@ def get_calib_data(hparams, name, tokenizer, model_id, nsamples, seqlen=2048, se
     if os.path.exists(cache_file) and use_cache:
         from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
         print(f"found data file: {cache_file}")
-        traindataset = torch.load(cache_file)
+        traindataset = torch.load(cache_file, weights_only=False)
         print("loaded ...")
         return traindataset
     if name == "null_ds_mmke":
