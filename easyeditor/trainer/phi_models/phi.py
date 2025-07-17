@@ -257,7 +257,7 @@ class Phi4VLModel(nn.Module):
     def _device(self):
         return self.phi_model.device
 
-    def forward(self, samples: Dict[str, Any], output_attentions: bool = False) -> Phi3VOutput:
+    def forward(self, samples: Dict[str, Any], output_attentions: bool = False, freeze_partial_params: bool = False) -> Phi3VOutput:
         # phi3.5 does not support multiple prompts
         if samples["image"] is not None:
             if isinstance(samples["image"], List):
@@ -340,6 +340,15 @@ class Phi4VLModel(nn.Module):
             output_attentions=output_attentions,
             use_cache=True,
         )
+        if freeze_partial_params:
+            for n, p in self.phi_model.named_parameters():
+                ## freeze BLinaer
+                # and "BLinear" not in n 
+                if "ALinear" not in n and p.requires_grad:
+                    p.requires_grad = False
+                if ("PALinear" in n or "PBLinear"in n )and p.requires_grad:
+                    p.requires_grad = False
+
         
         return Phi4VOutput(
             loss=outputs.loss,

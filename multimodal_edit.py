@@ -477,8 +477,8 @@ def edit_XSpace_Phi_VQA(args):
     hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/phi4.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
-    eval_ds = VQADataset(file_path, size=200, config=hparams)
-    metrics, edited_model, _ = editor.collect_dataset(
+    eval_ds = VQADataset(file_path, config=hparams, size =5)
+    metrics, edited_model = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
         keep_original_weight=True,

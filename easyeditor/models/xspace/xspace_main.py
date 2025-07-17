@@ -22,6 +22,7 @@ import torch.nn.functional as F
 from functools import partial
 import numpy as np
 from .optim import Adam
+import gc
 
 base_pca = {} 
 reserved = {} 
@@ -66,6 +67,15 @@ def apply_xspace_to_model(
     weights_copy = {}
     if copy:
         model = deepcopy(model)
+        # 3. 把 copy 放回 CUDA，原模型不动
+        model = model.to("cuda")
+
+        # # 4. 如果 model_cpu 不再用，彻底释放
+        # del model_copy
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    model = model.to("cuda")
     requests = deepcopy(requests)
     for request in requests:
         if "target_new" not in request and "target" in request:
@@ -204,8 +214,8 @@ def apply_xspace_to_model(
     for name, module in model.named_modules():
         if name == proj_layername:
             module.register_forward_hook(proj_hook)
-        # if name == embed_layername:
-            # module.register_forward_hook(embed_hook)
+        if name == embed_layername:
+            module.register_forward_hook(embed_hook)
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
                 module.covariance_matrix = 0
@@ -221,7 +231,7 @@ def apply_xspace_to_model(
                 chunks(targets, hparams.batch_size),
                 chunks(images, hparams.batch_size)
         ))):
-        if "qwen2.5_vl" in hparams.model_name:
+        if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
             full_prompt = [p for p in txt]
             answer = [l for l in tgt]
             batch = {
@@ -259,7 +269,7 @@ def apply_xspace_to_model(
                 all_covariance_matrix[module.weight] = module.covariance_matrix
         
     edited_model = execute_xspace(model, tok, requests, hparams, all_covariance_matrix, keep_original_weight)
-    if hasattr(model, "llava_model") or hasattr(model, "qwen_model"):
+    if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
         # model.llava_model = edited_model
         return model, weights_copy
     else:
@@ -293,6 +303,8 @@ def execute_xspace(
         sub_model = model.llava_model
     elif hasattr(model, "qwen_model"):
         sub_model = model.qwen_model
+    elif hasattr(model, "phi_model"):
+        sub_model = model.phi_model
     else:
         sub_model = model
     sub_model.config.use_cache = False
@@ -459,24 +471,32 @@ def execute_xspace(
                 # loss = -log_prob
                 # eos_token = tok.decode(tok.eos_token_id)
                 if img:
-                    if "qwen2.5_vl" in hparams.model_name:
+                    if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
                         full_prompt = [p for p in txt]
                         answer = [l for l in tgt]
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                            "answer": answer
+                        }
                     else:    
                         full_prompt = [f"{prompt_template.format(p)} {l}" for p, l in zip(txt, tgt)]
-                    samples = {
-                        "noise": True,
-                        "text_input": full_prompt,
-                        "image": img,
-                        "answer": answer
-                    }
+                        samples = {
+                            "noise": True,
+                            "text_input": full_prompt,
+                            "image": img,
+                            "train": True,
+                        }
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
-                    logits = _logits(model(samples))
-                    loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
-                    # loss = pred.loss
+                    if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False, freeze_partial_params=True).loss
+                    else:
+                        labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
+                        logits = _logits(model(samples))
                 else:
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
@@ -491,18 +511,7 @@ def execute_xspace(
                     tokens = tokens.to(device)
                     pred = peft_model(**tokens)
                     loss = pred.loss
-                # pred = peft_model(**tokens)
-                # loss = pred.loss
-                # targ = target_ids
-                # pred = peft_model(**src_trg_inputs).logits
-                # pred = pred[:, :-1]
-                # pred = pred[:, -targ.size(1):]
 
-                # mask = targ != -100
-                # n_tokens = mask.float().sum()
-                # unmasked_log_probs = pred.log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
-                # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
-                # loss = -log_prob
             print(f"Batch loss {loss.item()}")
             loss_meter.update(loss.item(), n=len(full_prompt))
 
@@ -604,40 +613,53 @@ def layername(model, num, kind=None):
     
     if hasattr(model, "phi_model"):
         if kind == "proj":
-            return "qwen_model.visual"
+            return "phi_model.model.embed_tokens_extend.image_embed.img_projection"
         if kind == "embed":
-            return "qwen_model.model.embed_tokens"
+            return "phi_model.model.embed_tokens"
         if kind == "attn":
             kind = "self_attn"
-        return f'qwen_model.model.layers.{num}{"" if kind is None else "." + kind}'
+        return f'phi_model.model.layers.{num}{"" if kind is None else "." + kind}'
     assert False, "unknown transformer structure"
 
 
 def init_model_optimizer(model, config):
     import re
-    fea_params = [p for n, p in model.named_parameters(
-    ) if not bool(re.match('last', n)) and 'bn' not in n and "q_proj" not in n and "v_proj" not in n]
+    if config.model_name in ["llava"]:
+        fea_params = [p for n, p in model.named_parameters(
+        ) if not bool(re.match('last', n)) and 'bn' not in n and "q_proj" not in n and "v_proj" not in n]
+        # print([n for n, p in model.named_parameters(
+        # ) if not bool(re.match('last', n)) and 'bn' not in n and "q_proj" not in n and "v_proj" not in n])
 
-    qv_params = [p for n, p in model.named_parameters(
-    ) if ("q_proj" in n or "v_proj" in n) and 'bias' not in n]
-    
-    qv_bias = [p for n, p in model.named_parameters(
-    ) if ("q_proj" in n or "v_proj" in n) and 'bias' in n]
-    # cls_params_all = list(
-    #     p for n, p in model.named_children() if bool(re.match('last', n)))[0]
-    # cls_params = list(cls_params_all[str(task_count+1)].parameters())
-    bn_params = [p for n, p in model.named_parameters() if 'bn' in n]
-    model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
-                                        'thres': config.svd_thres},
-                                        {'params': qv_params, 'svd': True, 'lr': config.bn_lr,
-                                        'thres': config.svd_thres},
-                                        {'params': qv_bias, 'svd': False, 'lr': config.bn_lr,
-                                        'thres': config.svd_thres},
-                                        # {'params': cls_params, 'weight_decay': 0.0,
-                                        #     'lr': config.head_lr},
-                                        {'params': bn_params, 'lr': config.bn_lr}],
-                            'lr': config.lr,
-                            'weight_decay': config.weight_decay}
+        qv_params = [p for n, p in model.named_parameters(
+        ) if ("q_proj" in n or "v_proj" in n) and 'bias' not in n]
+        
+        qv_bias = [p for n, p in model.named_parameters(
+        ) if ("q_proj" in n or "v_proj" in n) and 'bias' in n]
+        # cls_params_all = list(
+        #     p for n, p in model.named_children() if bool(re.match('last', n)))[0]
+        # cls_params = list(cls_params_all[str(task_count+1)].parameters())
+        bn_params = [p for n, p in model.named_parameters() if 'bn' in n]
+        model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
+                                            'thres': config.svd_thres},
+                                            {'params': qv_params, 'svd': False, 'lr': config.bn_lr,
+                                            'thres': config.svd_thres},
+                                            {'params': qv_bias, 'svd': False, 'lr': config.bn_lr,
+                                            'thres': config.svd_thres},
+                                            # {'params': cls_params, 'weight_decay': 0.0,
+                                            #     'lr': config.head_lr},
+                                            {'params': bn_params, 'lr': config.bn_lr}],
+                                'lr': config.lr,
+                                'weight_decay': config.weight_decay}
+    elif config.model_name in ["phi4_vl"]:
+        fea_params = [p for n, p in model.named_parameters(
+        ) if ("ALinear" in n)]
+        model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
+                                    'thres': config.svd_thres}],
+                                'lr': config.lr,
+                                'weight_decay': config.weight_decay}
+    else:
+        assert 1==2
+
     if config.model_optimizer in ['SGD', 'RMSprop']:
         model_optimizer_arg['momentum'] = config.momentum
     elif config.model_optimizer in ['Rprop']:
