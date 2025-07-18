@@ -328,6 +328,7 @@ class VQADataset_X(BaseDataset):
         ])
         self.prompt = prompt
         self.template = template
+        self.image_size = image_size
     def __len__(self):
         return len(self.annotations)
     
@@ -341,7 +342,7 @@ class VQADataset_X(BaseDataset):
         
         image = Image.open(img_path).convert("RGB")
         image = self.transform(image)
-        self.PIL_processor = SimpleResizeProcessor(size=(336, 336))
+        self.PIL_processor = SimpleResizeProcessor(size=self.image_size)
         txt = self.prompt.format(txt) if self.prompt else txt
         
         loc_prompt = ann['loc']

@@ -131,7 +131,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = train_annotation_path,
         image_root = coco_image,
         size=VQA_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE, IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
     original_vqa_loc_dataset = VQADataset_X(
         prompt = prompt,
@@ -139,7 +139,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = train_annotation_path,
         image_root = coco_image,
         size=VQA_LOC_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE, IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
     original_caption_dataset = COCOCaptionDataset_X(
         prompt = prompt,
@@ -147,7 +147,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = caption_train_annotation_path,
         image_root = coco_image,
         size=CAPTION_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE, IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
 
     original_caption_m_loc_dataset = COCOCaptionDataset_X(
@@ -156,7 +156,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = caption_train_annotation_path,
         image_root = coco_image,
         size=CAPTION_M_LOC_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE, IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
     
     original_mmke_loc_dataset = COCOCaptionDataset_X(
@@ -165,7 +165,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = mmke_train_annotation_path,
         image_root = mmke_image,
         size=MMKE_LOC_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE,IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
     
     original_mmke_m_loc_dataset = COCOCaptionDataset_X(
@@ -174,7 +174,7 @@ def get_LoRANuLL_ds(hparams, prompt=None, template=None, size_VQA=100, size_Capt
         annotation_file = mmke_train_annotation_path,
         image_root = mmke_image,
         size=MMKE_M_LOC_SAMPLE_SIZE,
-        image_size=(IMAGE_SIZE, IMAGE_SIZE)
+        image_size=IMAGE_SIZE
     )
     
     if os.path.exists(hparams.nq_open):

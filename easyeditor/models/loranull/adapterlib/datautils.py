@@ -126,12 +126,12 @@ def get_calib_data(hparams, name, tokenizer, model_id, nsamples, seqlen=2048, se
         return traindataset
     if name == "null_ds_mmke":
         from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
-        traindataset = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336)
+        traindataset = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=(336,336))
         torch.save(traindataset, cache_file)
         return traindataset   
     if name == "null_ds":
         from easyeditor.dataset.LoRANuLL_ds import get_LoRANuLL_ds
-        traindataset = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=336)
+        traindataset = get_LoRANuLL_ds(hparams=hparams, prompt=None, template=None, size_VQA=100, size_Caption=100, size_nq=300, image_size=(336,336))
         torch.save(traindataset, cache_file)
         return traindataset    
     if name == "c4":
