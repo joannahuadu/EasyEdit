@@ -122,14 +122,19 @@ def calib_cov_distribution(model, hparams, calib_loader):
     cache_file = os.path.join(
         hparams.calib_cache ,f"{model_id.replace('/','_')}_covariance_matrices_from_{calib_dataset}_size_{calib_size}_seed_{seed}.pt"
     )
+    # call target layers modules
+    if hparams.null_target_modules is not None:
+        target_layers = resolve_path(model, hparams.null_target_modules)
+    else:
+        target_layers = model
     
     if os.path.exists(cache_file) and use_cache:
         print(f"covariance cache file found: {cache_file}")
         all_covariance_matrix = torch.load(cache_file, map_location="cpu")
-        for name, module in model.named_modules():
+        for name, module in target_layers.named_modules():
             if isinstance(module, nn.Linear):
                 # if not any(del_name in name for del_name in delete_name):
-                if not any(del_name in name for del_name in delete_name) and any(target in name for target in target_modules) and any('layers.' + str(layer) in name for layer in layers):
+                if not any(del_name in name for del_name in delete_name) and any(target in name for target in target_modules) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
                     module.covariance_matrix = all_covariance_matrix[name].to(
                         module.weight.device
                     )
@@ -182,11 +187,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         module.covariance_matrix += covariance.cpu() 
         del covariance, input
         torch.cuda.empty_cache()
-    if hparams.null_target_modules is not None:
-        target_modules = resolve_path(model, hparams.null_target_modules)
-    else:
-        target_modules = model
-    for name, module in target_modules.named_modules():
+    for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in delete_name):
                 # module.covariance_matrix = 0
@@ -204,7 +205,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         model(batch)
 
     all_covariance_matrix = {}
-    for name, module in model.named_modules():
+    for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in delete_name):
                 module._forward_hooks.clear()
