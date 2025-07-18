@@ -23,6 +23,7 @@ from copy import deepcopy
 # from ..trainer.mPLUG_Owl2.mplug_owl2.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
 # from ..trainer.mPLUG_Owl2.mplug_owl2.mm_utils import tokenizer_image_token, process_images
 from .mm_utils import process_images
+from .vqa import SimpleResizeProcessor
 
 class CaptionDataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, no_image=False, hop=None, *args, **kwargs):
@@ -631,9 +632,10 @@ class COCOCaptionDataset_X(BaseDataset):
             annotations = json.load(f)
             self.annotations = annotations[:size] if size else annotations
         self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
+            transforms.Resize(image_size[0]),
             transforms.ToTensor(),
         ])
+        self.PIL_processor = SimpleResizeProcessor(size=image_size)
         
         self.prompt = prompt
         self.template = template
@@ -662,7 +664,7 @@ class COCOCaptionDataset_X(BaseDataset):
         m_loc_question = self.prompt.format(m_loc_question) if self.prompt else m_loc_question
         
         return {
-            "PIL_image": Image.open(img_path).convert("RGB"),
+            "PIL_image": self.PIL_processor(Image.open(img_path).convert("RGB")),
             "image": image.half(),
             "text_input": self.template.format(txt) if self.template else txt,
             "answer": answer,

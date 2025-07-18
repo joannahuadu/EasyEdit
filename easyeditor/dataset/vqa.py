@@ -19,7 +19,23 @@ import transformers
 from transformers import AutoTokenizer
 from tqdm import tqdm
 from transformers import AutoProcessor
+class SimpleResizeProcessor:
+    def __init__(self, size=(336, 336)):
+        self.size = size
 
+    def __call__(self, image, return_tensors=None):
+        # image: PIL.Image.Image
+        if not isinstance(image, Image.Image):
+            raise TypeError("Input must be a PIL.Image")
+        resized = image.resize(self.size, Image.BICUBIC)
+        if return_tensors == "pt":
+            import torchvision.transforms as T
+            transform = T.Compose([
+                T.ToTensor(),  # Converts to (C, H, W) float tensor
+            ])
+            return {"pixel_values": transform(resized)}
+        else:
+            return resized
 class VQADataset(BaseDataset):
     def __init__(self, data_dir: str, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
         """
@@ -32,6 +48,7 @@ class VQADataset(BaseDataset):
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
             vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            return_tensors = True
             # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")
         elif config.model_name ==  "qwen-vl":
             vis_processor = BlipImageEvalProcessor(image_size=448, mean=None, std=None)
@@ -41,8 +58,8 @@ class VQADataset(BaseDataset):
         elif "qwen2.5_vl" in config.model_name.lower() or "phi3_vl" in config.model_name.lower() or "phi4_vl" in config.model_name.lower():
             #from transformers import Qwen2VLImageProcessor
             #vis_processor = Qwen2VLImageProcessor.from_pretrained(config.name)
-            vis_processor = None
-
+            vis_processor = SimpleResizeProcessor(size=(336, 336))
+            return_tensors = False
             tokenizer = getattr(transformers, config.tokenizer_class).from_pretrained(config.tokenizer_name, trust_remote_code=True).tokenizer            
             if tokenizer.pad_token == None or tokenizer.pad_token == '':
                 tokenizer.pad_token = tokenizer.eos_token    
@@ -96,9 +113,15 @@ class VQADataset(BaseDataset):
             ori_rephrase_image = rephrase_image
             ori_locality_image = locality_image
             if self.vis_processor is not None:
-                image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
-                rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
-                locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+                if return_tensors:
+                    image = self.vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16)
+                    rephrase_image = self.vis_processor(rephrase_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+                    locality_image = self.vis_processor(locality_image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) 
+                else:
+                    image = [self.vis_processor(image)]
+                    rephrase_image = [self.vis_processor(rephrase_image)]
+                    locality_image = [self.vis_processor(locality_image)]
+                
             else:
                 image = [image]
                 rephrase_image = [rephrase_image]
@@ -300,7 +323,7 @@ class VQADataset_X(BaseDataset):
             else: 
                 self.annotations = json.load(f)
         self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
+            transforms.Resize(image_size[0]),
             transforms.ToTensor(),
         ])
         self.prompt = prompt
@@ -318,13 +341,14 @@ class VQADataset_X(BaseDataset):
         
         image = Image.open(img_path).convert("RGB")
         image = self.transform(image)
+        self.PIL_processor = SimpleResizeProcessor(size=(336, 336))
         txt = self.prompt.format(txt) if self.prompt else txt
         
         loc_prompt = ann['loc']
         loc_image = None
         loc_answer = ann["loc_ans"]
         return {
-            "PIL_image": Image.open(img_path).convert("RGB"),
+            "PIL_image": self.PIL_processor(Image.open(img_path).convert("RGB")),
             "image":image.half(),
             "text_input": self.template.format(txt) if self.template else txt,
             "answer": answer,
