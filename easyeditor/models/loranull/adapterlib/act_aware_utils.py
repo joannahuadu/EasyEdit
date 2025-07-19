@@ -195,7 +195,10 @@ def calib_cov_distribution(model, hparams, calib_loader):
                 module.register_forward_hook(hook)
     
     for i, batch in enumerate(tqdm(calib_loader)):
-        batch['text_input'] = [f"{p} {l}" for p, l in zip(batch['text_input'], batch['answer'])]
+        if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
+            batch['text_input'] = batch['text_input']
+        else:
+            batch['text_input'] = [f"{p} {l}" for p, l in zip(batch['text_input'], batch['answer'])]
         batch['noise']=True
         if vis_processor is not None:
             batch['image'] = [vis_processor(image, return_tensors="pt")['pixel_values'].to(dtype=torch.float16) if image is not None else image for image in batch['image']]
