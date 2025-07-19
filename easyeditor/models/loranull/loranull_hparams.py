@@ -49,6 +49,7 @@ class LoRANULLMultimodalHyperParams(HyperParams):
     from_save: Optional[str] = None
     save_model: Optional[bool] = True
     save_path: Optional[str] = None 
+    null_target_modules: Optional[str] = None
 
     # Defaults
     batch_size: int = 128

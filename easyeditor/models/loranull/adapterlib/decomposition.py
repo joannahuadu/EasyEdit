@@ -10,9 +10,11 @@ class CorDA_adapter(nn.Module):
         super().__init__()
         U, S, V = adapter_U, adapter_S, adapter_V     ## U: (m,r), V: (n,r), n==in_size, m==out_size
         rank = V.size(1)
+        
         self.weight_residual = nn.Parameter(torch.zeros(U.size(0), V.size(0)).to(adapter_U.device))       # (m , n)
         self.weight_residual.data = weight_residual
         self.weight_residual.requires_grad = False
+        self.weight = self.weight_residual
         
         self.ALinear = nn.Linear(U.size(1), U.size(0), bias=bias is not None)   ## r -> m
         
