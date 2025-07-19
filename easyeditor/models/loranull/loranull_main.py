@@ -301,7 +301,7 @@ def execute_lora(
                     if isinstance(tgt, list):
                         tgt = tgt[0]
                     if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
-                        loss = model(samples, output_attentions=False).loss
+                        loss = model(samples, output_attentions=False,freeze_partial_params=True).loss
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))

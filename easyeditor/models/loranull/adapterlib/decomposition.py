@@ -436,7 +436,7 @@ def decompose_to_adapter2(
     #V = V.to(linear.weight.dtype)#.cpu()
     if singular_aware:
         
-        covariance_matrix = linear.covariance_matrix.float()
+        covariance_matrix = linear.covariance_matrix.float().to(pretrained_w.device)
         U_,S_, V_ = torch.linalg.svd(covariance_matrix)
         print((S_>0.1).sum())
         if first_eigen:
