@@ -125,6 +125,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
     # call target layers modules
     if hparams.null_target_modules is not None:
         target_layers = resolve_path(model, hparams.null_target_modules)
+        # layers_list = layers if len(layers) > 1 else None
     else:
         target_layers = model
     
@@ -189,7 +190,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         torch.cuda.empty_cache()
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in delete_name):
+            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
                 # module.covariance_matrix = 0
                 module.covariance_matrix = torch.zeros(module.in_features, module.in_features, device='cpu')
                 module.register_forward_hook(hook)
@@ -210,7 +211,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
     all_covariance_matrix = {}
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in delete_name):
+            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
                 module._forward_hooks.clear()
                 if torch.isnan(module.covariance_matrix).any():
                     print("nan detected")
