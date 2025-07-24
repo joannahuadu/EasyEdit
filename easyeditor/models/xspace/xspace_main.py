@@ -66,16 +66,13 @@ def apply_xspace_to_model(
     global base_pca, reserved
     weights_copy = {}
     if copy:
-        model = deepcopy(model)
-        # 3. 把 copy 放回 CUDA，原模型不动
-        model = model.to("cuda")
+        model = deepcopy(model) 
+        if hparams.cpu_copy:
+            model = model.to("cuda")
 
-        # # 4. 如果 model_cpu 不再用，彻底释放
-        # del model_copy
-        gc.collect()
-        torch.cuda.empty_cache()
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
 
-    model = model.to("cuda")
     requests = deepcopy(requests)
     for request in requests:
         if "target_new" not in request and "target" in request:

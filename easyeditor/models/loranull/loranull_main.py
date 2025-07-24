@@ -43,14 +43,15 @@ def apply_loranull_to_model(
     """
     weights_copy = {}
     if copy:
-        model = deepcopy(model)
-        model = model.to("cuda")
-        gc.collect()
-        torch.cuda.empty_cache()
-    model = model.to("cuda")
+        model = deepcopy(model) 
+        if hparams.cpu_copy:
+            model = model.to("cuda")
+
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
+
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
     if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
-        # model.llava_model = edited_model
         return model, weights_copy
     else:
         return edited_model, weights_copy

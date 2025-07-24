@@ -22,6 +22,11 @@ def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
 
 
+def get_trainable_lora_params_only(before_params, model_after):
+    before = before_params
+    after = set(dict(model_after.named_parameters()).keys())
+    return after - before
+
 def apply_lora_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
@@ -39,28 +44,19 @@ def apply_lora_to_model(
     :return: (1) the updated model, (2) the weights that changed
     """
     weights_copy = {}
-    # if copy:
-    #     model = deepcopy(model).cpu()
-    # torch.cuda.empty_cache()
     if copy:
-        model = deepcopy(model)
-        # 3. 把 copy 放回 CUDA，原模型不动
-        model = model.to("cuda")
+        model = deepcopy(model) 
+        if hparams.cpu_copy:
+            model = model.to("cuda")
 
-        # # 4. 如果 model_cpu 不再用，彻底释放
-        # del model_copy
-        gc.collect()
-        torch.cuda.empty_cache()
-
-    model = model.to("cuda")
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
 
     edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
     if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
-        # model.llava_model = edited_model
         return model, weights_copy
     else:
         return edited_model, weights_copy
-
 
 def execute_lora(
         model: AutoModelForCausalLM,
@@ -203,7 +199,12 @@ def execute_lora(
     if not keep_original_weight and hasattr(model, 'peft_config'):
         peft_model = sub_model
     else:
+        before_params = set(dict(sub_model.named_parameters()).keys())
         peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
+        if "phi4_vl" in hparams.model_name:
+            peft_params = get_trainable_lora_params_only(before_params,peft_model.base_model.model)
+        else:
+            peft_params = None
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
     if hasattr(peft_model, 'print_trainable_parameters'):
@@ -295,7 +296,7 @@ def execute_lora(
                     if isinstance(tgt, list):
                         tgt = tgt[0]
                     if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
-                        loss = model(samples, output_attentions=False).loss
+                        loss = model(samples, output_attentions=False, freeze_partial_params=True, peft_params=peft_params).loss
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))

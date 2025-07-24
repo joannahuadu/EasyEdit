@@ -185,14 +185,15 @@ def calib_cov_distribution(model, hparams, calib_loader):
         if torch.isinf(covariance).any():
             print("inf detected")
             raise Exception("inf in covariance, break")        
-        module.covariance_matrix += covariance.cpu() 
+        # module.covariance_matrix += covariance.cpu() 
+        module.covariance_matrix += covariance
         del covariance, input
         torch.cuda.empty_cache()
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
             if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
                 # module.covariance_matrix = 0
-                module.covariance_matrix = torch.zeros(module.in_features, module.in_features, device='cpu')
+                module.covariance_matrix = torch.zeros(module.in_features, module.in_features, device='cuda')
                 module.register_forward_hook(hook)
     
     for i, batch in enumerate(tqdm(calib_loader)):

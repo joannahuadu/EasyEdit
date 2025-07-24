@@ -257,7 +257,7 @@ class Phi4VLModel(nn.Module):
     def _device(self):
         return self.phi_model.device
 
-    def forward(self, samples: Dict[str, Any], output_attentions: bool = False, freeze_partial_params: bool = False) -> Phi3VOutput:
+    def forward(self, samples: Dict[str, Any], output_attentions: bool = False, freeze_partial_params: bool = False, peft_params = None) -> Phi3VOutput:
         # phi3.5 does not support multiple prompts
         if samples["image"] is not None:
             if isinstance(samples["image"], List):
@@ -348,6 +348,14 @@ class Phi4VLModel(nn.Module):
                     p.requires_grad = False
                 if ("PALinear" in n or "PBLinear"in n )and p.requires_grad:
                     p.requires_grad = False
+                if peft_params:
+                    if any(peft_param in n for peft_param in peft_params):
+                        if "base_layer.base_layer" not in n:
+                            p.requires_grad = True
+                        else:
+                            p.requires_grad = False
+                        # p.requires_grad = True
+
 
         
         return Phi4VOutput(

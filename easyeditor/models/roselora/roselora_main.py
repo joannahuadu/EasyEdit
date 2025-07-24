@@ -13,6 +13,11 @@ import gc
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
 
+def get_trainable_lora_params_only(before_params, model_after):
+    before = before_params
+    after = set(dict(model_after.named_parameters()).keys())
+    return after - before
+
 def apply_roselora_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
@@ -96,11 +101,17 @@ def execute_roselora(
             target_modules=hparams.target_modules,
             exclude_modules=exclude_modules,
         )
-        if hparams.model_name in ['llava',"phi4_vl", "qwen2.5_vl"]:
+        before_params = set(dict(sub_model.named_parameters()).keys())
+        if hparams.model_name in ['llava', "qwen2.5_vl"]:
             peft_model = get_peft_model(sub_model, peft_config)
+        elif hparams.model_name in ["phi4_vl"]:
+            peft_model = get_peft_model(sub_model, peft_config, adapter_name="vision")
         else:
             peft_model = get_peft_model(model, peft_config)
-
+        if "phi4_vl" in hparams.model_name:
+            peft_params = get_trainable_lora_params_only(before_params,peft_model.base_model.model)
+        else:
+            peft_params = None
     peft_model.is_parallelizable = True
     peft_model.model_parallel = True
 
@@ -184,7 +195,7 @@ def execute_roselora(
                 if isinstance(tgt, list):
                     tgt = tgt[0]
                 if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
-                    loss = model(samples, output_attentions=False).loss
+                    loss = model(samples, output_attentions=False, freeze_partial_params=True, peft_params=peft_params).loss
                 else:
                     labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                     logits = _logits(model(samples))
@@ -241,12 +252,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-3e-2, 3e-2)
+                            p.data.clamp_(-2e-3, 2e-3)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-3e-2, 3e-2)
+                            p.data.clamp_(-2e-3, 2e-3)
 
             
         progress_bar.set_description(
