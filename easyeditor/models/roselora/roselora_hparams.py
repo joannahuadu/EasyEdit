@@ -23,6 +23,7 @@ class RoseLoRAHyperParams(HyperParams):
     device: int
     alg_name: str
     model_name: str
+    cpu_copy: bool = False
 
     # Defaults
     batch_size: int = 128

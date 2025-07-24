@@ -795,7 +795,9 @@ class MultimodalEditor:
             save_object(pres, cached_path)
 
         self.model.zero_grad()
-        self.model.cpu()
+
+        if self.hparams.cpu_copy:
+            self.model.cpu()
         gc.collect()
         torch.cuda.empty_cache()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):

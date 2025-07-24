@@ -60,6 +60,7 @@ class XSpaceMultimodalHyperParams(HyperParams):
     tokenizer_class: str
     model_class: str
     cache_dir: Optional[str] = None
+    cpu_copy: bool = False
 
     # LoRANull
     from_save: Optional[str] = None
