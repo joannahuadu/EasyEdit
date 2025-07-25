@@ -135,7 +135,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         for name, module in target_layers.named_modules():
             if isinstance(module, nn.Linear):
                 # if not any(del_name in name for del_name in delete_name):
-                if not any(del_name in name for del_name in delete_name) and any(target in name for target in target_modules) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
+                if not any(del_name in name for del_name in delete_name) and any(target in name for target in target_modules) and (any('layers.' + str(layer) + '.' in name for layer in layers) if 'layers' in name else True):
                     module.covariance_matrix = all_covariance_matrix[name].to(
                         module.weight.device
                     )
@@ -191,7 +191,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         torch.cuda.empty_cache()
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
-            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
+            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) + '.' in name for layer in layers) if 'layers' in name else True):
                 # module.covariance_matrix = 0
                 module.covariance_matrix = torch.zeros(module.in_features, module.in_features, device='cuda')
                 module.register_forward_hook(hook)
@@ -212,7 +212,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
     all_covariance_matrix = {}
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
-            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) in name for layer in layers) if 'layers' in name else True):
+            if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) + '.' in name for layer in layers) if 'layers' in name else True):
                 module._forward_hooks.clear()
                 if torch.isnan(module.covariance_matrix).any():
                     print("nan detected")

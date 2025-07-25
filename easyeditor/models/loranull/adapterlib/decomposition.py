@@ -730,7 +730,7 @@ def build_model2(model, args):
     my_layers_keys = []
     for name, module in model.named_modules():
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in args.delete_name) and any(target in name for target in args.target_modules) and any('layers.' + str(layer) in name for layer in args.layers):
+            if not any(del_name in name for del_name in args.delete_name) and any(target in name for target in args.target_modules) and any('layers.' + str(layer) + '.' in name for layer in args.layers):
                 my_layers_keys.append(name)
 
     print('--- model before svd ----')
