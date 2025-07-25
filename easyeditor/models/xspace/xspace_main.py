@@ -214,7 +214,7 @@ def apply_xspace_to_model(
         if name == embed_layername:
             module.register_forward_hook(embed_hook)
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module.covariance_matrix = 0
                 module.register_forward_hook(partial(cov_hook, name=name))
                 base_pca[name] = None
@@ -254,7 +254,7 @@ def apply_xspace_to_model(
         if name == embed_layername:
             module._forward_hooks.clear()
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module._forward_hooks.clear()
                 if torch.isnan(module.covariance_matrix).any():
                     print("nan detected")
@@ -520,7 +520,7 @@ def execute_xspace(
                     opt.get_eigens(all_covariance_matrix)
                     opt.get_transforms()
                     del all_covariance_matrix
-            torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
             opt.step()
 
         print(f"Total loss {loss_meter.avg}")
@@ -787,7 +787,7 @@ def collect_xspace_to_model(
         if name == embed_layername:
             module.register_forward_hook(embed_hook)
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module.covariance_matrix = 0
                 module.register_forward_hook(partial(cov_hook, name=name))
                 base_pca[name] = None
@@ -817,7 +817,7 @@ def collect_xspace_to_model(
         if name == embed_layername:
             module._forward_hooks.clear()
         if isinstance(module, nn.Linear):
-            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) in name for layer in hparams.layers):
+            if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module._forward_hooks.clear()
                 if torch.isnan(module.covariance_matrix).any():
                     print("nan detected")
