@@ -78,22 +78,7 @@ class QwenVLModel(nn.Module):
             text_input = [self.processor.apply_chat_template(message,
                         add_generation_prompt=False,
                         tokenize=False) for message in messages]
-            # text_input = [self.processor.apply_chat_template([
-            #                 {
-            #                     "role": "user",
-            #                     "content": [
-            #                         {"type": "image"}
-            #                     ] * num_images + [{"type": "text", "text": p}],
-            #                 },
-            #             ],
-            #             add_generation_prompt=True,
-            #             tokenize=False) + (' ' + l if l else "") + self.tokenizer.eos_token
-            #         for p, l in zip(prompts, targets)] 
-            
-            # add assistent's content
-            
 
-            
         else:
             text_input = [
                             {

@@ -301,8 +301,10 @@ def execute_lora(
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                    if "phi4_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                         loss = model(samples, output_attentions=False,freeze_partial_params=True).loss
+                    elif "qwen2.5_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False).loss
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))
@@ -321,22 +323,12 @@ def execute_lora(
                     tokens = tokens.to(device)
                     pred = peft_model(**tokens)
                     loss = pred.loss
-                # pred = peft_model(**tokens)
-                # loss = pred.loss
-                # targ = target_ids
-                # pred = peft_model(**src_trg_inputs).logits
-                # pred = pred[:, :-1]
-                # pred = pred[:, -targ.size(1):]
 
-                # mask = targ != -100
-                # n_tokens = mask.float().sum()
-                # unmasked_log_probs = pred.log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
-                # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
-                # loss = -log_prob
             print(f"Batch loss {loss.item()}")
             loss_meter.update(loss.item(), n=len(full_prompt))
 
             # if loss.item() >= 1e-3:
+
             loss.backward()
             opt.step()
 
