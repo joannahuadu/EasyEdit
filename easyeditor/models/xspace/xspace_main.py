@@ -304,10 +304,10 @@ def execute_xspace(
         sub_model = model.phi_model
     else:
         sub_model = model
-    sub_model.config.use_cache = False
-    sub_model.supports_gradient_checkpointing = True  #
-    sub_model.gradient_checkpointing_enable()
-    sub_model.enable_input_require_grads()
+    # sub_model.config.use_cache = True
+    # sub_model.supports_gradient_checkpointing = True  #
+    # sub_model.gradient_checkpointing_enable()
+    # sub_model.enable_input_require_grads()
     if hparams.Null_mode:
         for n, p in sub_model.named_parameters():
             ## freeze BLinaer
@@ -494,6 +494,7 @@ def execute_xspace(
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))
+                        loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
                 else:
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]

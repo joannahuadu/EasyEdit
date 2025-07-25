@@ -93,7 +93,12 @@ def execute_lora(
                 for module in hparams.target_modules
             ]
         elif hparams.model_name in ['llava']:
-            assert False,"TODO"
+            exclude_modules = [
+                f"model.llava_model.model.vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+
             exclude_modules = [
                 f"vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
                 for layer in hparams.layers
@@ -116,7 +121,7 @@ def execute_lora(
     sub_model.config.use_cache = False
     sub_model.supports_gradient_checkpointing = True  #
     sub_model.gradient_checkpointing_enable()
-    sub_model.enable_input_require_grads()
+    # sub_model.enable_input_require_grads()
     if hparams.lora_type == "lora":
         Config = LoraConfig
         peft_config = Config(
@@ -261,18 +266,6 @@ def execute_lora(
                 nll = -avg_log_prob
                 loss = nll
             else:
-                # src_trg_inputs = tok(txt + tgt, return_tensors="pt", padding=True).to(device)
-                # bs = src_trg_inputs["input_ids"].shape[0]
-                # targ = deepcopy(src_trg_inputs['input_ids'])
-                # pred = peft_model(**src_trg_inputs).logits
-                # pred = pred[:, :-1]
-                # targ = targ[:, 1:]
-                # mask = targ != -100
-                # n_tokens = mask.float().sum()
-                # unmasked_log_probs = pred.log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
-                # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
-                # loss = -log_prob
-                # eos_token = tok.decode(tok.eos_token_id)
                 if img:
                     if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
                         full_prompt = [p for p in txt]
@@ -315,18 +308,7 @@ def execute_lora(
                     tokens = tokens.to(device)
                     pred = peft_model(**tokens)
                     loss = pred.loss
-                # pred = peft_model(**tokens)
-                # loss = pred.loss
-                # targ = target_ids
-                # pred = peft_model(**src_trg_inputs).logits
-                # pred = pred[:, :-1]
-                # pred = pred[:, -targ.size(1):]
 
-                # mask = targ != -100
-                # n_tokens = mask.float().sum()
-                # unmasked_log_probs = pred.log_softmax(-1).gather(-1, targ.unsqueeze(-1)).squeeze(-1)
-                # log_prob = (unmasked_log_probs * mask.float()).sum() / n_tokens
-                # loss = -log_prob
             print(f"Batch loss {loss.item()}")
             loss_meter.update(loss.item(), n=len(full_prompt))
 

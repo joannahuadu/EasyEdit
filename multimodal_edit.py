@@ -89,7 +89,7 @@ def edit_UNIKE_LLaVA_MMKE(args):
     pprint(metrics)
 
 def edit_LoRA_LLaVA_VQA(args):
-    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava_corda.yaml')
+    hparams = LoRAMultimodalHyperParams.from_hparams('hparams/LoRA/llava.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
@@ -374,7 +374,7 @@ def edit_LoRANULL_LLaVA_MMKE(args):
     pprint(metrics)
 
 def edit_XSpace_LLaVA_VQA(args):
-    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava_updownqv_1.yaml')
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava.yaml')
     # random.seed(hparams.seed)
     # np.random.seed(hparams.seed)
     # torch.manual_seed(hparams.seed)

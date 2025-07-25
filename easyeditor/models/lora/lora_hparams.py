@@ -79,9 +79,12 @@ class LoRAMultimodalHyperParams(HyperParams):
     # Multimodal
     coco_image: Optional[str] = None
     rephrase_image: Optional[str] = None
+    mmke_image: Optional[str] = None
     result_dir: Optional[str] = None
     train_annotation_path: Optional[str] = None
+    caption_train_annotation_path: Optional[str] = None
     eval_annotation_path: Optional[str] = None
+    mmke_train_annotation_path: Optional[str] = None
     
     # Evaluation
     real_world_eval: Optional[bool] = False
