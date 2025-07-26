@@ -735,7 +735,7 @@ def compute_multimodal_edit_results_qwen(
         m_loc_prompt = record["multimodal_locality_prompt"]
         m_loc_ground_truth = record["multimodal_locality_ground_truth"]
         m_loc_image = record["multimodal_locality_image"]
-        m_locality = prepare_multimodal_edit_qwen(hparams, tok, target, m_loc_prompt, image=m_loc_image)
+        m_locality = prepare_multimodal_edit_qwen(hparams, tok, m_loc_ground_truth, m_loc_prompt, image=m_loc_image)
         if real_world_eval:
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')
@@ -855,7 +855,7 @@ def compute_multimodal_edit_results_phi(
         m_loc_prompt = record["multimodal_locality_prompt"]
         m_loc_ground_truth = record["multimodal_locality_ground_truth"]
         m_loc_image = record["multimodal_locality_image"]
-        m_locality = prepare_multimodal_edit_phi(hparams, tok, target, m_loc_prompt, image=m_loc_image)
+        m_locality = prepare_multimodal_edit_phi(hparams, tok, m_loc_ground_truth, m_loc_prompt, image=m_loc_image)
         if real_world_eval:
             ret.update(
             compute_locality_quality_multimodal(model, model_name, hparams, tok, edit_prompt=m_locality, key='multimodal_locality')

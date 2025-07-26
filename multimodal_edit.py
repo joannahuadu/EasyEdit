@@ -394,12 +394,7 @@ def edit_XSpace_LLaVA_VQA(args):
     pprint(metrics)
     
 def edit_XSpace_Qwen_VQA(args):
-    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/qwen_updownqv_1.yaml')
-    # random.seed(hparams.seed)
-    # np.random.seed(hparams.seed)
-    # torch.manual_seed(hparams.seed)
-    # torch.cuda.manual_seed_all(hparams.seed)
-    # torch.backends.cudnn.deterministic = True
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/qwen2.5_vl.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     eval_ds = VQADataset(file_path, config=hparams)
