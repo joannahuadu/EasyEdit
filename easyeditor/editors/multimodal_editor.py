@@ -798,8 +798,8 @@ class MultimodalEditor:
 
         if self.hparams.cpu_copy:
             self.model.cpu()
-        gc.collect()
-        torch.cuda.empty_cache()
+            gc.collect()
+            torch.cuda.empty_cache()
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
@@ -1021,7 +1021,8 @@ class MultimodalEditor:
                     )
 
                 all_metrics.append(metrics)
-                torch.cuda.empty_cache()
+                if self.hparams.cpu_copy:
+                    torch.cuda.empty_cache()
             else:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
@@ -1107,8 +1108,9 @@ class MultimodalEditor:
 
                 all_metrics.append(metrics)
                 del edited_model
-                gc.collect()  
-                torch.cuda.empty_cache() 
+                if self.hparams.cpu_copy:
+                    gc.collect()  
+                    torch.cuda.empty_cache() 
             
             if i == flag:
                 self.weights_copy = weights_copy
@@ -1119,7 +1121,6 @@ class MultimodalEditor:
                 reload_weights = True
             else:
                 reload_weights = False
-            torch.cuda.empty_cache()
                 
             if self.alg_name == 'UNIKE':
                 if reload_weights:
@@ -1152,15 +1153,14 @@ class MultimodalEditor:
                             for k, v in self.weights_copy.items():
                                 # copy the old weights to new model
                                 nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
-                    torch.cuda.empty_cache()
+                    if self.hparams.cpu_copy:
+                        torch.cuda.empty_cache()
                         
             # save the metrics dynamically       
             if load_metrics_path is not None:
                 with open(jsonl_file_path, 'a') as f:
                     json.dump(metrics, f, ensure_ascii=False)
                     f.write('\n')
-            gc.collect()
-            torch.cuda.empty_cache()
         return all_metrics, weights_copy
 
     def edit_MMKE_dataset(self,

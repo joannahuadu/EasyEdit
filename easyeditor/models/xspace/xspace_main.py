@@ -489,8 +489,10 @@ def execute_xspace(
                     # pred = model(samples, output_attentions=False)
                     if isinstance(tgt, list):
                         tgt = tgt[0]
-                    if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                    if "phi4_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                         loss = model(samples, output_attentions=False, freeze_partial_params=True).loss
+                    elif "qwen2.5_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False).loss
                     else:
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))
@@ -648,7 +650,7 @@ def init_model_optimizer(model, config):
                                             {'params': bn_params, 'lr': config.bn_lr}],
                                 'lr': config.lr,
                                 'weight_decay': config.weight_decay}
-    elif config.model_name in ["phi4_vl"]:
+    elif config.model_name in ["phi4_vl","qwen2.5_vl"]:
         fea_params = [p for n, p in model.named_parameters(
         ) if ("ALinear" in n)]
         model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,

@@ -188,7 +188,7 @@ def calib_cov_distribution(model, hparams, calib_loader):
         # module.covariance_matrix += covariance.cpu() 
         module.covariance_matrix += covariance
         del covariance, input
-        torch.cuda.empty_cache()
+
     for name, module in target_layers.named_modules():
         if isinstance(module, nn.Linear):
             if (not any(del_name in name for del_name in delete_name)) and (any('layers.' + str(layer) + '.' in name for layer in layers) if 'layers' in name else True):
