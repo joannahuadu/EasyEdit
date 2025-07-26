@@ -23,7 +23,6 @@ class RoseLoRAHyperParams(HyperParams):
     device: int
     alg_name: str
     model_name: str
-    cpu_copy: bool = False
 
     # Defaults
     batch_size: int = 128
@@ -78,6 +77,7 @@ class RoseLoRAMultimodalHyperParams(HyperParams):
     batch_size: int = 128
     max_length: int = 40
     model_parallel: bool = False
+    cpu_copy: bool = False
     
     # Multimodal
     coco_image: Optional[str] = None

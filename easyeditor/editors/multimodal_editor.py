@@ -40,6 +40,7 @@ import random
 import math
 import copy
 import gc
+from copy import deepcopy
 
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -800,6 +801,10 @@ class MultimodalEditor:
             self.model.cpu()
             gc.collect()
             torch.cuda.empty_cache()
+        if self.alg_name.lower() in ['lora','loranull','xspace','corda','roselora']:
+            if kwargs['copy']:
+                original_model = deepcopy(self.model)
+
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             if i < flag:
                 continue
@@ -1023,6 +1028,95 @@ class MultimodalEditor:
                 all_metrics.append(metrics)
                 if self.hparams.cpu_copy:
                     torch.cuda.empty_cache()
+            elif self.alg_name.lower() in ['lora','roselora','loranull','xspace','corda']:
+
+                edited_model, weights_copy = self.apply_algo(
+                    self.model,
+                    self.tok,
+                    request,
+                    self.hparams,
+                    copy=kwargs['copy'] if 'copy' in kwargs.keys() else False,
+                    return_orig_weights=True,
+                    keep_original_weight=keep_original_weight
+                )
+                exec_time = time() - start
+            
+                LOG.info(f"Execution {i} editing took {exec_time}")
+                start = time()
+
+                if self.hparams.model_name == "qwen2.5_vl":
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results_qwen(edited_model, self.model_name, self.hparams, self.tok,
+                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
+                    }
+                elif self.hparams.model_name in ["phi3_vl","phi4_vl"]:
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results_phi(edited_model, self.model_name, self.hparams, self.tok,
+                                                    request[0], self.hparams.device, self.hparams.real_world_eval)
+                    }                 
+                else:
+                    metrics = {
+                        'case_id': i,
+                        "time": exec_time,
+                        "post": compute_multimodal_edit_results(edited_model, self.model_name, self.hparams, self.tok,
+                                                            request[0], self.hparams.device, self.hparams.real_world_eval),
+                    }
+                metrics["pre"] = pres[i]
+                # calculate the locality accuracy
+                if 'locality_output' in metrics['post'].keys():
+                    assert len(metrics['post']['locality_output']) == \
+                            len(metrics['pre']['locality_output'])
+                    metrics['post']['locality_acc'] = \
+                        np.mean(np.equal(metrics['post']['locality_output'],
+                                            metrics['pre']['locality_output']))
+                    metrics['post'].pop('locality_output')
+                    metrics['pre'].pop('locality_output')
+                    
+                if 'multimodal_locality_output' in metrics['post'].keys():
+                    assert len(metrics['post']['multimodal_locality_output']) == \
+                            len(metrics['pre']['multimodal_locality_output'])
+                    metrics['post']['multimodal_locality_acc'] = \
+                        np.mean(np.equal(metrics['post']['multimodal_locality_output'],
+                                            metrics['pre']['multimodal_locality_output']))
+                    metrics['post'].pop('multimodal_locality_output')
+                    metrics['pre'].pop('multimodal_locality_output')
+                    
+                if 'locality_rel_output' in metrics['post'].keys():
+                    pre_tokens = torch.tensor(metrics['pre']['locality_rel_output']).to(torch.float32)
+                    post_tokens = torch.tensor(metrics['post']['locality_rel_output']).to(torch.float32)
+
+                    question = request[0]['locality_prompt']
+                    metrics['post']['locality_rel_acc'], metrics['post']['locality_rel_gen_content'], metrics['pre']['locality_rel_gen_content'] = \
+                                                            test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
+                    metrics['post'].pop('locality_rel_output')
+                    metrics['pre'].pop('locality_rel_output')
+                    
+                if 'multimodal_locality_rel_output' in metrics['post'].keys():
+                    pre_tokens = torch.tensor(metrics['pre']['multimodal_locality_rel_output']).to(torch.float32)
+                    post_tokens = torch.tensor(metrics['post']['multimodal_locality_rel_output']).to(torch.float32)
+
+                    question = request[0]['multimodal_locality_prompt']
+                    metrics['post']['multimodal_locality_rel_acc'], metrics['post']['multimodal_locality_rel_gen_content'], metrics['pre']['multimodal_locality_rel_gen_content'] = \
+                                                            test_locality_real_multimodal(self.tok, self.hparams, question, pre_tokens, post_tokens)
+                    metrics['post'].pop('multimodal_locality_rel_output')
+                    metrics['pre'].pop('multimodal_locality_rel_output')
+
+                LOG.info(f"Evaluation took {time() - start}")
+
+                if verbose:
+                    LOG.info(
+                        f"{i} editing: {request[0]['prompt']} -> {request[0]['target']}"
+                    )
+
+                all_metrics.append(metrics)
+                del edited_model
+                if self.hparams.cpu_copy:
+                    gc.collect()  
+                    torch.cuda.empty_cache() 
             else:
                 edited_model, weights_copy = self.apply_algo(
                     self.model,
@@ -1130,7 +1224,6 @@ class MultimodalEditor:
             elif self.alg_name in ['KN']:
                 with torch.no_grad():
                     if reload_weights:
-                        # weights_copy() # unpatch_fn
                         self.model.load_state_dict(self.model_backup.state_dict())
                         self.model.cuda()
                     else:
@@ -1142,8 +1235,13 @@ class MultimodalEditor:
             else:
                 with torch.no_grad():
                     if reload_weights:
-                        for k, v in self.weights_copy.items():
-                            nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                        if self.alg_name.lower() in ['lora','roselora','loranull','xspace','corda']:
+                            self.model = deepcopy(original_model)
+                            if self.hparams.cpu_copy:
+                                self.model = self.model.to("cuda")
+                        else:
+                            for k, v in self.weights_copy.items():
+                                nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
                     else:
                         if self.hparams.alg_name == 'FT_MULTI':
                             for k, v in self.weights_copy.items():

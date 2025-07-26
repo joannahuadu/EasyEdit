@@ -44,10 +44,10 @@ def apply_lora_to_model(
     :return: (1) the updated model, (2) the weights that changed
     """
     weights_copy = {}
-    if copy:
-        model = deepcopy(model) 
-        if hparams.cpu_copy:
-            model = model.to("cuda")
+    # if copy:
+    #     model = deepcopy(model) 
+    #     if hparams.cpu_copy:
+    #         model = model.to("cuda")
 
     if hparams.cpu_copy:
         model = model.to("cuda") 

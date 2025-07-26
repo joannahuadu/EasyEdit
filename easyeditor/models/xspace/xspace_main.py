@@ -304,9 +304,9 @@ def execute_xspace(
         sub_model = model.phi_model
     else:
         sub_model = model
-    # sub_model.config.use_cache = True
-    # sub_model.supports_gradient_checkpointing = True  #
-    # sub_model.gradient_checkpointing_enable()
+    # sub_model.config.use_cache = False
+    sub_model.supports_gradient_checkpointing = True  #
+    sub_model.gradient_checkpointing_enable()
     # sub_model.enable_input_require_grads()
     if hparams.Null_mode:
         for n, p in sub_model.named_parameters():
@@ -491,6 +491,8 @@ def execute_xspace(
                         tgt = tgt[0]
                     if "phi4_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                         loss = model(samples, output_attentions=False, freeze_partial_params=True).loss
+                    elif "qwen2.5_vl" in hparams.model_name:
+                        loss = model(samples, output_attentions=False).loss
                     elif "qwen2.5_vl" in hparams.model_name:
                         loss = model(samples, output_attentions=False).loss
                     else:

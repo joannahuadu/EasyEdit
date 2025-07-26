@@ -194,8 +194,10 @@ def execute_roselora(
                 # pred = model(samples, output_attentions=False)
                 if isinstance(tgt, list):
                     tgt = tgt[0]
-                if "phi4_vl" in hparams.model_name or "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
+                if "phi4_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
                     loss = model(samples, output_attentions=False, freeze_partial_params=True, peft_params=peft_params).loss
+                elif "qwen2.5_vl" in hparams.model_name:
+                    loss = model(samples, output_attentions=False).loss
                 else:
                     labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                     logits = _logits(model(samples))
@@ -252,12 +254,12 @@ def execute_roselora(
                         if "lora_B" in n:
                             mask_threshold = torch.kthvalue(imp_B[n], int(imp_B[n].shape[0] * (1 - rate)), 0, True)[0]
                             p.data.masked_fill_(imp_B[n] < mask_threshold, 0.0)
-                            p.data.clamp_(-2e-3, 2e-3)
+                            p.data.clamp_(-2e-2, 2e-2)
 
                         if "lora_A" in n:
                             mask_threshold = torch.kthvalue(imp_A[n], int(imp_A[n].shape[1] * (1 - rate)), 1, True)[0]
                             p.data.masked_fill_(imp_A[n] < mask_threshold, 0.0) 
-                            p.data.clamp_(-2e-3, 2e-3)
+                            p.data.clamp_(-2e-2, 2e-2)
 
             
         progress_bar.set_description(

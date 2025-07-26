@@ -258,7 +258,7 @@ def edit_RoseLoRA_LLaVA_VQA(args):
     pprint(metrics)
     
 def edit_RoseLoRA_Qwen_VQA(args):
-    hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/qwen2_5.yaml')
+    hparams = RoseLoRAMultimodalHyperParams.from_hparams('hparams/RoseLoRA/qwen2.5_vl.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
     
