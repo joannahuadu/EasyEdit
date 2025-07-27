@@ -1210,7 +1210,7 @@ class MultimodalEditor:
                 self.weights_copy = weights_copy
             # if do not use continuous edit, restore the edit layers
             local_counter += 1
-            if local_counter % self.hparams.continuous_sample == 0:
+            if local_counter % self.hparams.continuous_sample == 0 and kwargs['copy']:
                 local_counter = 0 # restore the counter
                 reload_weights = True
             else:

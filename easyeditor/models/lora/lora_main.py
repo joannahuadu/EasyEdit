@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Tuple
-from peft import get_peft_model, AdaLoraConfig, TaskType, get_peft_model_state_dict, set_peft_model_state_dict, LoraConfig
+from peft import get_peft_model, AdaLoraConfig, TaskType, get_peft_model_state_dict, set_peft_model_state_dict, LoraConfig, prepare_model_for_kbit_training
 from peft.tuners.lora.config import CordaConfig
 from peft.tuners.lora.corda import preprocess_corda
 from datasets import load_dataset
@@ -145,6 +145,17 @@ def execute_lora(
             total_step=hparams.num_steps,
             exclude_modules=exclude_modules,
         )
+    elif hparams.lora_type == "qlora":
+        Config = LoraConfig
+        peft_config = Config(
+            task_type=TaskType.CAUSAL_LM,
+            inference_mode=False,
+            r=hparams.rank,
+            lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
+            layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules,
+        )
     elif hparams.lora_type == "corda":
         # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
         # sampled_dataset = load_dataset("wikipedia", '20200501.en', split="train[:256]")
@@ -205,7 +216,11 @@ def execute_lora(
         peft_model = sub_model
     else:
         before_params = set(dict(sub_model.named_parameters()).keys())
-        peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
+        if hparams.lora_type == "qlora":
+            sub_model = prepare_model_for_kbit_training(sub_model).to(torch.bfloat16)
+            peft_model = get_peft_model(sub_model, peft_config)
+        else:
+            peft_model = get_peft_model(sub_model, peft_config).to(torch.bfloat16)
         if "phi4_vl" in hparams.model_name:
             peft_params = get_trainable_lora_params_only(before_params,peft_model.base_model.model)
         else:
