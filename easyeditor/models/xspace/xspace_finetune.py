@@ -8,7 +8,7 @@ from datasets import load_dataset
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from .loranull_hparams import LoRANULLMultimodalHyperParams
+from .xspace_hparams import XSpaceMultimodalHyperParams
 from ...trainer.losses import masked_log_probs
 
 from tqdm import tqdm
@@ -16,20 +16,42 @@ from tqdm import tqdm
 # Multimodal dataset for Corda 
 from ...dataset import VQADataset_Simple
 from torch.utils.data import DataLoader
-import gc
-from .adapterlib.decomposition import build_model2
-from .adapterlib.datautils import get_calib_data
-from .adapterlib.act_aware_utils import calib_cov_distribution
 
+import torch.nn as nn
+import torch.nn.functional as F
+from functools import partial
+import numpy as np
+from .optim import Adam
+import gc
+
+base_pca = {} 
+reserved = {} 
 def _logits(x):
     return x if not hasattr(x, "logits") else x.logits
 
+def pca_features(x, r=32):
+    np.random.seed(42)  
+    torch.manual_seed(42)
+    U, S, V = torch.pca_lowrank(x, q=r)
+    torch.random.seed() 
+    return V[:, :r]
 
-def apply_loranull_to_model(
+def cosine_similarity(A, B):
+    A_norm = F.normalize(A, dim=0)
+    B_norm = F.normalize(B, dim=0)
+    return torch.sum(A_norm * B_norm).item() / A.shape[1]
+
+# def cosine_similarity(A, B):
+#     dot_product = torch.dot(A, B)
+#     norm_v1 = torch.norm(A)
+#     norm_v2 = torch.norm(B)
+#     return  dot_product / (norm_v1 * norm_v2)
+
+def apply_xspace_to_model(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
         requests: List[Dict],
-        hparams: LoRANULLMultimodalHyperParams,
+        hparams: XSpaceMultimodalHyperParams,
         copy=False,
         return_orig_weights=False,
         keep_original_weight=False,
@@ -41,6 +63,7 @@ def apply_loranull_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) the weights that changed
     """
+    global base_pca, reserved
     weights_copy = {}
     if copy:
         model = deepcopy(model) 
@@ -50,18 +73,43 @@ def apply_loranull_to_model(
     if hparams.cpu_copy:
         model = model.to("cuda") 
 
-    edited_model = execute_lora(model, tok, requests, hparams, keep_original_weight)
+    requests = deepcopy(requests)
+    for request in requests:
+        if "target_new" not in request and "target" in request:
+            request.update({"target_new": request["target"]})
+        print(
+            f"Executing LoRA algo for: "
+            f"[{request['prompt']}] -> [{request['target_new']}]"
+        )
+    # image_tok = requests[0]['image_toks']
+    texts = [r["prompt"] for r in requests]
+    targets = [r["target_new"] for r in requests]
+    if "image" in requests[0]:
+        images = [r["image"] for r in requests]
+    # text_lens = [len(tok.encode(prompt+" "+target, add_special_tokens=False)) for prompt, target in zip(texts, targets)]
+    # B = (image_tok - hparams.wL) // hparams.wS + 1 + 1 + len(hparams.nS)
+    embed_layername = layername(model, 0, "embed")
+    proj_layername = layername(model, 0, "proj")
+
+    edited_model = execute_xspace(model, tok, requests, hparams, keep_original_weight)
+    
+    for name, module in model.named_modules():
+        if name == proj_layername:
+            module._forward_hooks.clear()
+        if name == embed_layername:
+            module._forward_hooks.clear()
     if hasattr(model, "llava_model") or hasattr(model, "qwen_model") or hasattr(model, "phi_model"):
+        # model.llava_model = edited_model
         return model, weights_copy
     else:
         return edited_model, weights_copy
 
 
-def execute_lora(
+def execute_xspace(
         model: AutoModelForCausalLM,
         tok: AutoTokenizer,
         requests: List[Dict],
-        hparams: LoRANULLMultimodalHyperParams,
+        hparams: XSpaceMultimodalHyperParams,
         keep_original_weight=False,
         **kwargs: Any,
 ) -> Dict[str, Tuple[torch.Tensor]]:
@@ -78,38 +126,6 @@ def execute_lora(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
-    if hasattr(hparams, 'exclude_modules'):
-        if hparams.model_name in ['qwen2.5_vl']:
-            exclude_modules = [
-                f"visual.blocks.{layer}.mlp.{module}"
-                for layer in hparams.layers
-                for module in hparams.target_modules
-            ]
-        elif hparams.model_name in ['phi3_vl', 'phi4_vl']:
-            exclude_modules = [
-                f"model.embed_tokens_extend.image_embed.img_processor.encoder.layers.{layer}.self_attn.{module}"
-                for layer in hparams.layers
-                for module in hparams.target_modules
-            ]
-        elif hparams.model_name in ['llava']:
-            exclude_modules = [
-                f"model.llava_model.model.vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
-                for layer in hparams.layers
-                for module in hparams.target_modules
-            ]
-
-            exclude_modules = [
-                f"vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
-                for layer in hparams.layers
-                for module in hparams.target_modules
-            ]
-        else:
-            assert False, f"Unsupported model {hparams.model_name} for LoRA"
-        # exclude_modules = hparams.exclude_modules
-    else:
-        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
-
-    
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
@@ -119,10 +135,10 @@ def execute_lora(
         sub_model = model.phi_model
     else:
         sub_model = model
-    sub_model.config.use_cache = False
+    # sub_model.config.use_cache = False
     sub_model.supports_gradient_checkpointing = True  #
     sub_model.gradient_checkpointing_enable()
-    sub_model.enable_input_require_grads()
+    # sub_model.enable_input_require_grads()
     if hparams.Null_mode:
         for n, p in sub_model.named_parameters():
             ## freeze BLinaer
@@ -202,8 +218,7 @@ def execute_lora(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules,
-            exclude_modules=exclude_modules
+            target_modules=hparams.target_modules
         )
         preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
@@ -234,6 +249,7 @@ def execute_lora(
     targets = [r["target_new"] for r in requests]
     prompt_template = "{}" if requests[0]["prompt_template"] is None else requests[0]["prompt_template"]
     # Configure optimizer / gradients
+    ## Adam-nscl
     opt = torch.optim.Adam(
         peft_model.parameters(),
         lr=hparams.lr,
@@ -243,6 +259,135 @@ def execute_lora(
         images = [r["image"] for r in requests]
     # if torch.__version__ >= "2" and sys.platform != "win32":
     # model = torch.compile(model)
+    embed_layername = layername(model, 0, "embed")
+    proj_layername = layername(model, 0, "proj")
+    base_pca = {}
+    reserved = {}
+    def embed_hook_ori(module, input, output):
+        N, dim = output.shape
+        wS = hparams.wS
+        out = output.clone()
+        if count == 0:
+            return out
+        if count == 2:
+            noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
+            out += noise_tensor
+            return out
+        elif count%2==0:
+            if N > wS:
+                start = torch.randint(1, N - wS + 1, (1,)).item()
+                end = start + wS
+                noise_tensor = torch.randn(wS, dim, device=output.device) * hparams.noise
+                out[start:end, :] += noise_tensor
+            else:
+                noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
+                out += noise_tensor
+            return out
+    def embed_hook(module, input, output):
+        wS = hparams.wS
+        noise_scale = hparams.noise
+        out = output.clone()
+        if count == 0:
+            return out
+        # Case 1: 2D input (N, dim)
+        if out.dim() == 2:
+            N, dim = out.shape
+            if count == 2:
+                out += torch.randn(N, dim, device=out.device) * noise_scale
+            elif count % 2 == 0:
+                if N > wS:
+                    start = torch.randint(1, N - wS + 1, (1,)).item()
+                    end = start + wS
+                    out[start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                else:
+                    out += torch.randn(N, dim, device=out.device) * noise_scale
+            return out
+
+        # Case 2: 3D input (B, N, dim)
+        elif out.dim() == 3:
+            B, N, dim = out.shape
+            for b in range(B):
+                if count == 2:
+                    out[b] += torch.randn(N, dim, device=out.device) * noise_scale
+                elif count % 2 == 0:
+                    if N > wS:
+                        start = torch.randint(1, N - wS + 1, (1,)).item()
+                        end = start + wS
+                        out[b, start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                    else:
+                        out[b] += torch.randn(N, dim, device=out.device) * noise_scale
+            return out
+
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
+
+    def proj_hook(module, input, output):
+        wL = hparams.wL
+        out = output.clone()
+        if out.dim() == 3:
+            B, N, dim = output.shape
+            if count == 0:
+                return out
+            if count == 1:
+                out[:,:,:] = 0
+                return out
+            elif count%2:
+                start = torch.randint(0, N - wL + 1, (1,)).item()
+                end = start + wL
+                out[:, start:end, :] = 0
+                return out
+        elif out.dim() == 2:
+            N, dim = output.shape
+            if count == 0:
+                return out
+            if count == 1:
+                out[:,:] = 0
+                return out
+            elif count%2:
+                start = torch.randint(N - wL + 1, (1,)).item()
+                end = start + wL
+                out[start:end, :] = 0
+                return out
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
+
+    def cov_hook(module, input, output, name):
+        global base_pca, reserved
+        input = input[0].detach().squeeze(0).data  ## (2048, dim)
+        input = input
+        input = input/torch.max(input).abs()
+        if torch.isnan(input).any():
+            print("nan detected")
+            raise Exception("nan in input, break")
+        if torch.isinf(input).any():
+            print("inf detected")
+            raise Exception("inf in input, break")
+        covariance = input.t().matmul(input)
+        pca = pca_features(covariance.float())
+        if base_pca[name] is None:
+            base_pca[name] = pca
+        else:
+            sim = cosine_similarity(base_pca[name], pca)
+            if sim > hparams.sim:
+                if torch.isnan(covariance).any():
+                    print("nan detected")
+                    raise Exception("nan in covariance, break")
+                if torch.isinf(covariance).any():
+                    print("inf detected")
+                    raise Exception("inf in covariance, break")        
+                module.covariance_matrix += covariance
+                reserved[name]+=1
+        del input, covariance
+    
+    for name, module in model.named_modules():
+        if name == proj_layername:
+            module.register_forward_hook(proj_hook)
+        if name == embed_layername:
+            module.register_forward_hook(embed_hook)
+
+    texts = texts*hparams.num_samples
+    targets = targets*hparams.num_samples
+    images = images*hparams.num_samples
     loss_meter = AverageMeter()
     for it in range(hparams.num_steps):
         print(20 * "=")
@@ -250,11 +395,11 @@ def execute_lora(
         print(20 * "=")
         loss_meter.reset()
 
-        for txt, tgt, img in zip(
+        for i, (txt, tgt, img) in enumerate(tqdm(zip(
                 chunks(texts, hparams.batch_size), 
                 chunks(targets, hparams.batch_size),
                 chunks(images, hparams.batch_size)
-        ):
+        ))):
             mask_token = -100
             opt.zero_grad()
             if 't5' in hparams.model_name.lower():
@@ -307,13 +452,23 @@ def execute_lora(
                     if isinstance(tgt, list):
                         tgt = tgt[0]
                     if "phi4_vl" in hparams.model_name or "phi3_vl" in hparams.model_name:
-                        loss = model(samples, output_attentions=False,freeze_partial_params=True).loss
+                        count = i
+                        loss = model(samples, output_attentions=False, freeze_partial_params=True).loss
+
                     elif "qwen2.5_vl" in hparams.model_name:
+                        count = i
                         loss = model(samples, output_attentions=False).loss
+                        
+                    elif "qwen2.5_vl_default" in hparams.model_name:
+                        count = i
+                        loss = model(samples, output_attentions=False).loss
+                        
                     else:
+                        count = i
                         labels = tok.encode(tgt, add_special_tokens=False,return_tensors="pt").to(device)
                         logits = _logits(model(samples))
                         loss = masked_log_probs(hparams, logits, labels, shift=True)["nll"]
+                        
                 else:
                     full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
                     prompt_ids = tok(list(txt), return_tensors="pt", padding=True, truncation=True)["input_ids"]
@@ -333,8 +488,13 @@ def execute_lora(
             loss_meter.update(loss.item(), n=len(full_prompt))
 
             # if loss.item() >= 1e-3:
-
             loss.backward()
+            # if it==0:
+            #     with torch.no_grad():
+            #         opt.get_eigens(all_covariance_matrix)
+            #         opt.get_transforms()
+            #         del all_covariance_matrix
+            # torch.cuda.empty_cache()
             opt.step()
 
         print(f"Total loss {loss_meter.avg}")
@@ -379,3 +539,69 @@ def get_VQA_ds(hparams, prompt, template, size=None):
     image_root = hparams.coco_image
     raw_ds = VQADataset_Simple(size=size, prompt=prompt,template=template,annotation_file=annotation_path,image_root=image_root,image_size=336)
     return raw_ds
+
+
+def layername(model, num, kind=None):
+    if hasattr(model, "transformer"):
+        if kind == "embed":
+            return "transformer.wte"
+        return f'transformer.h.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "gpt_neox"):
+        if kind == "embed":
+            return "gpt_neox.embed_in"
+        if kind == "attn":
+            kind = "attention"
+        return f'gpt_neox.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "opt_model"):
+        if kind == "embed":
+            return "opt_model.model.decoder.embed_tokens"
+        if kind == "mlp":
+            kind = "fc2"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'opt_model.model.decoder.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llama_model"):
+        if kind == "embed":
+            return "llama_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llama_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "llava_model"):
+        if kind == "proj":
+            return "llava_model.model.mm_projector"
+        if kind == "embed":
+            return "llava_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'llava_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    if hasattr(model, "qwen_model"):
+        if kind == "proj":
+            return "qwen_model.visual"
+        if kind == "embed":
+            return "qwen_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'qwen_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    
+    if hasattr(model, "phi_model"):
+        if kind == "proj":
+            return "phi_model.model.embed_tokens_extend.image_embed.img_projection"
+        if kind == "embed":
+            return "phi_model.model.embed_tokens"
+        if kind == "attn":
+            kind = "self_attn"
+        return f'phi_model.model.layers.{num}{"" if kind is None else "." + kind}'
+    assert False, "unknown transformer structure"
+
+def collect_xspace_to_model(
+        model: AutoModelForCausalLM,
+        tok: AutoTokenizer,
+        requests: List[Dict],
+        hparams: XSpaceMultimodalHyperParams,
+        copy=False,
+        return_orig_weights=False,
+        keep_original_weight=False,
+        **kwargs: Any,
+) -> Tuple[AutoModelForCausalLM, Dict[str, Any]]:
+    
+    return None
