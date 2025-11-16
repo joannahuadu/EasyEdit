@@ -98,6 +98,8 @@ class ROMEMultimodalHyperParams(HyperParams):
     # Image_dir
     coco_image: str
     rephrase_image: str  
+    train_annotation_path: str
+    eval_annotation_path: str
     exact_match: bool = False
 
     ## Multimodal
@@ -107,11 +109,18 @@ class ROMEMultimodalHyperParams(HyperParams):
     pretrained_ckpt: Optional[str] = None  
     
     cache_dir: Optional[str] = None 
+    cpu_copy: bool = False
     max_length: int = 40
     model_parallel: bool = False
     fp16: bool = False
     force_recompute: bool = False
-
+    
+    # Evaluation
+    real_world_eval: bool = False
+    api_key: Optional[str] = None
+    json_dir: Optional[str] = None
+    all_metrics_name: Optional[str] = None
+    continuous_sample: Optional[int] = 1
 
     @classmethod
     def from_hparams(cls, hparams_name_or_path: str):

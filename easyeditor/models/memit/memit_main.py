@@ -39,13 +39,14 @@ def apply_memit_to_model(
         Note that you are responsible for deallocating the new model's memory to avoid leaks.
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
-
+    
     weights_copy = {}
     for request in requests:
         if "target_new" not in request and "target" in request:
             request.update({"target_new": request["target"]})
-    if copy:
-        model = deepcopy(model)
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
+    
 
     deltas = execute_memit(model, tok, requests, hparams, cache_template=cache_template)
 
@@ -190,7 +191,7 @@ def execute_memit(
         targets = targets.repeat_interleave(repeat_factor, dim=1)
 
         # Load covariance matrix
-        force_recompute = True
+        force_recompute = False
         # force_recompute = layer != hparams.layers[0]
         if hparams.model_name == 'llava':
             template = request["prompt_template"] if "prompt_template" in request else None

@@ -3,6 +3,7 @@ import argparse
 sys.path.append("/home/lishichao/project/EasyEdit")
 from easyeditor import MultimodalEditor
 from easyeditor import MEMITMultimodalHyperParams
+from easyeditor import ROMEMultimodalHyperParams
 from easyeditor import AlphaMultimodalHyperParams
 from easyeditor import LoRAMultimodalHyperParams
 from easyeditor import UniKEHyperParams
@@ -20,6 +21,35 @@ from pprint import pprint
 import random
 import torch
 import numpy as np
+
+def edit_ROME_LLaVA_VQA(args):
+    hparams = ROMEMultimodalHyperParams.from_hparams('hparams/ROME/llava.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa',
+        copy=True,
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+def edit_MEMIT_LLaVA_VQA(args):
+    hparams = MEMITMultimodalHyperParams.from_hparams('hparams/MEMIT/llava.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams)
+    metrics, edited_model, _ = editor.edit_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        task='vqa',
+        copy=True,
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
 
 def edit_Alpha_LLaVA_VQA(args):
     hparams = AlphaMultimodalHyperParams.from_hparams('hparams/AlphaEdit/llava.yaml')
@@ -318,7 +348,7 @@ def edit_LoRANULL_LLaVA_VQA(args):
     torch.backends.cudnn.deterministic = True
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
-    eval_ds = VQADataset(file_path, config=hparams,size=5)
+    eval_ds = VQADataset(file_path, config=hparams)
     metrics, edited_model, _ = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,
@@ -491,7 +521,7 @@ def edit_XSpace_Phi_VQA(args):
     hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/phi4.yaml')
     editor = MultimodalEditor.from_hparams(hparams)
     file_path = hparams.eval_annotation_path
-    eval_ds = VQADataset(file_path, config=hparams, size=5)
+    eval_ds = VQADataset(file_path, config=hparams,size=200)
     metrics, edited_model = editor.edit_dataset(
         ds=eval_ds,
         train_ds=eval_ds,

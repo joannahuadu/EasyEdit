@@ -295,6 +295,36 @@ def execute_xspace(
     # model.supports_gradient_checkpointing = True  #
     # model.gradient_checkpointing_enable()
     # model.enable_input_require_grads()
+    if hasattr(hparams, 'exclude_modules'):
+        if hparams.model_name in ['qwen2.5_vl']:
+            exclude_modules = [
+                f"visual.blocks.{layer}.mlp.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['phi3_vl', 'phi4_vl']:
+            exclude_modules = [
+                f"model.embed_tokens_extend.image_embed.img_processor.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        elif hparams.model_name in ['llava']:
+            exclude_modules = [
+                f"model.llava_model.model.vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+
+            exclude_modules = [
+                f"vision_tower.vision_tower.vision_model.encoder.layers.{layer}.self_attn.{module}"
+                for layer in hparams.layers
+                for module in hparams.target_modules
+            ]
+        else:
+            assert False, f"Unsupported model {hparams.model_name} for LoRA"
+        # exclude_modules = hparams.exclude_modules
+    else:
+        exclude_modules = ["vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.q_proj", "vision_tower.vision_tower.vision_model.encoder.layers.7.self_attn.v_proj"]
 
     if hasattr(model, "llava_model"):
         sub_model = model.llava_model
@@ -324,7 +354,8 @@ def execute_xspace(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules
         )
     elif hparams.lora_type == "adalora":
         Config = AdaLoraConfig
@@ -335,7 +366,8 @@ def execute_xspace(
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
             target_modules=hparams.target_modules,
-            total_step=hparams.num_steps
+            total_step=hparams.num_steps,
+            exclude_modules=exclude_modules
         )
     elif hparams.lora_type == "corda":
         # sampled_dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train[:256]", ignore_verifications=True)
@@ -387,7 +419,8 @@ def execute_xspace(
             r=hparams.rank,
             lora_alpha=hparams.lora_alpha, lora_dropout=hparams.lora_dropout,
             layers_to_transform=hparams.layers if len(hparams.layers) > 0 else None,
-            target_modules=hparams.target_modules
+            target_modules=hparams.target_modules,
+            exclude_modules=exclude_modules
         )
         preprocess_corda(sub_model, lora_config=peft_config, run_model=run_model)
     else:
@@ -654,7 +687,7 @@ def init_model_optimizer(model, config):
                                 'weight_decay': config.weight_decay}
     elif config.model_name in ["phi4_vl","qwen2.5_vl"]:
         fea_params = [p for n, p in model.named_parameters(
-        ) if ("ALinear" in n)]
+        ) if ("ALinear" in n and "bias" not in n)]
         model_optimizer_arg = {'params': [{'params': fea_params, 'svd': True, 'lr': config.svd_lr,
                                     'thres': config.svd_thres}],
                                 'lr': config.lr,

@@ -47,8 +47,8 @@ class VQADataset(BaseDataset):
         if config.model_name == "Blip2OPT":
             vis_processor = BlipImageEvalProcessor(image_size=364, mean=None, std=None)
         elif config.model_name == "llava":
-            # vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
-            vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
+            vis_processor = transformers.CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14-336")
+            # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/public/home/wang_mq22/.cache/huggingface/hub/clip-vit-large-patch14-336")
             
             return_tensors = True
             # vis_processor = transformers.CLIPImageProcessor.from_pretrained("/home/.cache/clip/ ViT-L-14-336px.pt")

@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from ..rome import repr_tools
 from ...util.globals import *
 
-from .layer_stats import layer_stats, get_model_config
+from .layer_stats import layer_stats, layer_stats_multimodal, get_model_config
 from .rome_hparams import ROMEHyperParams
 
 # Cache variables
@@ -39,7 +39,7 @@ def get_inv_cov(
             f"Retrieving inverse covariance statistics for {model_name} @ {layer_name}. "
             f"The result will be cached to avoid repetitive computation."
         )
-        stat = layer_stats(
+        stat = layer_stats_multimodal(
             model,
             tok,
             layer_name,
@@ -122,7 +122,7 @@ def compute_u(
             hparams.mom2_n_samples,
             hparams.mom2_dtype,
             hparams=hparams,
-        ) @ u.unsqueeze(1).float()
+        ) @ u.cuda().unsqueeze(1).float()
         u = u.squeeze()
 
     return u / u.norm()

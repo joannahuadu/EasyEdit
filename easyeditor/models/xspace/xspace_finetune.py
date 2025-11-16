@@ -287,35 +287,28 @@ def execute_xspace(
         wS = hparams.wS
         noise_scale = hparams.noise
         out = output.clone()
-        if count == 0:
-            return out
         # Case 1: 2D input (N, dim)
         if out.dim() == 2:
             N, dim = out.shape
-            if count == 2:
+
+            if N > wS:
+                start = torch.randint(1, N - wS + 1, (1,)).item()
+                end = start + wS
+                out[start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+            else:
                 out += torch.randn(N, dim, device=out.device) * noise_scale
-            elif count % 2 == 0:
-                if N > wS:
-                    start = torch.randint(1, N - wS + 1, (1,)).item()
-                    end = start + wS
-                    out[start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
-                else:
-                    out += torch.randn(N, dim, device=out.device) * noise_scale
             return out
 
         # Case 2: 3D input (B, N, dim)
         elif out.dim() == 3:
             B, N, dim = out.shape
-            for b in range(B):
-                if count == 2:
+            for b in range(1,B):
+                if N > wS:
+                    start = torch.randint(1, N - wS + 1, (1,)).item()
+                    end = start + wS
+                    out[b, start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                else:
                     out[b] += torch.randn(N, dim, device=out.device) * noise_scale
-                elif count % 2 == 0:
-                    if N > wS:
-                        start = torch.randint(1, N - wS + 1, (1,)).item()
-                        end = start + wS
-                        out[b, start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
-                    else:
-                        out[b] += torch.randn(N, dim, device=out.device) * noise_scale
             return out
 
         else:
@@ -326,28 +319,20 @@ def execute_xspace(
         out = output.clone()
         if out.dim() == 3:
             B, N, dim = output.shape
-            if count == 0:
-                return out
-            if count == 1:
-                out[:,:,:] = 0
-                return out
-            elif count%2:
-                start = torch.randint(0, N - wL + 1, (1,)).item()
-                end = start + wL
-                out[:, start:end, :] = 0
-                return out
+            for b in range(1,B):
+                if N > wL:
+                    start = torch.randint(0, N - wL + 1, (1,)).item()
+                    end = start + wL
+                    out[b, start:end, :] = 0
+                else:
+                    out[b, :, :] = 0
+            return out
         elif out.dim() == 2:
             N, dim = output.shape
-            if count == 0:
-                return out
-            if count == 1:
-                out[:,:] = 0
-                return out
-            elif count%2:
-                start = torch.randint(N - wL + 1, (1,)).item()
-                end = start + wL
-                out[start:end, :] = 0
-                return out
+            start = torch.randint(N - wL + 1, (1,)).item()
+            end = start + wL
+            out[start:end, :] = 0
+            return out
         else:
             raise ValueError(f"Unsupported output shape: {out.shape}")
 

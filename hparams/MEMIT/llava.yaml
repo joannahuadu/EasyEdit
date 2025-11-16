@@ -1,16 +1,15 @@
-# Model
-
 name: liuhaotian/llava-v1.5-7b
-model_name: llava
+model_name: "llava"
 tokenizer_class: LlamaTokenizer
 tokenizer_name: liuhaotian/llava-v1.5-7b
-cache_dir: /home/lishichao/.cache/huggingface/hub/
-device: 0,1
+cache_dir: /root/autodl-tmp/model
+cpu_copy: true
+device: 0
 
 # Methods
 alg_name: "MEMIT"
 stats_dir: "./data/stats"
-layers: [1,2]
+layers: [7]
 layer_selection: "all"
 fact_token: "subject_last"
 v_num_grad_steps: 25
@@ -32,17 +31,25 @@ ln_f_module: "llava_model.model.norm"
 lm_head_module: "llava_model.lm_head"
 mom2_dataset: "MMVQA"
 # mom2_n_samples: 100000
-mom2_n_samples: 300
+mom2_n_samples: 1000
 mom2_dtype: "float32"
 model_parallel: false
 fp16: false
 batch_size: 2
 # image
-coco_image: /mnt/data2/wmq
-rephrase_image: /mnt/data2/wmq
+coco_image: /root/autodl-tmp/model_edit
+rephrase_image: /root/autodl-tmp/model_edit
+train_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_train.json
+eval_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_eval.json
 exact_match: True
 
 # Trace
 noise_level: s10
-result_dir: /mnt/data2/wmq/results
+result_dir: /root/autodl-tmp/model_edit/results
+all_metrics_name: 'all_metrics_layer=7.jsonl'
+json_dir: /root/code/EasyEdit/results/jsonl
+
+continuous_sample: 1
+real_world_eval: true
+api_key: "/root/autodl-tmp/api_key.json"
 

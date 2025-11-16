@@ -1,12 +1,13 @@
 alg_name: "LoRA"
-name: /public/home/wang_mq22/.cache/huggingface/hub/4481d270cc22fd5c4d1bb5df129622006ccd9234
+name: liuhaotian/llava-v1.5-7b
 model_name: "llava"
 model_class: LlamaForCausalLM
 tokenizer_class: LlamaTokenizer
-tokenizer_name: /public/home/wang_mq22/.cache/huggingface/hub/4481d270cc22fd5c4d1bb5df129622006ccd9234
-cache_dir: /public/home/wang_mq22/.cache/huggingface/hub/
-
+# tokenizer_name: liuhaotian/llava-v1.5-7b
+tokenizer_name: liuhaotian/llava-v1.5-7b
+cache_dir: /root/autodl-tmp/model
 device: 0
+cpu_copy: True
 
 lora_type: "lora"
 layers: [7]
@@ -25,19 +26,17 @@ exclude_modules: []
 model_parallel: false 
 
 # image
-coco_image: /public/home/wang_mq22/edit_data
-mmke_image: /public/home/wang_mq22/edit_data/MMKE/data_image
-rephrase_image: /public/home/wang_mq22/edit_data
-result_dir: /public/home/wang_mq22/edit_data/results
-train_annotation_path: /public/home/wang_mq22/edit_data/editing-data/vqa/vqa_train.json
-caption_train_annotation_path: /public/home/wang_mq22/edit_data/editing-data/caption/caption_train_edit.json
-eval_annotation_path: /public/home/wang_mq22/edit_data/editing-data/vqa/vqa_eval.json
-mmke_train_annotation_path: /public/home/wang_mq22/edit_data/MMKE/data_json/entity_train.json
+coco_image: /root/autodl-tmp/model_edit
+rephrase_image: /root/autodl-tmp/model_edit
+result_dir: /root/autodl-tmp/model_edit/results
+train_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_train.json
+eval_annotation_path: /root/autodl-tmp/model_edit/editing-data/vqa/vqa_eval.json
 
 # Evaluation
-all_metrics_name: 'lora_layer7_updown.jsonl'
-json_dir: /public/home/wang_mq22/EasyEdit/results/jsonl
+all_metrics_name: 'test_lora_layer7_updown.jsonl'
+json_dir: /root/code/EasyEdit/results/jsonl
+
 continuous_sample: 1
 
 real_world_eval: true
-api_key: "/public/home/wang_mq22/edit_data/api_key.json"
+api_key: "/root/autodl-tmp/api_key.json"

@@ -1238,7 +1238,7 @@ class MultimodalEditor:
                         if self.alg_name.lower() in ['lora','roselora','loranull','xspace','corda']:
                             self.model = deepcopy(original_model)
                             if self.hparams.cpu_copy:
-                                self.model = self.model.to("cuda")
+                                self.model = self.model.to("cpu")
                         else:
                             for k, v in self.weights_copy.items():
                                 nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")

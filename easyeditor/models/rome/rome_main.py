@@ -33,10 +33,12 @@ def apply_rome_to_model(
     :return: (1) the updated model, (2) an original copy of the weights that changed
     """
     request = request[0]
-    if copy:
-        model = deepcopy(model)
+    # if copy:
+    #     model = deepcopy(model)
 
     weights_copy = {}
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
     if "target_new" not in request and "target" in request:
         request.update({"target_new": request["target"]})
 
@@ -75,11 +77,23 @@ def execute_rome(
         # Space required for correct tokenization
         request["target_new"] = " " + request["target_new"]
 
+    if request["target_new"][0] != " ":
+        request["target_new"] = " " + request["target_new"]
     if '{}' not in request['prompt']:
-        assert request['subject'] in request['prompt'] or \
-               print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+        if not request['subject'] in ['ASSISTANT:']:
+            assert request['subject'] in request['prompt'] or \
+                print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
 
-        request['prompt'] = request['prompt'].replace(request['subject'], '{}')
+            request['prompt'] = request['prompt'].replace(request['subject'], '{}')
+    print(
+        f"Executing AlphaEdit algo for: "
+        f"[{request['prompt']}] -> [{request['target_new']}]"
+    )
+    # if '{}' not in request['prompt']:
+    #     assert request['subject'] in request['prompt'] or \
+    #            print(f"Subject:{request['subject']} do not exist in prompt: {request['prompt']}")
+
+    #     request['prompt'] = request['prompt'].replace(request['subject'], '{}')
 
     print(
         f"Executing ROME algorithm for the update: "
@@ -107,7 +121,7 @@ def execute_rome(
             hparams,
             layer,
             get_context_templates(model, tok, hparams.context_template_length_params, multimodal_generation=True if 'image' in request else False),
-        ).half()
+        ).to(torch.bfloat16)
         print("Left vector shape:", left_vector.shape)
         right_vector: torch.Tensor = compute_v(
             model,
@@ -117,7 +131,7 @@ def execute_rome(
             layer,
             left_vector,
             get_context_templates(model, tok, hparams.context_template_length_params, multimodal_generation=True if 'image' in request else False),
-        )
+        ).to(torch.bfloat16)
         print("Right vector shape:", right_vector.shape)
 
         with torch.no_grad():
