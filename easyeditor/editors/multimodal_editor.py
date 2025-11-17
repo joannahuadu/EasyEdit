@@ -50,6 +50,82 @@ logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(messa
                     level = logging.INFO)
 
 LOG = logging.getLogger(__name__)
+import re
+import pickle
+def lcs(a, b):
+    # compute length of LCS of token lists a,b
+    n, m = len(a), len(b)
+    if n==0 or m==0:
+        return 0
+    dp = [[0]*(m+1) for _ in range(n+1)]
+    for i in range(n-1,-1,-1):
+        for j in range(m-1,-1,-1):
+            if a[i]==b[j]:
+                dp[i][j] = 1 + dp[i+1][j+1]
+            else:
+                dp[i][j] = max(dp[i+1][j], dp[i][j+1])
+    return dp[0][0]
+
+def tokenize(s):
+    if s is None:
+        return []
+    # simple whitespace + punctuation splitting
+    s = s.lower()
+    tokens = re.findall(r"\w+|[^\s\w]", s)
+    return tokens
+
+def rouge_score(pred, ref, tokens_pred, tokens_ref):
+    p_tokens = tokenize(pred)
+    r_tokens = tokenize(ref)
+    if len(p_tokens)==0 or len(r_tokens)==0:
+        return 0.0
+    lcs_len = lcs(p_tokens, r_tokens)
+    prec = lcs_len / len(p_tokens)
+    rec = lcs_len / len(r_tokens)
+    if prec + rec == 0:
+        return 0.0
+    beta = 1.2
+    f_score = ( (1+beta**2) * prec * rec ) / (rec + beta**2 * prec)
+    return f_score
+
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+def bleu_score(pred_text, gt_texts, pred_tokens, gt_tokens):
+
+    if isinstance(gt_texts, str):
+        gt_texts = [gt_texts]
+
+    references = [ref.lower().split() for ref in gt_texts]
+    candidate = pred_text.lower().split()
+
+    smoothie = SmoothingFunction().method1
+
+    score = sentence_bleu(references, candidate,
+                          weights=(0.25, 0.25, 0.25, 0.25),
+                          smoothing_function=smoothie)
+    return score
+
+from sentence_transformers import SentenceTransformer, util
+def encode_score(text1: str, text2: str, tokens1, tokens2) -> float:
+    model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    e1 = model.encode(text1, convert_to_tensor=True)
+    e2 = model.encode(text2, convert_to_tensor=True)
+
+    # cosine similarity → tensor → float
+    sim = util.cos_sim(e1, e2).item()
+
+    score = (sim + 1) / 2
+    return score
+
+def token_level_score(text1, text2, tokens1, tokens2):
+    set1 = set(tokens1[0].tolist())
+    set2 = set(tokens2[0].tolist())
+    same = len(set1 & set2)
+    avg_len = (len(set1) + len(set2)) / 2
+
+    if avg_len == 0:
+        return 0.0
+
+    return same / avg_len
 
 def make_logs():
 
@@ -284,10 +360,10 @@ class MultimodalEditor:
                 LOG.info(f"Set {n_reset} dropout modules to p={hparams.dropout}")
         if self.alg_name.lower() == 'loranull' or self.alg_name.lower() == 'xspace' or self.alg_name.lower() == 'coxspace':
             from ..models.loranull import get_calib_data, calib_cov_distribution, build_model2
-            calib_loader = get_calib_data(self.hparams, self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
-            LOG.info('Collecting covariance data for Singular_aware ...')
-            calib_cov_distribution(self.model, self.hparams, calib_loader)
-            build_model2(self.model, self.hparams)
+            # calib_loader = get_calib_data(self.hparams, self.hparams.calib_dataset, self.tok, self.hparams.model_name, self.hparams.calib_loader_size, seed=self.hparams.seed) #256, 128
+            # LOG.info('Collecting covariance data for Singular_aware ...')
+            # calib_cov_distribution(self.model, self.hparams, calib_loader)
+            # build_model2(self.model, self.hparams)
             # if self.hparams.from_save is not None:
             #     del self.model
             #     self.model = LLavaModel(
@@ -2478,10 +2554,20 @@ class MultimodalEditor:
         local_counter = 0
         self.model.zero_grad()
         collect_sim = []
+        collect_grad = []
         load_metrics_path = kwargs.get('load_metrics_path', None)
         if load_metrics_path is not None:
             os.makedirs(load_metrics_path, exist_ok=True)
             sim_path = os.path.join(load_metrics_path, self.hparams.all_metrics_name)
+            grad_path = os.path.splitext(sim_path)[0] + "_grad.pth"
+        if self.hparams.cpu_copy:
+            self.model.cpu()
+            gc.collect()
+            torch.cuda.empty_cache()
+        if self.alg_name.lower() in ['lora','loranull','xspace','corda','roselora']:
+            if kwargs['copy']:
+                original_model = deepcopy(self.model)
+
         for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
             start = time()
             request = self._prepare_requests_dataset(
@@ -2496,7 +2582,7 @@ class MultimodalEditor:
                     **kwargs)
 
 
-            edited_model, weights_copy, sim = self.apply_algo(
+            edited_model, weights_copy, sim, grad = self.apply_algo(
                 self.model,
                 self.tok,
                 request,
@@ -2509,8 +2595,17 @@ class MultimodalEditor:
             
             LOG.info(f"Execution {i} editing took {exec_time}")
             start = time()  
-            collect_sim.extend(sim)
+            collect_sim.append(sim)
+            collect_grad.append(grad)
+            if i % 10 == 0:
+                LOG.info(f"Saving {i}.")
+                torch.save(collect_sim, sim_path)
+                torch.save(collect_grad, grad_path)
             
+            del edited_model
+            if self.hparams.cpu_copy:
+                gc.collect()  
+                torch.cuda.empty_cache() 
             if i == 0:
                 self.weights_copy = weights_copy
             # if do not use continuous edit, restore the edit layers
@@ -2520,7 +2615,6 @@ class MultimodalEditor:
                 reload_weights = True
             else:
                 reload_weights = False
-            torch.cuda.empty_cache()
                 
             if self.alg_name == 'UNIKE':
                 if reload_weights:
@@ -2542,8 +2636,13 @@ class MultimodalEditor:
             else:
                 with torch.no_grad():
                     if reload_weights:
-                        for k, v in self.weights_copy.items():
-                            nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
+                        if self.alg_name.lower() in ['lora','roselora','loranull','xspace','corda']:
+                            self.model = deepcopy(original_model)
+                            if self.hparams.cpu_copy:
+                                self.model = self.model.to("cpu")
+                        else:
+                            for k, v in self.weights_copy.items():
+                                nethook.get_parameter(self.model, k)[...] = v.to(f"cuda:{self.hparams.device}")
                     else:
                         if self.hparams.alg_name == 'FT_MULTI':
                             for k, v in self.weights_copy.items():
@@ -2553,10 +2652,198 @@ class MultimodalEditor:
                             for k, v in self.weights_copy.items():
                                 # copy the old weights to new model
                                 nethook.get_parameter(self.model, k)[...] = nethook.get_parameter(edited_model.model, k).to(f"cuda:{self.hparams.device}")
-                    torch.cuda.empty_cache()
-                        
-            gc.collect()
-            torch.cuda.empty_cache()
+                    if self.hparams.cpu_copy:
+                        torch.cuda.empty_cache()
         
-        torch.save(sim, sim_path)
+        torch.save(collect_sim, sim_path)
+        torch.save(collect_grad, grad_path)
         return all_metrics, edited_model, weights_copy
+
+    def visual_collect(self,
+                     ds: Dataset,
+                     keep_original_weight=False,
+                     verbose=True,               
+                     **kwargs
+                     ):
+        # Make Sure dataset supported
+        assert sum([isinstance(ds, ds_in_dict) for ds_in_dict in MULTIMODAL_DS_DICT.values()]) > 0, \
+        f'DataSet {ds} not supported yet.'
+
+        if isinstance(self.hparams.device, str):
+            if self.hparams.model_name == "llava":
+                self.hparams.device = str(self.model.llava_model.device).split(":")[1]
+            elif self.hparams.model_name == "qwen2.5_vl":
+                self.hparams.device = str(self.model.qwen_model.device).split(":")[1]
+            else:
+                self.hparams.device = str(self.model.device).split(":")[1]
+            
+        self.model.zero_grad()
+        with open("/root/autodl-tmp/CoXSpace_qwen2.5_vl_VQA/layer1415_updown_ep70_th10_sim0.05_wL24_wS8_rank128_1e-3_5e-3_up_down_collect_image_1.pth", "rb", buffering=0) as f:
+            image_pth = torch.load(f)
+        with open("/root/autodl-tmp/CoXSpace_qwen2.5_vl_VQA/layer1415_updown_ep70_th10_sim0.05_wL24_wS8_rank128_1e-3_5e-3_up_down_collect_text_2.pth", "rb", buffering=0) as f:
+            text_pth = torch.load(f)
+        LOG.info(f"Length of text_pth: {len(text_pth)}")
+        LOG.info(f"Length of image_pth: {len(image_pth)}")
+        metric_functions = {
+            "BLEU": bleu_score,
+            "ROUGE": rouge_score,
+            "BERT": encode_score,
+            "TOKEN": token_level_score
+        }
+        stats = {'BLEU':[], 'ROUGE':[], 'BERT': [], 'TOKEN': []}
+        metrics = ['BLEU', 'ROUGE', 'BERT', 'TOKEN']
+        result = {}
+        for i, request in enumerate(tqdm(ds, desc='Editing dataset', total=len(ds))):
+            request = self._prepare_requests_dataset(
+                    prompts = [request['prompt']],
+                    targets = [request['target']],
+                    image = [request['image']],
+                    rephrase_prompts = [request['rephrase_prompt']],
+                    rephrase_image = [request['image_rephrase']],
+                    locality_inputs = {"text":{"prompt":request['locality_prompt'],"ground_truth":request["locality_ground_truth"]},
+                                       "vision":{"prompt": request["multimodal_locality_prompt"], "ground_truth":request["multimodal_locality_ground_truth"], "image":request["multimodal_locality_image"]}
+                                    },
+                    **kwargs)
+            text_collect = text_pth[i]['text']
+            text_sim = text_pth[i]['sim']
+            batch = {
+                "noise": True,
+                "text_input": [request[0]['prompt']],
+                "image": [request[0]['image']],
+                "answer": [request[0]['target']]
+            }
+            token_ids_origin = self.my_process(batch)['input_ids']
+            text_origin = self.model.tokenizer.decode(token_ids_origin[0].tolist())
+            # text_embedding_origin =  self.model.embed_tokens(token_ids_origin)
+            keys = list(text_sim.keys())
+            L = len(text_sim[keys[0]]) 
+            avg_list = [
+                sum(text_sim[k][j] for k in keys) / len(keys)
+                for j in range(L)
+            ]
+            indexed_avg = list(enumerate(avg_list))
+            indexed_avg.sort(key=lambda x: x[1]) 
+            small_50 = indexed_avg[:25] 
+            large_50 = indexed_avg[-25:]
+            small_idx = [i for i,_ in small_50]
+            large_idx = [i for i,_ in large_50]
+            for j in range(len(text_collect)):
+                if j==0 :
+                    continue
+                if (j-1) not in small_idx + large_idx:
+                    continue
+                sim = sum(text_sim[k][j-1] for k in keys) / 4
+                emb = text_collect[j].to(self.model._device())
+                assert emb.shape[1] == token_ids_origin.shape[1]
+                # logits = self.model.qwen_model.lm_head(emb.to())
+                logits = emb @ self.model.qwen_model.model.embed_tokens.weight.transpose(0,1)
+                token_ids = logits.argmax(dim=-1)
+                text = self.model.tokenizer.decode(token_ids[0].tolist())
+                text = re.sub(r"<\|vision_start\|>.*?<\|vision_end\|>", "", text, flags=re.DOTALL)
+                text_origin = re.sub(r"<\|vision_start\|>.*?<\|vision_end\|>", "", text_origin, flags=re.DOTALL)
+                
+                for metric in metrics:
+                    func = metric_functions.get(metric)
+                    score = func(text, text_origin, token_ids, token_ids_origin)
+                    stats[metric].append((i, j, score, sim))
+
+            image_collect = image_pth[i]['image']
+            image_sim = image_pth[i]['sim']
+            for j in range(len(image_collect)):
+                sim = sum(image_sim[k][j-1] for k in keys) / 4
+
+            if i % 10 == 0:
+                for metric in metrics:
+                    high = [score for _, _, score, sim in stats[metric] if sim > 0.1]
+                    low  = [score for _, _, score, sim in stats[metric] if sim <= 0.1]
+
+                    LOG.info(f"\n=== {metric} ===")
+                    LOG.info("sim > 0.05:", sum(high)/len(high) if high else 0)
+                    LOG.info("sim <= 0.05:", sum(low)/len(low) if low else 0)
+
+                LOG.info("saving...")
+                for metric in metrics:
+                    data = stats[metric]
+                    high = [score for _, _, score, sim in data if sim > 0.05]
+                    low  = [score for _, _, score, sim in data if sim <= 0.05]
+
+                    high_avg = sum(high) / len(high) if high else 0.0
+                    low_avg  = sum(low)  / len(low)  if low  else 0.0
+
+                    result[metric] = {
+                        "sim>0.05_avg": high_avg,
+                        "sim<=0.05_avg": low_avg
+                    }
+
+                with open("/root/autodl-tmp/results/jsonl/CoXSpace_qwen2.5_vl_VQA/stats.pkl", "wb") as f:
+                    pickle.dump(stats, f)
+                with open("/root/autodl-tmp/results/jsonl/CoXSpace_qwen2.5_vl_VQA/result.pkl", "wb") as f:
+                    pickle.dump(result, f)
+        
+        LOG.info("saving final!")
+        for metric in metrics:
+            data = stats[metric]
+            high = [score for _, _, score, sim in data if sim > 0.05]
+            low  = [score for _, _, score, sim in data if sim <= 0.05]
+
+            high_avg = sum(high) / len(high) if high else 0.0
+            low_avg  = sum(low)  / len(low)  if low  else 0.0
+
+            result[metric] = {
+                "sim>0.05_avg": high_avg,
+                "sim<=0.05_avg": low_avg
+            }
+
+        with open("stats.pkl", "wb") as f:
+            pickle.dump(stats, f)
+        with open("result.pkl", "wb") as f:
+            pickle.dump(result, f)
+
+    def my_process(self, samples, prompt_template=True):
+        image = samples["image"]
+        prompts = samples["text_input"]
+        targets = samples["answer"] if "answer" in samples else [None]*len(prompts)
+        if isinstance(image, List):
+            num_images = len(image)
+            if image[0] is None:
+                image = None
+        else:
+            num_images = 1
+        if image is None:
+            messages = [[
+                    {"role": "user", "content": [{"type": "text", "text": p}]},
+                    {"role": "assistant", "content": [{"type": "text", "text": t}]}
+                ] for p, t in zip(prompts, targets)]
+        else:
+            # TODO support multiple images in a single sample
+            messages = [[
+                        {"role": "user", "content": [
+                                    {"type": "image"}
+                                ] + [{"type": "text", "text": p}]},
+                        {"role": "assistant", "content": t}
+                    ] for p, t in zip(prompts, targets)]
+    
+        if prompt_template:
+            # do not append the target in the end in generation
+            text_input = [self.model.processor.apply_chat_template(message,
+                        add_generation_prompt=False,
+                        tokenize=False) for message in messages]
+
+        else:
+            text_input = [
+                            {
+
+                                "role": "user",
+                                "content": [
+                                    {"type": "image"}
+                                ] * num_images + [{"type": "text", "text": p}],
+                            } for p in prompts
+            ]
+        
+        multimodal_inputs = self.model.processor(
+            images=image, 
+            text=text_input, 
+            return_tensors="pt",
+            padding=True).to(self.model._device(), dtype=torch.bfloat16)
+        multimodal_inputs.input_ids[multimodal_inputs.input_ids == -1] = self.model.processor.tokenizer.pad_token_id
+        return multimodal_inputs

@@ -730,9 +730,21 @@ def collect_xspace_to_model(
     print(f"wL:{hparams.wL}, noise: {hparams.noise}")
     global base_pca, reserved
     weights_copy = {}
-    collect_sim = []
+    proj_cache = {}
+    grads = {}
+    grads['feat'] = []
+    collect = dict()
+    collect['text'] = []   
+    collect['image'] = []
+    collect['sim'] = {}
     if copy:
-        model = deepcopy(model)
+        model = deepcopy(model) 
+        if hparams.cpu_copy:
+            model = model.to("cuda")
+
+    if hparams.cpu_copy:
+        model = model.to("cuda") 
+
     requests = deepcopy(requests)
     for request in requests:
         if "target_new" not in request and "target" in request:
@@ -753,41 +765,83 @@ def collect_xspace_to_model(
     base_pca = {}
     reserved = {}
     def embed_hook(module, input, output):
-        N, dim = output.shape
         wS = hparams.wS
+        noise_scale = hparams.noise
         out = output.clone()
         if count == 0:
+            collect['text'].append(out.detach().cpu())
             return out
-        if count == 2:
-            noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
-            out += noise_tensor
-            return out
-        elif count%2==0:
-            if N > wS:
-                start = torch.randint(1, N - wS + 1, (1,)).item()
-                end = start + wS
-                noise_tensor = torch.randn(wS, dim, device=output.device) * hparams.noise
-                out[start:end, :] += noise_tensor
+        # Case 1: 2D input (N, dim)
+        if out.dim() == 2:
+            N, dim = out.shape
+            if count == 1:
+                out += torch.randn(N, dim, device=out.device) * noise_scale
+            # elif count % 2 == 0:
             else:
-                noise_tensor = torch.randn(N, dim, device=output.device) * hparams.noise
-                out += noise_tensor
+                if N > wS:
+                    start = torch.randint(1, N - wS + 1, (1,)).item()
+                    end = start + wS
+                    out[start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                else:
+                    out += torch.randn(N, dim, device=out.device) * noise_scale
+            collect['text'].append(out.detach().cpu())
             return out
 
+        # Case 2: 3D input (B, N, dim)
+        elif out.dim() == 3:
+            B, N, dim = out.shape
+            for b in range(B):
+                if count == 1:
+                    out[b] += torch.randn(N, dim, device=out.device) * noise_scale
+                # elif count % 2 == 0:
+                else:
+                    if N > wS:
+                        start = torch.randint(1, N - wS + 1, (1,)).item()
+                        end = start + wS
+                        out[b, start:end, :] += torch.randn(wS, dim, device=out.device) * noise_scale
+                    else:
+                        out[b] += torch.randn(N, dim, device=out.device) * noise_scale
+            collect['text'].append(out.detach().cpu())
+            return out
+
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
+
     def proj_hook(module, input, output):
-        B, N, dim = output.shape
         wL = hparams.wL
-        assert B == 1
         out = output.clone()
-        if count == 0:
-            return out
-        if count == 1:
-            out[:,:,:] = 0
-            return out
-        elif count%2:
-            start = torch.randint(0, N - wL + 1, (1,)).item()
-            end = start + wL
-            out[:, start:end, :] = 0
-            return out
+        if out.dim() == 3:
+            B, N, dim = output.shape
+            if count == 0:
+                pass
+            if count == 1:
+                out[:,:,:] = 0
+            # elif count%2:
+            else:
+                start = torch.randint(0, N - wL + 1, (1,)).item()
+                end = start + wL
+                out[:, start:end, :] = 0
+        elif out.dim() == 2:
+            N, dim = output.shape
+            if count == 0:
+                pass
+            if count == 1:
+                out[:,:] = 0
+            # elif count%2:
+            else:
+                start = torch.randint(N - wL + 1, (1,)).item()
+                end = start + wL
+                out[start:end, :] = 0
+        else:
+            raise ValueError(f"Unsupported output shape: {out.shape}")
+        
+        proj_cache['orig'] = output
+        proj_cache['pert'] = out
+        collect['image'].append(out.detach().cpu())
+        return out
+
+    def feat_bwd_hook(module, grad_input, grad_output):
+        grads['feat'].append(grad_output[0])
 
     def cov_hook(module, input, output, name):
         global base_pca, reserved
@@ -806,7 +860,7 @@ def collect_xspace_to_model(
             base_pca[name] = pca
         else:
             sim = cosine_similarity(base_pca[name], pca)
-            collect_sim.append(sim)
+            collect['sim'][name].append(sim)
             if sim > hparams.sim:
                 if torch.isnan(covariance).any():
                     print("nan detected")
@@ -821,14 +875,17 @@ def collect_xspace_to_model(
     for name, module in model.named_modules():
         if name == proj_layername:
             module.register_forward_hook(proj_hook)
-        if name == embed_layername:
-            module.register_forward_hook(embed_hook)
+        # if name == embed_layername:
+            # module.register_forward_hook(embed_hook)
+        if name == "qwen_model.visual.blocks":
+            module.register_full_backward_hook(feat_bwd_hook)
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module.covariance_matrix = 0
                 module.register_forward_hook(partial(cov_hook, name=name))
                 base_pca[name] = None
                 reserved[name] = 0
+                collect['sim'][name] = []
 
     texts = texts*hparams.num_samples
     targets = targets*hparams.num_samples
@@ -838,21 +895,37 @@ def collect_xspace_to_model(
                 chunks(targets, hparams.batch_size),
                 chunks(images, hparams.batch_size)
         ))):
-        full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
-        batch = {
-            "noise": True,
-            "text_input": full_prompt,
-            "image": img,
-        }
+        if "qwen2.5_vl" in hparams.model_name or "phi3_vl" in hparams.model_name or "phi4_vl" in hparams.model_name:
+            full_prompt = [p for p in txt]
+            answer = [l for l in tgt]
+            batch = {
+                "noise": True,
+                "text_input": full_prompt,
+                "image": img,
+                "answer": answer
+            }
+        else:    
+            full_prompt = [f"{p} {l}" for p, l in zip(txt, tgt)]
+            batch = {
+                "noise": True,
+                "text_input": full_prompt,
+                "image": img,
+            }
         count = i
         model(batch)
+        orig = proj_cache['orig']
+        pert = proj_cache['pert']
+        target = (pert - orig).pow(2).mean()
+        model.zero_grad()
+        target.backward()
+        print("hh")
 
     all_covariance_matrix = {}
     for name, module in model.named_modules():
         if name == proj_layername:
             module._forward_hooks.clear()
-        if name == embed_layername:
-            module._forward_hooks.clear()
+        # if name == embed_layername:
+            # module._forward_hooks.clear()
         if isinstance(module, nn.Linear):
             if not any(del_name in name for del_name in hparams.delete_name) and any(target in name for target in hparams.update_modules) and any('layers.' + str(layer) + '.' in name for layer in hparams.layers):
                 module._forward_hooks.clear()
@@ -865,4 +938,4 @@ def collect_xspace_to_model(
                 module.covariance_matrix = module.covariance_matrix/reserved[name]
                 all_covariance_matrix[module.weight] = module.covariance_matrix
         
-    return model, weights_copy, collect_sim
+    return model, weights_copy, collect, grads

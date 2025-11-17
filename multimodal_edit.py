@@ -457,6 +457,36 @@ def edit_XSpace_Qwen_VQA(args):
     )
     pprint(metrics)
 
+def collect_XSpace_Qwen_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/qwen2.5_vl_co.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams, size=100)
+    metrics, edited_model, _ = editor.collect_dataset(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
+def visual_XSpace_Qwen_VQA(args):
+    hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/qwen2.5_vl_co.yaml')
+    editor = MultimodalEditor.from_hparams(hparams)
+    file_path = hparams.eval_annotation_path
+    eval_ds = VQADataset(file_path, config=hparams, size=100)
+    metrics, edited_model, _ = editor.visual_collect(
+        ds=eval_ds,
+        train_ds=eval_ds,
+        keep_original_weight=True,
+        copy=True,
+        task='vqa',
+        load_metrics_path=os.path.join(hparams.json_dir, f'{hparams.alg_name}_{hparams.model_name}_VQA')
+    )
+    pprint(metrics)
+
 def edit_XSpace_LLaVA_VQA_1(args):
     hparams = XSpaceMultimodalHyperParams.from_hparams('hparams/XSpace/llava_updownqv_wL.yaml')
     # random.seed(hparams.seed)
